@@ -8,11 +8,15 @@
 
 /* Begin PBXBuildFile section */
 		B55131A02EE9571900DBEA27 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = B551319F2EE9571900DBEA27 /* .gitignore */; };
+		B55131A22EE96A0E00DBEA27 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = B55131A12EE96A0E00DBEA27 /* GoogleService-Info.plist */; };
+		B55131A52EE96ADF00DBEA27 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = B55131A42EE96ADF00DBEA27 /* FirebaseAnalytics */; };
+		B55131A72EE96ADF00DBEA27 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = B55131A62EE96ADF00DBEA27 /* FirebaseMessaging */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		B55131872EE9559300DBEA27 /* Odaeri.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Odaeri.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B551319F2EE9571900DBEA27 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		B55131A12EE96A0E00DBEA27 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -41,6 +45,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B55131A72EE96ADF00DBEA27 /* FirebaseMessaging in Frameworks */,
+				B55131A52EE96ADF00DBEA27 /* FirebaseAnalytics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -51,6 +57,7 @@
 			isa = PBXGroup;
 			children = (
 				B551319F2EE9571900DBEA27 /* .gitignore */,
+				B55131A12EE96A0E00DBEA27 /* GoogleService-Info.plist */,
 				B55131892EE9559300DBEA27 /* Odaeri */,
 				B55131882EE9559300DBEA27 /* Products */,
 			);
@@ -84,6 +91,8 @@
 			);
 			name = Odaeri;
 			packageProductDependencies = (
+				B55131A42EE96ADF00DBEA27 /* FirebaseAnalytics */,
+				B55131A62EE96ADF00DBEA27 /* FirebaseMessaging */,
 			);
 			productName = Odaeri;
 			productReference = B55131872EE9559300DBEA27 /* Odaeri.app */;
@@ -113,6 +122,9 @@
 			);
 			mainGroup = B551317E2EE9559300DBEA27;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B55131A32EE96ADF00DBEA27 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B55131882EE9559300DBEA27 /* Products */;
 			projectDirPath = "";
@@ -129,6 +141,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B55131A02EE9571900DBEA27 /* .gitignore in Resources */,
+				B55131A22EE96A0E00DBEA27 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -150,6 +163,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Odaeri/Odaeri.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = VDAQLM4XLQ;
@@ -179,6 +193,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Odaeri/Odaeri.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = VDAQLM4XLQ;
@@ -346,6 +361,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B55131A32EE96ADF00DBEA27 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B55131A42EE96ADF00DBEA27 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B55131A32EE96ADF00DBEA27 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		B55131A62EE96ADF00DBEA27 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B55131A32EE96ADF00DBEA27 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B551317F2EE9559300DBEA27 /* Project object */;
 }
