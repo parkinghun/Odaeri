@@ -8,15 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		B55131A02EE9571900DBEA27 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = B551319F2EE9571900DBEA27 /* .gitignore */; };
-		B55131A22EE96A0E00DBEA27 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = B55131A12EE96A0E00DBEA27 /* GoogleService-Info.plist */; };
 		B55131A52EE96ADF00DBEA27 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = B55131A42EE96ADF00DBEA27 /* FirebaseAnalytics */; };
 		B55131A72EE96ADF00DBEA27 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = B55131A62EE96ADF00DBEA27 /* FirebaseMessaging */; };
+		B551349B2EF121FB00DBEA27 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = B551349A2EF121FB00DBEA27 /* FirebaseAnalytics */; };
+		B551349D2EF1220F00DBEA27 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = B551349C2EF1220F00DBEA27 /* FirebaseMessaging */; };
+		B551352E2EF1732600DBEA27 /* CombineMoya in Frameworks */ = {isa = PBXBuildFile; productRef = B551352D2EF1732600DBEA27 /* CombineMoya */; };
+		B55135302EF1732600DBEA27 /* Moya in Frameworks */ = {isa = PBXBuildFile; productRef = B551352F2EF1732600DBEA27 /* Moya */; };
+		B55135332EF198E600DBEA27 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = B55135322EF198E600DBEA27 /* SnapKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		B55131872EE9559300DBEA27 /* Odaeri.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Odaeri.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B551319F2EE9571900DBEA27 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
-		B55131A12EE96A0E00DBEA27 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		B55134822EF11A2A00DBEA27 /* Odaeri_Admin.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Odaeri_Admin.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -59,6 +62,16 @@
 			path = Odaeri_Admin;
 			sourceTree = "<group>";
 		};
+		B551349E2EF135E900DBEA27 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		B55134A32EF1362C00DBEA27 /* Resources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Resources;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -68,6 +81,9 @@
 			files = (
 				B55131A72EE96ADF00DBEA27 /* FirebaseMessaging in Frameworks */,
 				B55131A52EE96ADF00DBEA27 /* FirebaseAnalytics in Frameworks */,
+				B55135302EF1732600DBEA27 /* Moya in Frameworks */,
+				B551352E2EF1732600DBEA27 /* CombineMoya in Frameworks */,
+				B55135332EF198E600DBEA27 /* SnapKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,6 +91,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B551349D2EF1220F00DBEA27 /* FirebaseMessaging in Frameworks */,
+				B551349B2EF121FB00DBEA27 /* FirebaseAnalytics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -84,11 +102,13 @@
 		B551317E2EE9559300DBEA27 = {
 			isa = PBXGroup;
 			children = (
+				B55134A32EF1362C00DBEA27 /* Resources */,
 				B551347B2EF0EF5700DBEA27 /* Secrets */,
 				B551319F2EE9571900DBEA27 /* .gitignore */,
-				B55131A12EE96A0E00DBEA27 /* GoogleService-Info.plist */,
+				B551349E2EF135E900DBEA27 /* Shared */,
 				B55131892EE9559300DBEA27 /* Odaeri */,
 				B55134832EF11A2A00DBEA27 /* Odaeri_Admin */,
+				B55134992EF121FB00DBEA27 /* Frameworks */,
 				B55131882EE9559300DBEA27 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -100,6 +120,13 @@
 				B55134822EF11A2A00DBEA27 /* Odaeri_Admin.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B55134992EF121FB00DBEA27 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -120,11 +147,16 @@
 			fileSystemSynchronizedGroups = (
 				B55131892EE9559300DBEA27 /* Odaeri */,
 				B551347B2EF0EF5700DBEA27 /* Secrets */,
+				B551349E2EF135E900DBEA27 /* Shared */,
+				B55134A32EF1362C00DBEA27 /* Resources */,
 			);
 			name = Odaeri;
 			packageProductDependencies = (
 				B55131A42EE96ADF00DBEA27 /* FirebaseAnalytics */,
 				B55131A62EE96ADF00DBEA27 /* FirebaseMessaging */,
+				B551352D2EF1732600DBEA27 /* CombineMoya */,
+				B551352F2EF1732600DBEA27 /* Moya */,
+				B55135322EF198E600DBEA27 /* SnapKit */,
 			);
 			productName = Odaeri;
 			productReference = B55131872EE9559300DBEA27 /* Odaeri.app */;
@@ -147,6 +179,8 @@
 			);
 			name = Odaeri_Admin;
 			packageProductDependencies = (
+				B551349A2EF121FB00DBEA27 /* FirebaseAnalytics */,
+				B551349C2EF1220F00DBEA27 /* FirebaseMessaging */,
 			);
 			productName = Odaeri_Admin;
 			productReference = B55134822EF11A2A00DBEA27 /* Odaeri_Admin.app */;
@@ -181,6 +215,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				B55131A32EE96ADF00DBEA27 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				B551352C2EF1732600DBEA27 /* XCRemoteSwiftPackageReference "Moya" */,
+				B55135312EF198E600DBEA27 /* XCRemoteSwiftPackageReference "SnapKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B55131882EE9559300DBEA27 /* Products */;
@@ -199,7 +235,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				B55131A02EE9571900DBEA27 /* .gitignore in Resources */,
-				B55131A22EE96A0E00DBEA27 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -528,6 +563,22 @@
 				minimumVersion = 12.6.0;
 			};
 		};
+		B551352C2EF1732600DBEA27 /* XCRemoteSwiftPackageReference "Moya" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Moya/Moya.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 15.0.3;
+			};
+		};
+		B55135312EF198E600DBEA27 /* XCRemoteSwiftPackageReference "SnapKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SnapKit/SnapKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.7.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -540,6 +591,31 @@
 			isa = XCSwiftPackageProductDependency;
 			package = B55131A32EE96ADF00DBEA27 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseMessaging;
+		};
+		B551349A2EF121FB00DBEA27 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B55131A32EE96ADF00DBEA27 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		B551349C2EF1220F00DBEA27 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B55131A32EE96ADF00DBEA27 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+		B551352D2EF1732600DBEA27 /* CombineMoya */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B551352C2EF1732600DBEA27 /* XCRemoteSwiftPackageReference "Moya" */;
+			productName = CombineMoya;
+		};
+		B551352F2EF1732600DBEA27 /* Moya */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B551352C2EF1732600DBEA27 /* XCRemoteSwiftPackageReference "Moya" */;
+			productName = Moya;
+		};
+		B55135322EF198E600DBEA27 /* SnapKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B55135312EF198E600DBEA27 /* XCRemoteSwiftPackageReference "SnapKit" */;
+			productName = SnapKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
