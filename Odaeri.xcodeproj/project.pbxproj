@@ -54,16 +54,6 @@
 			);
 			target = B55134812EF11A2A00DBEA27 /* Odaeri_Admin */;
 		};
-		B58525CD2EF25FDC0055EBF4 /* Exceptions for "Resources" folder in "Odaeri_Admin" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				DesignSystem/AppColor.swift,
-				DesignSystem/AppFont.swift,
-				DesignSystem/AppImage.swift,
-				DesignSystem/FontFamily.swift,
-			);
-			target = B55134812EF11A2A00DBEA27 /* Odaeri_Admin */;
-		};
 		B58525D32EF260180055EBF4 /* Exceptions for "Shared" folder in "Odaeri_Admin" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -117,14 +107,6 @@
 			path = Shared;
 			sourceTree = "<group>";
 		};
-		B55134A32EF1362C00DBEA27 /* Resources */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				B58525CD2EF25FDC0055EBF4 /* Exceptions for "Resources" folder in "Odaeri_Admin" target */,
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -155,7 +137,6 @@
 		B551317E2EE9559300DBEA27 = {
 			isa = PBXGroup;
 			children = (
-				B55134A32EF1362C00DBEA27 /* Resources */,
 				B551347B2EF0EF5700DBEA27 /* Secrets */,
 				B551319F2EE9571900DBEA27 /* .gitignore */,
 				B551349E2EF135E900DBEA27 /* Shared */,
@@ -201,7 +182,6 @@
 				B55131892EE9559300DBEA27 /* Odaeri_User */,
 				B551347B2EF0EF5700DBEA27 /* Secrets */,
 				B551349E2EF135E900DBEA27 /* Shared */,
-				B55134A32EF1362C00DBEA27 /* Resources */,
 			);
 			name = Odaeri;
 			packageProductDependencies = (
