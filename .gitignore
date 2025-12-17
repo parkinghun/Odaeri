@@ -49,7 +49,7 @@ TestData/
 **/Secrets.plist
 
 # Firebase config
-**/GoogleService-Info.plist
+**/GoogleService-Info*.plist
 
 ### Swift ###
 # Xcode User settings

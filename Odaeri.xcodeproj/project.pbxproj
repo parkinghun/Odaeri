@@ -38,6 +38,20 @@
 			);
 			target = B55134812EF11A2A00DBEA27 /* Odaeri_Admin */;
 		};
+		B55135342EF234EA00DBEA27 /* Exceptions for "Secrets" folder in "Odaeri" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Admin/GoogleService-Info-Admin.plist",
+			);
+			target = B55131862EE9559300DBEA27 /* Odaeri */;
+		};
+		B55135352EF234EA00DBEA27 /* Exceptions for "Secrets" folder in "Odaeri_Admin" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Admin/GoogleService-Info-Admin.plist",
+			);
+			target = B55134812EF11A2A00DBEA27 /* Odaeri_Admin */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -51,6 +65,10 @@
 		};
 		B551347B2EF0EF5700DBEA27 /* Secrets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B55135342EF234EA00DBEA27 /* Exceptions for "Secrets" folder in "Odaeri" target */,
+				B55135352EF234EA00DBEA27 /* Exceptions for "Secrets" folder in "Odaeri_Admin" target */,
+			);
 			path = Secrets;
 			sourceTree = "<group>";
 		};
