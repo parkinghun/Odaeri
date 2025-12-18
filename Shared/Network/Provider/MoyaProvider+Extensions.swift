@@ -7,49 +7,118 @@
 
 import Foundation
 import Moya
+import CombineMoya
+import Combine
 
 extension MoyaProvider {
-    func request<T: Decodable>(_ target: Target, timeout: TimeInterval = 10) async throws -> T {
+    func requestPublisher<T: Decodable>(
+        _ target: Target,
+        timeout: TimeInterval = 10
+    ) -> AnyPublisher<T, NetworkError> {
+        guard NetworkMonitor.shared.isConnected else {
+            return Fail(error: NetworkError.noInternetConnection)
+                .eraseToAnyPublisher()
+        }
+
         let provider = self.withTimeout(timeout)
 
-        return try await withCheckedThrowingContinuation { continuation in
-            provider.request(target) { result in
-                switch result {
-                case .success(let response):
-                    do {
-                        let decodedData = try response.map(T.self)
-                        continuation.resume(returning: decodedData)
-                    } catch {
-                        if let networkError = self.parseError(from: response) {
-                            continuation.resume(throwing: networkError)
-                        } else {
-                            continuation.resume(throwing: NetworkError.decodingFailed(error))
-                        }
-                    }
-                case .failure(let moyaError):
-                    continuation.resume(throwing: self.handleMoyaError(moyaError))
+        return provider.requestPublisher(target)
+            .mapError { self.handleMoyaError($0) }
+            .flatMap { response -> AnyPublisher<T, NetworkError> in
+                if let error = self.parseError(from: response) {
+                    return Fail(error: error).eraseToAnyPublisher()
+                }
+
+                do {
+                    let decoded = try response.map(T.self)
+                    return Just(decoded)
+                        .setFailureType(to: NetworkError.self)
+                        .eraseToAnyPublisher()
+                } catch {
+                    return Fail(error: NetworkError.decodingFailed(error))
+                        .eraseToAnyPublisher()
                 }
             }
-        }
+            .eraseToAnyPublisher()
     }
 
-    func requestWithoutResponse(_ target: Target, timeout: TimeInterval = 10) async throws {
+    func requestPublisher(
+        _ target: Target,
+        timeout: TimeInterval = 10
+    ) -> AnyPublisher<Void, NetworkError> {
+        guard NetworkMonitor.shared.isConnected else {
+            return Fail(error: NetworkError.noInternetConnection)
+                .eraseToAnyPublisher()
+        }
+
         let provider = self.withTimeout(timeout)
 
-        return try await withCheckedThrowingContinuation { continuation in
-            provider.request(target) { result in
-                switch result {
-                case .success(let response):
-                    if let networkError = self.parseError(from: response) {
-                        continuation.resume(throwing: networkError)
-                    } else {
-                        continuation.resume()
-                    }
-                case .failure(let moyaError):
-                    continuation.resume(throwing: self.handleMoyaError(moyaError))
+        return provider.requestPublisher(target)
+            .mapError { self.handleMoyaError($0) }
+            .flatMap { response -> AnyPublisher<Void, NetworkError> in
+                if let error = self.parseError(from: response) {
+                    return Fail(error: error).eraseToAnyPublisher()
                 }
+
+                return Just(())
+                    .setFailureType(to: NetworkError.self)
+                    .eraseToAnyPublisher()
             }
-        }
+            .eraseToAnyPublisher()
+    }
+
+    func requestPublisherWithRetry<T: Decodable>(
+        _ target: Target,
+        timeout: TimeInterval = 10,
+        retryCount: Int = 3,
+        retryDelay: TimeInterval = 1.0
+    ) -> AnyPublisher<T, NetworkError> {
+        return requestPublisher(target, timeout: timeout)
+            .catch { error -> AnyPublisher<T, NetworkError> in
+                guard error.isRetryable, retryCount > 0 else {
+                    return Fail(error: error).eraseToAnyPublisher()
+                }
+
+                return Just(())
+                    .delay(for: .seconds(retryDelay), scheduler: DispatchQueue.main)
+                    .flatMap { _ in
+                        self.requestPublisherWithRetry(
+                            target,
+                            timeout: timeout,
+                            retryCount: retryCount - 1,
+                            retryDelay: retryDelay * 1.5
+                        )
+                    }
+                    .eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
+    }
+
+    func requestPublisherWithRetry(
+        _ target: Target,
+        timeout: TimeInterval = 10,
+        retryCount: Int = 3,
+        retryDelay: TimeInterval = 1.0
+    ) -> AnyPublisher<Void, NetworkError> {
+        return requestPublisher(target, timeout: timeout)
+            .catch { error -> AnyPublisher<Void, NetworkError> in
+                guard error.isRetryable, retryCount > 0 else {
+                    return Fail(error: error).eraseToAnyPublisher()
+                }
+
+                return Just(())
+                    .delay(for: .seconds(retryDelay), scheduler: DispatchQueue.main)
+                    .flatMap { _ in
+                        self.requestPublisherWithRetry(
+                            target,
+                            timeout: timeout,
+                            retryCount: retryCount - 1,
+                            retryDelay: retryDelay * 1.5
+                        )
+                    }
+                    .eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
     }
 
     private func withTimeout(_ timeout: TimeInterval) -> MoyaProvider<Target> {

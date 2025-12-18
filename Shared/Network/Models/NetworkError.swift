@@ -60,4 +60,17 @@ enum NetworkError: Error {
             return false
         }
     }
+
+    var isRetryable: Bool {
+        switch self {
+        case .timeout, .noInternetConnection:
+            return true
+        case .serverError(let statusCode, _):
+            return statusCode == 503 || statusCode >= 500
+        case .accessTokenExpired:
+            return false
+        case .decodingFailed, .unknown:
+            return false
+        }
+    }
 }
