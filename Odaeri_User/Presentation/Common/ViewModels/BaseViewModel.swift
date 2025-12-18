@@ -6,3 +6,19 @@
 //
 
 import Foundation
+import Combine
+
+protocol ViewModelType {
+    associatedtype Input
+    associatedtype Output
+
+    func transform(input: Input) -> Output
+}
+
+class BaseViewModel {
+    var cancellables = Set<AnyCancellable>()
+
+    deinit {
+        cancellables.removeAll()
+    }
+}
