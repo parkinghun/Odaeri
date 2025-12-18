@@ -26,6 +26,10 @@ enum APIEnvironment {
     var apiKey: String {
         return Bundle.main.value(for: .apiKey)
     }
+    
+    var version: String {
+        return "v1"
+    }
 
     var description: String {
         switch self {
