@@ -9,82 +9,99 @@ import Foundation
 import Moya
 
 enum AuthAPI {
-    case login(email: String, password: String)
-    case signup(email: String, password: String, nickname: String)
-    case refreshToken(refreshToken: String)
+    case validateEmail(request: EmailValidationRequest)
+    case join(request: JoinRequest)
+    case emailLogin(request: EmailLoginRequest)
+    case kakaoLogin(request: KakaoLoginRequest)
+    case appleLogin(request: AppleLoginRequest)
     case logout
-    case withdraw
-    case verifyEmail(email: String)
-    case checkEmailDuplicate(email: String)
+    case updateDeviceToken(request: DeviceTokenRequest)
+    case getMyProfile
+    case updateMyProfile(request: ProfileUpdateRequest)
+    case uploadProfileImage(imageData: Data)
+    case searchUsers(nick: String)
 }
 
 extension AuthAPI: BaseAPI {
-    var path: String {
+    var endpoint: String {
         switch self {
-        case .login:
-            return "/auth/login"
-        case .signup:
-            return "/auth/signup"
-        case .refreshToken:
-            return "/auth/refresh"
+        case .validateEmail:
+            return "/users/validation/email"
+        case .join:
+            return "/users/join"
+        case .emailLogin:
+            return "/users/login"
+        case .kakaoLogin:
+            return "/users/login/kakao"
+        case .appleLogin:
+            return "/users/login/apple"
         case .logout:
-            return "/auth/logout"
-        case .withdraw:
-            return "/auth/withdraw"
-        case .verifyEmail:
-            return "/auth/verify-email"
-        case .checkEmailDuplicate:
-            return "/auth/check-email"
+            return "/users/logout"
+        case .updateDeviceToken:
+            return "/users/deviceToken"
+        case .getMyProfile:
+            return "/users/me/profile"
+        case .updateMyProfile:
+            return "/users/me/profile"
+        case .uploadProfileImage:
+            return "/users/profile/image"
+        case .searchUsers:
+            return "/users/search"
         }
     }
 
     var method: Moya.Method {
         switch self {
-        case .login, .signup, .refreshToken, .logout, .verifyEmail:
+        case .validateEmail, .join, .emailLogin, .kakaoLogin, .appleLogin, .logout, .uploadProfileImage:
             return .post
-        case .withdraw:
-            return .delete
-        case .checkEmailDuplicate:
+        case .updateDeviceToken, .updateMyProfile:
+            return .put
+        case .getMyProfile, .searchUsers:
             return .get
         }
     }
 
     var task: Task {
         switch self {
-        case let .login(email, password):
-            return .requestParameters(
-                parameters: ["email": email, "password": password],
-                encoding: JSONEncoding.default
-            )
+        case .validateEmail(let request):
+            return .requestJSONEncodable(request)
 
-        case let .signup(email, password, nickname):
-            return .requestParameters(
-                parameters: [
-                    "email": email,
-                    "password": password,
-                    "nickname": nickname
-                ],
-                encoding: JSONEncoding.default
-            )
+        case .join(let request):
+            return .requestJSONEncodable(request)
 
-        case let .refreshToken(token):
-            return .requestParameters(
-                parameters: ["refreshToken": token],
-                encoding: JSONEncoding.default
-            )
+        case .emailLogin(let request):
+            return .requestJSONEncodable(request)
 
-        case .logout, .withdraw:
+        case .kakaoLogin(let request):
+            return .requestJSONEncodable(request)
+
+        case .appleLogin(let request):
+            return .requestJSONEncodable(request)
+
+        case .logout:
             return .requestPlain
 
-        case let .verifyEmail(email):
-            return .requestParameters(
-                parameters: ["email": email],
-                encoding: JSONEncoding.default
-            )
+        case .updateDeviceToken(let request):
+            return .requestJSONEncodable(request)
 
-        case let .checkEmailDuplicate(email):
+        case .getMyProfile:
+            return .requestPlain
+
+        case .updateMyProfile(let request):
+            return .requestJSONEncodable(request)
+
+        case .uploadProfileImage(let imageData):
+            let formData = MultipartFormData(
+                provider: .data(imageData),
+                name: "profile",
+                fileName: "profile_image.jpg",
+                mimeType: "image/jpeg"
+            )
+            return .uploadMultipart([formData])
+
+        case .searchUsers(let nick):
             return .requestParameters(
-                parameters: ["email": email],
+                parameters: ["nick": nick],
                 encoding: URLEncoding.queryString
             )
         }
