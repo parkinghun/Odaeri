@@ -9,47 +9,27 @@ import Foundation
 import Moya
 
 enum BannerAPI {
-    case getBanners(location: String?)
-    case getBannerDetail(bannerId: Int)
-    case trackBannerClick(bannerId: Int)
+    case getBanners
 }
 
 extension BannerAPI: BaseAPI {
     var endpoint: String {
         switch self {
         case .getBanners:
-            return "/banners"
-        case .getBannerDetail(let bannerId):
-            return "/banners/\(bannerId)"
-        case .trackBannerClick(let bannerId):
-            return "/banners/\(bannerId)/click"
+            return "/banners/main"
         }
     }
-
+    
     var method: Moya.Method {
         switch self {
-        case .getBanners, .getBannerDetail:
+        case .getBanners:
             return .get
-        case .trackBannerClick:
-            return .post
         }
     }
 
     var task: Task {
         switch self {
-        case let .getBanners(location):
-            if let location = location {
-                return .requestParameters(
-                    parameters: ["location": location],
-                    encoding: URLEncoding.queryString
-                )
-            }
-            return .requestPlain
-
-        case .getBannerDetail:
-            return .requestPlain
-
-        case .trackBannerClick:
+        case .getBanners:
             return .requestPlain
         }
     }
