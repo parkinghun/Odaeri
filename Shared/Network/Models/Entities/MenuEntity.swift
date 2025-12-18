@@ -20,7 +20,6 @@ struct MenuEntity {
     var formattedPrice: String {
         return price.formatted() + "원"
     }
-    
 
     init(
         name: String,

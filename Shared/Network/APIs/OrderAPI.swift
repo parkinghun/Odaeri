@@ -19,7 +19,7 @@ enum OrderAPI {
 }
 
 extension OrderAPI: BaseAPI {
-    var path: String {
+    var endpoint: String {
         switch self {
         case .createOrder:
             return "/orders"

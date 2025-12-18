@@ -19,7 +19,7 @@ enum UserAPI {
 }
 
 extension UserAPI: BaseAPI {
-    var path: String {
+    var endpoint: String {
         switch self {
         case .getProfile, .updateProfile:
             return "/users/me"

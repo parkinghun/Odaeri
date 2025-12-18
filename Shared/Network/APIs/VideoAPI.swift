@@ -18,7 +18,7 @@ enum VideoAPI {
 }
 
 extension VideoAPI: BaseAPI {
-    var path: String {
+    var endpoint: String {
         switch self {
         case .getVideos:
             return "/videos"

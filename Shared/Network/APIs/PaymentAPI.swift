@@ -16,7 +16,7 @@ enum PaymentAPI {
 }
 
 extension PaymentAPI: BaseAPI {
-    var path: String {
+    var endpoint: String {
         switch self {
         case .createPayment:
             return "/payments"

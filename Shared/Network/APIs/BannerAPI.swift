@@ -15,7 +15,7 @@ enum BannerAPI {
 }
 
 extension BannerAPI: BaseAPI {
-    var path: String {
+    var endpoint: String {
         switch self {
         case .getBanners:
             return "/banners"

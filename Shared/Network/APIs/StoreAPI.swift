@@ -19,7 +19,7 @@ enum StoreAPI {
 }
 
 extension StoreAPI: BaseAPI {
-    var path: String {
+    var endpoint: String {
         switch self {
         case .getStoreList:
             return "/stores"

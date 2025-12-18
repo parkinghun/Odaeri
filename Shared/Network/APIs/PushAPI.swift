@@ -17,7 +17,7 @@ enum PushAPI {
 }
 
 extension PushAPI: BaseAPI {
-    var path: String {
+    var endpoint: String {
         switch self {
         case .registerPushToken:
             return "/push/register"

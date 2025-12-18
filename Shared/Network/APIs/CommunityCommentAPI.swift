@@ -18,7 +18,7 @@ enum CommunityCommentAPI {
 }
 
 extension CommunityCommentAPI: BaseAPI {
-    var path: String {
+    var endpoint: String {
         switch self {
         case .getComments(let postId, _, _):
             return "/community/posts/\(postId)/comments"

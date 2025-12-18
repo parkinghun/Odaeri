@@ -19,7 +19,7 @@ enum ReviewAPI {
 }
 
 extension ReviewAPI: BaseAPI {
-    var path: String {
+    var endpoint: String {
         switch self {
         case .createReview:
             return "/reviews"

@@ -18,7 +18,7 @@ enum ChatAPI {
 }
 
 extension ChatAPI: BaseAPI {
-    var path: String {
+    var endpoint: String {
         switch self {
         case .getChatRooms:
             return "/chats/rooms"

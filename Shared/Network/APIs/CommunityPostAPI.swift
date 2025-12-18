@@ -20,7 +20,7 @@ enum CommunityPostAPI {
 }
 
 extension CommunityPostAPI: BaseAPI {
-    var path: String {
+    var endpoint: String {
         switch self {
         case .getPosts:
             return "/community/posts"
