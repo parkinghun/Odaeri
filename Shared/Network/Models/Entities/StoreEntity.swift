@@ -1,0 +1,137 @@
+//
+//  StoreEntity.swift
+//  Odaeri
+//
+//  Created by 박성훈 on 12/17/25.
+//
+
+import Foundation
+
+struct StoreEntity {
+    let storeId: String?  // admin에서 필요함(가게 점주가 상태변경해줘야함)
+    let name: String
+    let category: String
+    let description: String
+    let address: String
+    let longitude: Double
+    let latitude: Double
+    let open: String
+    let close: String
+    let estimatedPickupTime: Int?
+    let parkingGuide: String
+    let storeImageUrls: [String]
+    let hashTags: [String]
+    let isPicchelin: Bool
+    let isPick: Bool?
+    let pickCount: Int?
+    let totalReviewCount: Int?
+    let totalOrderCount: Int?
+    let totalRating: Double?
+    let creator: CreatorEntity?
+    let menuList: [MenuEntity]?
+
+    init(
+        storeId: String? = nil,
+        name: String,
+        category: String,
+        description: String,
+        address: String,
+        longitude: Double,
+        latitude: Double,
+        open: String,
+        close: String,
+        estimatedPickupTime: Int? = nil,
+        parkingGuide: String,
+        storeImageUrls: [String],
+        hashTags: [String],
+        isPicchelin: Bool = false,
+        isPick: Bool? = nil,
+        pickCount: Int? = nil,
+        totalReviewCount: Int? = nil,
+        totalOrderCount: Int? = nil,
+        totalRating: Double? = nil,
+        creator: CreatorEntity? = nil,
+        menuList: [MenuEntity]? = nil,
+    ) {
+        self.storeId = storeId
+        self.name = name
+        self.category = category
+        self.description = description
+        self.address = address
+        self.longitude = longitude
+        self.latitude = latitude
+        self.open = open
+        self.close = close
+        self.estimatedPickupTime = estimatedPickupTime
+        self.parkingGuide = parkingGuide
+        self.storeImageUrls = storeImageUrls
+        self.hashTags = hashTags
+        self.isPicchelin = isPicchelin
+        self.isPick = isPick
+        self.pickCount = pickCount
+        self.totalReviewCount = totalReviewCount
+        self.totalOrderCount = totalOrderCount
+        self.totalRating = totalRating
+        self.creator = creator
+        self.menuList = menuList
+    }
+
+    init(from response: StoreResponse) {
+        self.storeId = response.storeId
+        self.name = response.name
+        self.category = response.category
+        self.description = response.description
+        self.address = response.address
+        self.longitude = response.geolocation.longitude
+        self.latitude = response.geolocation.latitude
+        self.open = response.open
+        self.close = response.close
+        self.estimatedPickupTime = response.estimatedPickupTime
+        self.parkingGuide = response.parkingGuide
+        self.storeImageUrls = response.storeImageUrls
+        self.hashTags = response.hashTags
+        self.isPicchelin = response.isPicchelin
+        self.isPick = response.isPick
+        self.pickCount = response.pickCount
+        self.totalReviewCount = response.totalReviewCount
+        self.totalOrderCount = response.totalOrderCount
+        self.totalRating = response.totalRating
+        self.creator = CreatorEntity(from: response.creator)
+        self.menuList = response.menuList.map { MenuEntity(from: $0) }
+    }
+
+    func toRequest() -> StoreRequest {
+        return StoreRequest(
+            name: name,
+            category: category,
+            description: description,
+            address: address,
+            longitude: longitude,
+            latitude: latitude,
+            open: open,
+            close: close,
+            parkingGuide: parkingGuide,
+            storeImageUrls: storeImageUrls,
+            hashTags: hashTags,
+            isPicchelin: isPicchelin
+        )
+    }
+}
+
+struct CreatorEntity {
+    let userId: String
+    let nick: String
+    let profileImage: String
+
+    init(userId: String, nick: String, profileImage: String) {
+        self.userId = userId
+        self.nick = nick
+        self.profileImage = profileImage
+    }
+
+    init(from creator: Creator) {
+        self.userId = creator.userId
+        self.nick = creator.nick
+        self.profileImage = creator.profileImage
+    }
+}
