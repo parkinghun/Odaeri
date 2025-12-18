@@ -20,9 +20,9 @@ final class CustomTabBarController: UITabBarController {
         layoutCustomTabBar()
     }
 
-    func selectTab(at index: Int) {
-        selectedIndex = index
-        customTabBar.selectTab(at: index)
+    func selectTab(_ item: TabBarItem) {
+        selectedIndex = item.rawValue
+        customTabBar.selectTab(item)
     }
 }
 
@@ -49,7 +49,7 @@ private extension CustomTabBarController {
 // MARK: - CustomTabBarDelegate
 
 extension CustomTabBarController: CustomTabBarDelegate {
-    func tabBar(_ tabBar: CustomTabBar, didSelectItemAt index: Int) {
-        selectedIndex = index
+    func tabBar(_ tabBar: CustomTabBar, didSelect item: TabBarItem) {
+        selectedIndex = item.rawValue
     }
 }
