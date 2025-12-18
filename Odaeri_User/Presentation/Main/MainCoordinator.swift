@@ -7,9 +7,15 @@
 
 import UIKit
 
+protocol MainCoordinatorDelegate: AnyObject {
+    func mainCoordinatorDidLogout(_ coordinator: MainCoordinator)
+}
+
 final class MainCoordinator: Coordinator {
     var navigationController: UINavigationController
     var childCoordinators: [Coordinator] = []
+
+    weak var delegate: MainCoordinatorDelegate?
 
     private let tabBarController = CustomTabBarController()
 
