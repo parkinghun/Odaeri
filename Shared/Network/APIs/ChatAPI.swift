@@ -9,77 +9,72 @@ import Foundation
 import Moya
 
 enum ChatAPI {
-    case getChatRooms(page: Int, limit: Int)
-    case getChatRoomDetail(roomId: Int)
-    case createChatRoom(storeId: Int)
-    case getMessages(roomId: Int, page: Int, limit: Int)
-    case sendMessage(roomId: Int, content: String, messageType: String)
-    case deleteChatRoom(roomId: Int)
+    case createOrGetChatRoom(request: CreateChatRoomRequest)
+    case getChatRooms
+    case sendChat(roomId: String, request: SendChatRequest)
+    case getChatHistory(roomId: String, next: String?)
+    case uploadChatFiles(roomId: String, files: [Data])
 }
 
 extension ChatAPI: BaseAPI {
     var endpoint: String {
         switch self {
+        case .createOrGetChatRoom:
+            return "/chats"
         case .getChatRooms:
-            return "/chats/rooms"
-        case .getChatRoomDetail(let roomId):
-            return "/chats/rooms/\(roomId)"
-        case .createChatRoom:
-            return "/chats/rooms"
-        case .getMessages(let roomId, _, _):
-            return "/chats/rooms/\(roomId)/messages"
-        case .sendMessage(let roomId, _, _):
-            return "/chats/rooms/\(roomId)/messages"
-        case .deleteChatRoom(let roomId):
-            return "/chats/rooms/\(roomId)"
+            return "/chats"
+        case .sendChat(let roomId, _):
+            return "/chats/\(roomId)"
+        case .getChatHistory(let roomId, _):
+            return "/chats/\(roomId)"
+        case .uploadChatFiles(let roomId, _):
+            return "/chats/\(roomId)/files"
         }
     }
 
     var method: Moya.Method {
         switch self {
-        case .createChatRoom, .sendMessage:
+        case .createOrGetChatRoom, .sendChat, .uploadChatFiles:
             return .post
-        case .getChatRooms, .getChatRoomDetail, .getMessages:
+        case .getChatRooms, .getChatHistory:
             return .get
-        case .deleteChatRoom:
-            return .delete
         }
     }
 
     var task: Task {
         switch self {
-        case let .getChatRooms(page, limit):
-            return .requestParameters(
-                parameters: ["page": page, "limit": limit],
-                encoding: URLEncoding.queryString
-            )
+        case .createOrGetChatRoom(let request):
+            return .requestJSONEncodable(request)
 
-        case .getChatRoomDetail:
+        case .getChatRooms:
             return .requestPlain
 
-        case let .createChatRoom(storeId):
-            return .requestParameters(
-                parameters: ["storeId": storeId],
-                encoding: JSONEncoding.default
-            )
+        case .sendChat(_, let request):
+            return .requestJSONEncodable(request)
 
-        case let .getMessages(_, page, limit):
-            return .requestParameters(
-                parameters: ["page": page, "limit": limit],
-                encoding: URLEncoding.queryString
-            )
+        case .getChatHistory(_, let next):
+            if let next = next {
+                return .requestParameters(
+                    parameters: ["next": next],
+                    encoding: URLEncoding.queryString
+                )
+            } else {
+                return .requestPlain
+            }
 
-        case let .sendMessage(_, content, messageType):
-            return .requestParameters(
-                parameters: [
-                    "content": content,
-                    "messageType": messageType
-                ],
-                encoding: JSONEncoding.default
-            )
-
-        case .deleteChatRoom:
-            return .requestPlain
+        case .uploadChatFiles(_, let files):
+            var formData = [MultipartFormData]()
+            for (index, fileData) in files.enumerated() {
+                formData.append(
+                    MultipartFormData(
+                        provider: .data(fileData),
+                        name: "files",
+                        fileName: "chat_file_\(index).jpg",
+                        mimeType: "image/jpeg"
+                    )
+                )
+            }
+            return .uploadMultipart(formData)
         }
     }
 }
