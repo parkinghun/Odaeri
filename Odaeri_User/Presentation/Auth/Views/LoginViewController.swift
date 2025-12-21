@@ -69,6 +69,13 @@ final class LoginViewController: BaseViewController {
         return button
     }()
 
+    private let loadingIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.color = AppColor.blackSprout
+        indicator.hidesWhenStopped = true
+        return indicator
+    }()
+
     override func setupUI() {
         super.setupUI()
 
@@ -78,6 +85,7 @@ final class LoginViewController: BaseViewController {
         view.addSubview(passwordTextField)
         view.addSubview(passwordValidationLabel)
         view.addSubview(loginButton)
+        view.addSubview(loadingIndicator)
 
         titleLabel.snp.makeConstraints {
             $0.centerX.equalToSuperview()
@@ -112,6 +120,10 @@ final class LoginViewController: BaseViewController {
             $0.top.equalTo(passwordValidationLabel.snp.bottom).offset(32)
             $0.leading.trailing.equalTo(emailTextField)
             $0.height.equalTo(50)
+        }
+
+        loadingIndicator.snp.makeConstraints {
+            $0.center.equalToSuperview()
         }
 
         loginButton.addTarget(self, action: #selector(loginButtonTapped), for: .touchUpInside)
@@ -157,6 +169,24 @@ final class LoginViewController: BaseViewController {
             }
             .store(in: &cancellables)
 
+        output.isLoading
+            .sink { [weak self] isLoading in
+                if isLoading {
+                    self?.loadingIndicator.startAnimating()
+                    self?.view.isUserInteractionEnabled = false
+                } else {
+                    self?.loadingIndicator.stopAnimating()
+                    self?.view.isUserInteractionEnabled = true
+                }
+            }
+            .store(in: &cancellables)
+
+        output.loginError
+            .sink { [weak self] errorMessage in
+                self?.showErrorAlert(message: errorMessage)
+            }
+            .store(in: &cancellables)
+
         output.loginSuccess
             .sink { [weak self] _ in
                 self?.coordinator?.didFinishLogin()
@@ -166,5 +196,16 @@ final class LoginViewController: BaseViewController {
 
     @objc private func loginButtonTapped() {
         loginButtonTappedSubject.send(())
+    }
+
+    private func showErrorAlert(message: String) {
+        let alert = UIAlertController(
+            title: "로그인 실패",
+            message: message,
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "확인", style: .default))
+        present(alert, animated: true)
     }
 }

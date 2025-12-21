@@ -10,6 +10,16 @@ import Combine
 
 final class LoginViewModel: BaseViewModel, ViewModelType {
 
+    private let repository: AuthRepository
+    private let currentEmail = CurrentValueSubject<String, Never>("")
+    private let currentPassword = CurrentValueSubject<String, Never>("")
+    private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
+    private let loginErrorSubject = PassthroughSubject<String, Never>()
+
+    init(repository: AuthRepository = AuthRepositoryImpl()) {
+        self.repository = repository
+    }
+
     struct Input {
         let emailText: AnyPublisher<String, Never>
         let passwordText: AnyPublisher<String, Never>
@@ -22,10 +32,24 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
         let emailValidationMessage: AnyPublisher<String, Never>
         let passwordValidationMessage: AnyPublisher<String, Never>
         let isLoginEnabled: AnyPublisher<Bool, Never>
+        let isLoading: AnyPublisher<Bool, Never>
+        let loginError: AnyPublisher<String, Never>
         let loginSuccess: AnyPublisher<Void, Never>
     }
 
     func transform(input: Input) -> Output {
+        input.emailText
+            .sink { [weak self] email in
+                self?.currentEmail.send(email)
+            }
+            .store(in: &cancellables)
+
+        input.passwordText
+            .sink { [weak self] password in
+                self?.currentPassword.send(password)
+            }
+            .store(in: &cancellables)
+
         let isEmailValid = input.emailText
             .map { [weak self] email in
                 guard let self else { return false }
@@ -54,18 +78,25 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
             }
             .eraseToAnyPublisher()
 
-        let isLoginEnabled = Publishers.CombineLatest(isEmailValid, isPasswordValid)
-            .map { emailValid, passwordValid in
-                emailValid && passwordValid
-            }
-            .eraseToAnyPublisher()
+        let isLoginEnabled = Publishers.CombineLatest3(
+            isEmailValid,
+            isPasswordValid,
+            isLoadingSubject
+        )
+        .map { emailValid, passwordValid, isLoading in
+            emailValid && passwordValid && !isLoading
+        }
+        .eraseToAnyPublisher()
 
-        let loginSuccess = input.loginButtonTapped
-            .handleEvents(receiveOutput: { [weak self] _ in
-                guard let self else { return }
-                performLogin()
-            })
-            .eraseToAnyPublisher()
+        let loginSuccessSubject = PassthroughSubject<Void, Never>()
+
+        input.loginButtonTapped
+            .sink { [weak self] _ in
+                self?.performLogin(completion: {
+                    loginSuccessSubject.send(())
+                })
+            }
+            .store(in: &cancellables)
 
         return Output(
             isEmailValid: isEmailValid,
@@ -73,15 +104,44 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
             emailValidationMessage: emailValidation,
             passwordValidationMessage: passwordValidation,
             isLoginEnabled: isLoginEnabled,
-            loginSuccess: loginSuccess
+            isLoading: isLoadingSubject.eraseToAnyPublisher(),
+            loginError: loginErrorSubject.eraseToAnyPublisher(),
+            loginSuccess: loginSuccessSubject.eraseToAnyPublisher()
         )
     }
 
-    private func performLogin() {
-        TokenManager.shared.saveTokens(
-            accessToken: "temp_access_token",
-            refreshToken: "temp_refresh_token"
-        )
+    private func performLogin(completion: @escaping () -> Void) {
+        let email = currentEmail.value
+        let password = currentPassword.value
+
+        guard let deviceToken = TokenManager.shared.deviceToken else {
+            loginErrorSubject.send("디바이스 토큰이 없습니다. 앱을 재시작해주세요.")
+            return
+        }
+
+        isLoadingSubject.send(true)
+
+        repository.emailLogin(email: email, password: password, deviceToken: deviceToken)
+            .sink(
+                receiveCompletion: { [weak self] result in
+                    self?.isLoadingSubject.send(false)
+
+                    switch result {
+                    case .finished:
+                        break
+                    case .failure(let error):
+                        self?.loginErrorSubject.send(error.errorDescription)
+                    }
+                },
+                receiveValue: { [weak self] authResult in
+                    TokenManager.shared.saveTokens(
+                        accessToken: authResult.accessToken,
+                        refreshToken: authResult.refreshToken
+                    )
+                    completion()
+                }
+            )
+            .store(in: &cancellables)
     }
 }
 
