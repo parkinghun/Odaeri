@@ -11,7 +11,6 @@ extension Bundle {
     enum InfoPlistKey: String {
         case baseURL = "BaseURL"
         case apiKey = "APIKey"
-        case tempAccess = "TempAccesstoken"
     }
 
     func value(for key: InfoPlistKey) -> String {
