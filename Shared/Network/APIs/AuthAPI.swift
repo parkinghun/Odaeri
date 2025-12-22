@@ -50,6 +50,15 @@ extension AuthAPI: BaseAPI {
         }
     }
 
+    var requiresAuthentication: Bool {
+        switch self {
+        case .validateEmail, .join, .emailLogin, .kakaoLogin, .appleLogin:
+            return false
+        default:
+            return true
+        }
+    }
+
     var method: Moya.Method {
         switch self {
         case .validateEmail, .join, .emailLogin, .kakaoLogin, .appleLogin, .logout, .uploadProfileImage:
