@@ -35,6 +35,14 @@ struct UserEntity {
         self.profileImage = response.profileImage
         self.phoneNum = response.phoneNum
     }
+
+    init(from authResult: AuthResult) {
+        self.userId = authResult.userId
+        self.email = authResult.email
+        self.nick = authResult.nick
+        self.profileImage = authResult.profileImage ?? ""
+        self.phoneNum = ""
+    }
 }
 
 struct AuthResult {
