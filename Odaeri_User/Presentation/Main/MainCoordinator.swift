@@ -51,6 +51,12 @@ private extension MainCoordinator {
             addChild(profileCoordinator)
             profileCoordinator.start()
 
+        case .order:
+            let orderCoordinator = OrderCoordinator(navigationController: tabNavigationController)
+            orderCoordinator.delegate = self
+            addChild(orderCoordinator)
+            orderCoordinator.start()
+            
         default:
             // 기본 화면 (구현되지 않은 탭)
             let viewController = UIViewController()
