@@ -8,10 +8,10 @@
 import UIKit
 import SnapKit
 
-final class Divider: UIView {
+final class Divider: BaseView {
     private let height: CGFloat
     private let color: UIColor
-    
+
     init(
         height: CGFloat = 1,
         color: UIColor = AppColor.gray30
@@ -19,20 +19,10 @@ final class Divider: UIView {
         self.height = height
         self.color = color
         super.init(frame: .zero)
-        setupView()
     }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
-    private func setupView() {
+
+    override func setupView() {
         backgroundColor = color
-        
         snp.makeConstraints { $0.height.equalTo(height) }
     }
-    
-//    override var intrinsicContentSize: CGSize {
-//        return CGSize(width: UIView.noIntrinsicMetric, height: heightValue)
-//    }
 }
