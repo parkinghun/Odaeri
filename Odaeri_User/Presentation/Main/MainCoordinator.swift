@@ -45,17 +45,23 @@ private extension MainCoordinator {
             addChild(homeCoordinator)
             homeCoordinator.start()
 
-        case .profile:
-            let profileCoordinator = ProfileCoordinator(navigationController: tabNavigationController)
-            profileCoordinator.delegate = self
-            addChild(profileCoordinator)
-            profileCoordinator.start()
-
         case .order:
             let orderCoordinator = OrderCoordinator(navigationController: tabNavigationController)
             orderCoordinator.delegate = self
             addChild(orderCoordinator)
             orderCoordinator.start()
+            
+        case .community:
+            let communityCoordinator = CommunityCoordinator(navigationController: tabNavigationController)
+            communityCoordinator.delegate = self
+            addChild(communityCoordinator)
+            communityCoordinator.start()
+            
+        case .profile:
+            let profileCoordinator = ProfileCoordinator(navigationController: tabNavigationController)
+            profileCoordinator.delegate = self
+            addChild(profileCoordinator)
+            profileCoordinator.start()
             
         default:
             // 기본 화면 (구현되지 않은 탭)
@@ -94,4 +100,9 @@ extension MainCoordinator: ProfileCoordinatorDelegate {
         removeChild(coordinator)
         delegate?.mainCoordinatorDidLogout(self)
     }
+}
+
+// MARK: - CommunityCoordinator
+extension MainCoordinator: CommunityCoordinatorDelegate {
+    
 }
