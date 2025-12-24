@@ -9,7 +9,7 @@ import UIKit
 import Combine
 import SnapKit
 
-final class LocationView: UIView {
+final class LocationView: BaseView {
     private let locationText: String
 
     private let tapSubject = PassthroughSubject<Void, Never>()
@@ -17,18 +17,15 @@ final class LocationView: UIView {
         tapSubject.eraseToAnyPublisher()
     }
 
-    private lazy var locationButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setImage(AppImage.location, for: .normal)
-        button.tintColor = AppColor.gray75
-        button.addTarget(self, action: #selector(handleTap), for: .touchUpInside)
-        return button
+    private let locationImageView: UIImageView = {
+        let imageView = UIImageView(image: AppImage.location)
+        return imageView
     }()
 
     private lazy var locationLabel: UILabel = {
         let label = UILabel()
         label.text = locationText
-        label.font = AppFont.body2
+        label.font = AppFont.body1
         label.textColor = AppColor.gray90
         return label
     }()
@@ -42,7 +39,7 @@ final class LocationView: UIView {
     }()
 
     private lazy var stackView: UIStackView = {
-        let stack = UIStackView(arrangedSubviews: [locationButton, locationLabel, detailButton])
+        let stack = UIStackView(arrangedSubviews: [locationImageView, locationLabel, detailButton])
         stack.axis = .horizontal
         stack.spacing = 4
         stack.alignment = .center
@@ -52,21 +49,16 @@ final class LocationView: UIView {
     init(locationText: String = "문래역, 영등포구(위치)") {
         self.locationText = locationText
         super.init(frame: .zero)
-        setupView()
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupView() {
+    override func setupView() {
         addSubview(stackView)
 
         stackView.snp.makeConstraints {
             $0.edges.equalToSuperview()
         }
 
-        locationButton.snp.makeConstraints {
+        locationImageView.snp.makeConstraints {
             $0.size.equalTo(24)
         }
 
