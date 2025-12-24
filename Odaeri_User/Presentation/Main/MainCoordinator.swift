@@ -24,9 +24,7 @@ final class MainCoordinator: Coordinator {
     }
 
     func start() {
-        let viewControllers = TabBarItem.allCases.map { item in
-            createTab(for: item)
-        }
+        let viewControllers = TabBarItem.allCases.map { createTab(for: $0) }
 
         tabBarController.viewControllers = viewControllers
         navigationController.setViewControllers([tabBarController], animated: false)
@@ -35,29 +33,26 @@ final class MainCoordinator: Coordinator {
 }
 
 // MARK: - Tab Creation
-
 private extension MainCoordinator {
     func createTab(for item: TabBarItem) -> UINavigationController {
-        let nav = UINavigationController()
-        nav.navigationBar.isHidden = true
+        let tabNavigationController = UINavigationController()
+        tabNavigationController.navigationBar.isHidden = true
 
-        let viewController = createViewController(for: item)
-        nav.setViewControllers([viewController], animated: false)
-        return nav
-    }
-
-    func createViewController(for item: TabBarItem) -> UIViewController {
         switch item {
+        case .home:
+            let homeCoordinator = HomeCoordinator(navigationController: tabNavigationController)
+            homeCoordinator.delegate = self
+            addChild(homeCoordinator)
+            homeCoordinator.start()
+
         case .profile:
-            let profileViewModel = ProfileViewModel()
-            let profileViewController = ProfileViewController(viewModel: profileViewModel)
-            let profileCoordinator = ProfileCoordinator(navigationController: navigationController)
+            let profileCoordinator = ProfileCoordinator(navigationController: tabNavigationController)
             profileCoordinator.delegate = self
             addChild(profileCoordinator)
-            profileViewController.coordinator = profileCoordinator
-            return profileViewController
+            profileCoordinator.start()
 
         default:
+            // 기본 화면 (구현되지 않은 탭)
             let viewController = UIViewController()
             viewController.view.backgroundColor = AppColor.gray0
 
@@ -73,8 +68,17 @@ private extension MainCoordinator {
                 label.centerYAnchor.constraint(equalTo: viewController.view.centerYAnchor)
             ])
 
-            return viewController
+            tabNavigationController.setViewControllers([viewController], animated: false)
         }
+
+        return tabNavigationController
+    }
+}
+
+// MARK: - HomeCoordinator
+extension MainCoordinator: HomeCoordinatorDelegate {
+    func homeCoordinatorDidSelectStore(_ coordinator: HomeCoordinator, storeId: String) {
+        // TODO: 상점 상세 화면으로 이동
     }
 }
 

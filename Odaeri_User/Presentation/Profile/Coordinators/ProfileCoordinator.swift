@@ -7,7 +7,6 @@
 
 import UIKit
 
-//TODO: - MainCoordinator의 하위..
 protocol ProfileCoordinatorDelegate: AnyObject {
     func profileCoordinatorDidFinishLogout(_ coordinator: ProfileCoordinator)
 }
@@ -15,17 +14,20 @@ protocol ProfileCoordinatorDelegate: AnyObject {
 final class ProfileCoordinator: Coordinator {
     var navigationController: UINavigationController
     var childCoordinators: [Coordinator] = []
-    
+
     weak var delegate: ProfileCoordinatorDelegate?
-    
+
     init(navigationController: UINavigationController) {
         self.navigationController = navigationController
     }
-    
+
     func start() {
-        
+        let profileViewModel = ProfileViewModel()
+        let profileViewController = ProfileViewController(viewModel: profileViewModel)
+        profileViewController.coordinator = self
+        navigationController.setViewControllers([profileViewController], animated: false)
     }
-    
+
     func didFinishLogout() {
         delegate?.profileCoordinatorDidFinishLogout(self)
     }
