@@ -9,10 +9,8 @@ import UIKit
 import Combine
 import SnapKit
 
-final class LoginViewController: BaseViewController {
+final class LoginViewController: BaseViewController<LoginViewModel> {
     weak var coordinator: AuthCoordinator?
-
-    private let viewModel = LoginViewModel()
 
     private let titleLabel: UILabel = {
         let label = UILabel()

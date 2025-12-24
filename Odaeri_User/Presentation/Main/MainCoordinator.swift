@@ -49,7 +49,8 @@ private extension MainCoordinator {
     func createViewController(for item: TabBarItem) -> UIViewController {
         switch item {
         case .profile:
-            let profileViewController = ProfileViewController()
+            let profileViewModel = ProfileViewModel()
+            let profileViewController = ProfileViewController(viewModel: profileViewModel)
             let profileCoordinator = ProfileCoordinator(navigationController: navigationController)
             profileCoordinator.delegate = self
             addChild(profileCoordinator)

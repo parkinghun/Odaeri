@@ -9,10 +9,8 @@ import UIKit
 import Combine
 import SnapKit
 
-final class ProfileViewController: BaseViewController {
+final class ProfileViewController: BaseViewController<ProfileViewModel> {
     weak var coordinator: ProfileCoordinator?
-
-    private let viewModel = ProfileViewModel()
     
     private let logoutButton: UIButton = {
         let button = UIButton()

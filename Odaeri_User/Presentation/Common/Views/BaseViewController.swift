@@ -8,7 +8,9 @@
 import UIKit
 import Combine
 
-class BaseViewController: UIViewController {
+class BaseViewController<VM: ViewModelType>: UIViewController {
+  
+    let viewModel: VM
     var cancellables = Set<AnyCancellable>()
 
     private(set) lazy var loadingIndicator: UIActivityIndicatorView = {
@@ -17,7 +19,17 @@ class BaseViewController: UIViewController {
         indicator.hidesWhenStopped = true
         return indicator
     }()
-
+    
+    init(viewModel: VM) {
+        self.viewModel = viewModel
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = AppColor.gray0
