@@ -11,23 +11,26 @@ import SnapKit
 
 final class HomeViewController: BaseViewController<HomeViewModel> {
     weak var coordinator: HomeCoordinator?
-
-    private let titleLabel: UILabel = {
-        let label = UILabel()
-        label.text = "홈"
-        label.font = AppFont.title1
-        label.textColor = AppColor.gray100
-        return label
-    }()
+    
+    /*
+     위치
+     서치바
+     인기검색어
+     
+     카테고리
+     실시간 인기 맛집
+     배너
+     
+     내가 픽업가게 (거리순)
+     (픽슐랭 / 마이픽)
+     
+     
+     
+     */
 
     override func setupUI() {
         super.setupUI()
 
-        view.addSubview(titleLabel)
-
-        titleLabel.snp.makeConstraints {
-            $0.center.equalToSuperview()
-        }
     }
 
     override func bind() {
