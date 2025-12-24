@@ -133,11 +133,15 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
                         self?.loginErrorSubject.send(error.errorDescription)
                     }
                 },
-                receiveValue: { [weak self] authResult in
+                receiveValue: { authResult in
                     TokenManager.shared.saveTokens(
                         accessToken: authResult.accessToken,
                         refreshToken: authResult.refreshToken
                     )
+
+                    let user = UserEntity(from: authResult)
+                    UserManager.shared.saveUser(user)
+
                     completion()
                 }
             )

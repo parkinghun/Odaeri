@@ -62,7 +62,14 @@ final class TokenManager {
         self.refreshToken = refreshToken
     }
 
+    func clearTokens() {
+        self.accessToken = nil
+        self.refreshToken = nil
+        UserManager.shared.clearUser()
+    }
+
     func clearAllTokens() {
         try? keychain.deleteAll()
+        UserManager.shared.clearUser()
     }
 }

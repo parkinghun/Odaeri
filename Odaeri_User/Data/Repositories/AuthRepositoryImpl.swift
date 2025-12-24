@@ -12,7 +12,7 @@ import Moya
 final class AuthRepositoryImpl: AuthRepository {
     private let provider: MoyaProvider<AuthAPI>
 
-    init(provider: MoyaProvider<AuthAPI> = MoyaProvider<AuthAPI>()) {
+    init(provider: MoyaProvider<AuthAPI> = MoyaProvider<AuthAPI>(plugins: [NetworkLoggerPlugin()])) {
         self.provider = provider
     }
 

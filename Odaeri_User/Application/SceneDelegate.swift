@@ -18,8 +18,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let window = UIWindow(windowScene: windowScene)
         self.window = window
 
-        #warning("테스트용 - 실제 적용시 로그아웃 메서드에 토큰 지워줘야 함")
-        TokenManager.shared.clearAllTokens()
         appCoordinator = AppCoordinator(window: window)
         appCoordinator?.start()
     }

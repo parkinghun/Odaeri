@@ -20,9 +20,7 @@ extension MoyaProvider {
                 .eraseToAnyPublisher()
         }
 
-        let provider = self.withTimeout(timeout)
-
-        return provider.requestPublisher(target)
+        return self.requestPublisher(target)
             .mapError { self.handleMoyaError($0) }
             .flatMap { response -> AnyPublisher<T, NetworkError> in
                 if let error = self.parseError(from: response) {
@@ -51,9 +49,7 @@ extension MoyaProvider {
                 .eraseToAnyPublisher()
         }
 
-        let provider = self.withTimeout(timeout)
-
-        return provider.requestPublisher(target)
+        return self.requestPublisher(target)
             .mapError { self.handleMoyaError($0) }
             .flatMap { response -> AnyPublisher<Void, NetworkError> in
                 if let error = self.parseError(from: response) {
@@ -119,16 +115,6 @@ extension MoyaProvider {
                     .eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
-    }
-
-    private func withTimeout(_ timeout: TimeInterval) -> MoyaProvider<Target> {
-        let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = timeout
-        configuration.timeoutIntervalForResource = timeout * 2
-
-        let session = Session(configuration: configuration)
-
-        return MoyaProvider<Target>(session: session, plugins: self.plugins)
     }
 
     private func parseError(from response: Response) -> NetworkError? {

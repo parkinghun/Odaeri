@@ -24,20 +24,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             completionHandler: { _, _ in }
         )
         
-        application.registerForRemoteNotifications()  // 원격 알림 쓸거야
-        
-        Messaging.messaging().delegate = self  // 서버 대신
-        
-        // 현재 등록 토큰 가져오기
-        Messaging.messaging().token { token, error in
-            if let error = error {
-                print("Error fetching FCM registration token: \(error)")
-            } else if let token = token {
-                print("FCM registration token: \(token)")  // 이게 파베가 쓰기 편한 코드임
-                //            self.fcmRegTokenMessage.text  = "Remote FCM registration token: \(token)"
-            }
-        }
-        
+        application.registerForRemoteNotifications()
+
+        Messaging.messaging().delegate = self
+
         return true
     }
     

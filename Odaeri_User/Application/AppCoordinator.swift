@@ -67,7 +67,6 @@ extension AppCoordinator: AuthCoordinatorDelegate {
 
 extension AppCoordinator: MainCoordinatorDelegate {
     func mainCoordinatorDidLogout(_ coordinator: MainCoordinator) {
-        tokenManager.clearAllTokens()
         removeChild(coordinator)
         showAuthFlow()
     }

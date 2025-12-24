@@ -13,7 +13,6 @@ final class LoginViewController: BaseViewController {
     weak var coordinator: AuthCoordinator?
 
     private let viewModel = LoginViewModel()
-    private let loginButtonTappedSubject = PassthroughSubject<Void, Never>()
 
     private let titleLabel: UILabel = {
         let label = UILabel()
@@ -69,13 +68,6 @@ final class LoginViewController: BaseViewController {
         return button
     }()
 
-    private let loadingIndicator: UIActivityIndicatorView = {
-        let indicator = UIActivityIndicatorView(style: .large)
-        indicator.color = AppColor.blackSprout
-        indicator.hidesWhenStopped = true
-        return indicator
-    }()
-
     override func setupUI() {
         super.setupUI()
 
@@ -85,7 +77,6 @@ final class LoginViewController: BaseViewController {
         view.addSubview(passwordTextField)
         view.addSubview(passwordValidationLabel)
         view.addSubview(loginButton)
-        view.addSubview(loadingIndicator)
 
         titleLabel.snp.makeConstraints {
             $0.centerX.equalToSuperview()
@@ -121,29 +112,15 @@ final class LoginViewController: BaseViewController {
             $0.leading.trailing.equalTo(emailTextField)
             $0.height.equalTo(50)
         }
-
-        loadingIndicator.snp.makeConstraints {
-            $0.center.equalToSuperview()
-        }
-
-        loginButton.addTarget(self, action: #selector(loginButtonTapped), for: .touchUpInside)
     }
 
     override func bind() {
         super.bind()
 
-        let emailTextPublisher = emailTextField.textPublisher
-            .compactMap { $0 }
-            .eraseToAnyPublisher()
-
-        let passwordTextPublisher = passwordTextField.textPublisher
-            .compactMap { $0 }
-            .eraseToAnyPublisher()
-
         let input = LoginViewModel.Input(
-            emailText: emailTextPublisher,
-            passwordText: passwordTextPublisher,
-            loginButtonTapped: loginButtonTappedSubject.eraseToAnyPublisher()
+            emailText: emailTextField.textPublisher.compactMap { $0 }.eraseToAnyPublisher(),
+            passwordText: passwordTextField.textPublisher.compactMap { $0 }.eraseToAnyPublisher(),
+            loginButtonTapped: loginButton.tapPublisher()
         )
 
         let output = viewModel.transform(input: input)
@@ -170,20 +147,14 @@ final class LoginViewController: BaseViewController {
             .store(in: &cancellables)
 
         output.isLoading
-            .sink { [weak self] isLoading in
-                if isLoading {
-                    self?.loadingIndicator.startAnimating()
-                    self?.view.isUserInteractionEnabled = false
-                } else {
-                    self?.loadingIndicator.stopAnimating()
-                    self?.view.isUserInteractionEnabled = true
-                }
+            .sink { [weak self] in
+                self?.setLoading($0)
             }
             .store(in: &cancellables)
 
         output.loginError
             .sink { [weak self] errorMessage in
-                self?.showErrorAlert(message: errorMessage)
+                self?.showAlert(title: "로그인 실패", message: errorMessage)
             }
             .store(in: &cancellables)
 
@@ -192,20 +163,5 @@ final class LoginViewController: BaseViewController {
                 self?.coordinator?.didFinishLogin()
             }
             .store(in: &cancellables)
-    }
-
-    @objc private func loginButtonTapped() {
-        loginButtonTappedSubject.send(())
-    }
-
-    private func showErrorAlert(message: String) {
-        let alert = UIAlertController(
-            title: "로그인 실패",
-            message: message,
-            preferredStyle: .alert
-        )
-
-        alert.addAction(UIAlertAction(title: "확인", style: .default))
-        present(alert, animated: true)
     }
 }

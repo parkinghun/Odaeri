@@ -11,9 +11,17 @@ import Combine
 class BaseViewController: UIViewController {
     var cancellables = Set<AnyCancellable>()
 
+    private(set) lazy var loadingIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.color = AppColor.blackSprout
+        indicator.hidesWhenStopped = true
+        return indicator
+    }()
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = AppColor.gray0
+        setupLoadingIndicator()
         setupUI()
         bind()
     }
@@ -22,6 +30,37 @@ class BaseViewController: UIViewController {
     }
 
     func bind() {
+    }
+
+    private func setupLoadingIndicator() {
+        view.addSubview(loadingIndicator)
+        loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+    }
+
+    func setLoading(_ isLoading: Bool) {
+        if isLoading {
+            view.endEditing(true)
+            loadingIndicator.startAnimating()
+            view.isUserInteractionEnabled = false
+        } else {
+            loadingIndicator.stopAnimating()
+            view.isUserInteractionEnabled = true
+        }
+    }
+
+    func showAlert(title: String, message: String, confirmTitle: String = "확인") {
+        let alert = UIAlertController(
+            title: title,
+            message: message,
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: confirmTitle, style: .default))
+        present(alert, animated: true)
     }
 
     deinit {

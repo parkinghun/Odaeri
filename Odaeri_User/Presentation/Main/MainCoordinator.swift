@@ -47,21 +47,40 @@ private extension MainCoordinator {
     }
 
     func createViewController(for item: TabBarItem) -> UIViewController {
-        let viewController = UIViewController()
-        viewController.view.backgroundColor = AppColor.gray0
+        switch item {
+        case .profile:
+            let profileViewController = ProfileViewController()
+            let profileCoordinator = ProfileCoordinator(navigationController: navigationController)
+            profileCoordinator.delegate = self
+            addChild(profileCoordinator)
+            profileViewController.coordinator = profileCoordinator
+            return profileViewController
 
-        let label = UILabel()
-        label.text = item.title
-        label.font = AppFont.title1
-        label.textColor = AppColor.gray100
-        label.translatesAutoresizingMaskIntoConstraints = false
+        default:
+            let viewController = UIViewController()
+            viewController.view.backgroundColor = AppColor.gray0
 
-        viewController.view.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: viewController.view.centerXAnchor),
-            label.centerYAnchor.constraint(equalTo: viewController.view.centerYAnchor)
-        ])
+            let label = UILabel()
+            label.text = item.title
+            label.font = AppFont.title1
+            label.textColor = AppColor.gray100
+            label.translatesAutoresizingMaskIntoConstraints = false
 
-        return viewController
+            viewController.view.addSubview(label)
+            NSLayoutConstraint.activate([
+                label.centerXAnchor.constraint(equalTo: viewController.view.centerXAnchor),
+                label.centerYAnchor.constraint(equalTo: viewController.view.centerYAnchor)
+            ])
+
+            return viewController
+        }
+    }
+}
+
+// MARK: - ProfileCoordinator
+extension MainCoordinator: ProfileCoordinatorDelegate {
+    func profileCoordinatorDidFinishLogout(_ coordinator: ProfileCoordinator) {
+        removeChild(coordinator)
+        delegate?.mainCoordinatorDidLogout(self)
     }
 }
