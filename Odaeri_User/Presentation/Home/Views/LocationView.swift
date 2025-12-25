@@ -46,7 +46,7 @@ final class LocationView: BaseView {
         return stack
     }()
 
-    init(locationText: String = "문래역, 영등포구(위치)") {
+    init(locationText: String = "문래역, 영등포구") {
         self.locationText = locationText
         super.init(frame: .zero)
     }
