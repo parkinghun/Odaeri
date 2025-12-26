@@ -18,6 +18,8 @@ final class TrendingSearchTickerView: BaseView {
         let image = AppImage.default?.withRenderingMode(.alwaysTemplate)
         let imageView = UIImageView(image: image)
         imageView.tintColor = AppColor.deepSprout
+        imageView.setContentHuggingPriority(.required, for: .horizontal)
+        imageView.setContentCompressionResistancePriority(.required, for: .horizontal)
         return imageView
     }()
     
@@ -26,6 +28,8 @@ final class TrendingSearchTickerView: BaseView {
         label.text = "인기검색어"
         label.font = AppFont.caption
         label.textColor = AppColor.deepSprout
+        label.setContentHuggingPriority(.required, for: .horizontal)
+        label.setContentCompressionResistancePriority(.required, for: .horizontal)
         return label
     }()
     
@@ -34,10 +38,12 @@ final class TrendingSearchTickerView: BaseView {
         button.tintColor = AppColor.blackSprout
         button.titleLabel?.font = AppFont.caption
         button.contentHorizontalAlignment = .leading
-        
+        button.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
         let title = "\(rank) \(searchText)"
         button.setTitle(title, for: .normal)
-        
+
         button.addTarget(self, action: #selector(keywordTappped), for: .touchUpInside)
         return button
     }()
