@@ -12,6 +12,7 @@ enum AppFont {
     static let body1 = FontFamily.Pretendard.medium.of(size: 16)
     static let body2 = FontFamily.Pretendard.medium.of(size: 14)
     static let body3 = FontFamily.Pretendard.medium.of(size: 13)
+    static let caption = FontFamily.Pretendard.semiBold.of(size: 12)
     static let caption1 = FontFamily.Pretendard.regular.of(size: 12)
     static let caption2 = FontFamily.Pretendard.regular.of(size: 10)
     static let caption3 = FontFamily.Pretendard.regular.of(size: 8)

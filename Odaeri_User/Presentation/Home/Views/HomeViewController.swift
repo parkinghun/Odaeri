@@ -13,10 +13,6 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     weak var coordinator: HomeCoordinator?
     
     /*
-     locationView - AppImage.location 문래역, 영등포구(위치) AppImage.detail  (HStack)
-     서치바
-     인기검색어
-     
      카테고리
      실시간 인기 맛집
      배너
@@ -27,24 +23,34 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     
     private let locationView = LocationView()
     private let searchBar = SearchBar()
+    private let trendingSearchTickerView = TrendingSearchTickerView()
     
-    
+    // 스크롤뷰
+    // view (gray15 상단만 radius)
+
     override func setupUI() {
         super.setupUI()
-        
+
         view.backgroundColor = AppColor.brightSprout
-        
+
         view.addSubview(locationView)
         view.addSubview(searchBar)
-        
+        view.addSubview(trendingSearchTickerView)
+
         locationView.snp.makeConstraints {
             $0.top.equalTo(view.safeAreaLayoutGuide).offset(AppSpacing.small)
             $0.leading.equalToSuperview().offset(AppSpacing.screenMargin)
             $0.height.equalTo(32)
         }
+
         searchBar.snp.makeConstraints {
             $0.top.equalTo(locationView.snp.bottom).offset(AppSpacing.small)
             $0.horizontalEdges.equalToSuperview().inset(AppSpacing.screenMargin)
+        }
+
+        trendingSearchTickerView.snp.makeConstraints {
+            $0.top.equalTo(searchBar.snp.bottom).offset(AppSpacing.medium)
+            $0.horizontalEdges.equalToSuperview().offset(AppSpacing.screenMargin)
         }
     }
     
