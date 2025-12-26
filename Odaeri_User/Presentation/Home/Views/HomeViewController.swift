@@ -13,7 +13,6 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     weak var coordinator: HomeCoordinator?
     
     /*
-     카테고리
      실시간 인기 맛집
      배너
      

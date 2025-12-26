@@ -31,7 +31,7 @@ final class CategoryItemView: BaseView {
     private lazy var titleLabel: UILabel = {
         let label = UILabel()
         label.text = category.title
-        label.font = AppFont.caption1
+        label.font = AppFont.body3
         label.textColor = isSelected ? AppColor.blackSprout : AppColor.gray60
         label.textAlignment = .center
         return label
@@ -72,7 +72,7 @@ final class CategoryItemView: BaseView {
     func setSelected(_ selected: Bool) {
         isSelected = selected
         imageContainerView.layer.borderColor = selected ? AppColor.blackSprout.cgColor : AppColor.gray30.cgColor
-        categoryImageView.tintColor = selected ? AppColor.blackSprout : AppColor.gray60
+        categoryImageView.tintColor = selected ? AppColor.blackSprout : AppColor.gray30
         titleLabel.textColor = selected ? AppColor.blackSprout : AppColor.gray60
     }
 }
