@@ -22,11 +22,28 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
      */
     
     private let locationView = LocationView()
+
+    private let scrollView: UIScrollView = {
+        let scrollView = UIScrollView()
+        scrollView.showsVerticalScrollIndicator = true
+        scrollView.showsHorizontalScrollIndicator = false
+        return scrollView
+    }()
+
+    private let contentView = UIView()
+
     private let searchBar = SearchBar()
     private let trendingSearchTickerView = TrendingSearchTickerView()
-    
-    // 스크롤뷰
-    // view (gray15 상단만 radius)
+
+    private lazy var modalMainView: UIView = {
+        let view = UIView()
+        view.backgroundColor = AppColor.gray15
+        view.layer.cornerRadius = 30
+        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        return view
+    }()
+
+    private let categoryView = CategoryView()
 
     override func setupUI() {
         super.setupUI()
@@ -34,8 +51,14 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
         view.backgroundColor = AppColor.brightSprout
 
         view.addSubview(locationView)
-        view.addSubview(searchBar)
-        view.addSubview(trendingSearchTickerView)
+        view.addSubview(scrollView)
+
+        scrollView.addSubview(contentView)
+        contentView.addSubview(searchBar)
+        contentView.addSubview(trendingSearchTickerView)
+        contentView.addSubview(modalMainView)
+
+        modalMainView.addSubview(categoryView)
 
         locationView.snp.makeConstraints {
             $0.top.equalTo(view.safeAreaLayoutGuide).offset(AppSpacing.small)
@@ -43,27 +66,57 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
             $0.height.equalTo(32)
         }
 
-        searchBar.snp.makeConstraints {
+        scrollView.snp.makeConstraints {
             $0.top.equalTo(locationView.snp.bottom).offset(AppSpacing.small)
+            $0.leading.trailing.bottom.equalToSuperview()
+        }
+
+        contentView.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+            $0.width.equalTo(scrollView.snp.width)
+        }
+
+        searchBar.snp.makeConstraints {
+            $0.top.equalToSuperview()
             $0.horizontalEdges.equalToSuperview().inset(AppSpacing.screenMargin)
         }
 
         trendingSearchTickerView.snp.makeConstraints {
             $0.top.equalTo(searchBar.snp.bottom).offset(AppSpacing.medium)
-            $0.horizontalEdges.equalToSuperview().offset(AppSpacing.screenMargin)
+            $0.horizontalEdges.equalToSuperview().inset(AppSpacing.screenMargin)
+        }
+
+        modalMainView.snp.makeConstraints {
+            $0.top.equalTo(trendingSearchTickerView.snp.bottom).offset(12)
+            $0.leading.trailing.equalToSuperview()
+            $0.bottom.equalTo(view.snp.bottom)
+            $0.bottom.equalToSuperview()
+        }
+
+        categoryView.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(AppSpacing.screenMargin)
+            $0.leading.trailing.equalToSuperview()
+            $0.height.equalTo(80)
         }
     }
     
     override func bind() {
         super.bind()
-        
+
         let input = HomeViewModel.Input()
         let output = viewModel.transform(input: input)
-        
+
         locationView.tapPublisher
             .sink { [weak self] in
                 // TODO: 위치 선택 화면으로 이동
                 print("Location tapped")
+            }
+            .store(in: &cancellables)
+
+        categoryView.categoryTapPublisher
+            .sink { category in
+                print("Selected category: \(category.title)")
+                // TODO: 선택된 카테고리에 따라 필터링
             }
             .store(in: &cancellables)
     }
