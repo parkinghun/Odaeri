@@ -9,93 +9,80 @@ import Foundation
 import Moya
 
 enum StoreAPI {
-    case getStoreList(category: String?, latitude: Double?, longitude: Double?)
-    case getStoreDetail(storeId: Int)
-    case searchStore(keyword: String, page: Int)
-    case getPopularStores(limit: Int)
-    case getNearbyStores(latitude: Double, longitude: Double, radius: Int)
-    case getMenuList(storeId: Int, category: String?)
-    case getMenuDetail(menuId: Int)
+    case fetchNearbyStores(category: String?, lon: Double, lat: Double, distance: Int, next: String?, limit: Int?)
+    case fetchStoreDetail(storeId: String)
+    case toggleLike(storeId: String, status: Bool)
+    case searchStores(name: String)
+    case fetchPopularStores(category: String?)
+    case fetchPopularKeywords
+    case fetchMyLikedStores(category: String?, next: String?, limit: Int?)
+    case fetchUserReviews(userId: String, category: String?, next: String?, limit: Int?)
 }
 
 extension StoreAPI: BaseAPI {
     var endpoint: String {
         switch self {
-        case .getStoreList:
-            return "/stores"
-        case .getStoreDetail(let storeId):
-            return "/stores/\(storeId)"
-        case .searchStore:
-            return "/stores/search"
-        case .getPopularStores:
-            return "/stores/popular"
-        case .getNearbyStores:
-            return "/stores/nearby"
-        case .getMenuList(let storeId, _):
-            return "/stores/\(storeId)/menus"
-        case .getMenuDetail(let menuId):
-            return "/menus/\(menuId)"
+        case .fetchNearbyStores: return "/stores"
+        case .fetchStoreDetail(let id): return "/stores/\(id)"
+        case .toggleLike(let id, _): return "/stores/\(id)/like"
+        case .searchStores: return "/stores/search"
+        case .fetchPopularStores: return "/stores/popular-stores"
+        case .fetchPopularKeywords: return "/stores/searches-popular"
+        case .fetchMyLikedStores: return "/stores/likes/me"
+        case .fetchUserReviews(let userId, _, _, _): return "/stores/reviews/users/\(userId)"
         }
     }
 
     var method: Moya.Method {
-        return .get
+        switch self {
+        case .toggleLike: return .post
+        default: return .get
+        }
     }
 
     var task: Task {
         switch self {
-        case let .getStoreList(category, latitude, longitude):
-            var parameters = [String: Any]()
-            if let category = category {
-                parameters["category"] = category
-            }
-            if let latitude = latitude {
-                parameters["latitude"] = latitude
-            }
-            if let longitude = longitude {
-                parameters["longitude"] = longitude
-            }
-            return parameters.isEmpty ? .requestPlain : .requestParameters(
-                parameters: parameters,
-                encoding: URLEncoding.queryString
-            )
+        case .fetchNearbyStores(let category, let lon, let lat, let dist, let next, let limit):
+            var params: [String: Any] = [
+                "longitude": lon,
+                "latitude": lat,
+                "maxDistance": dist
+            ]
+            if let category = category { params["category"] = category }
+            if let next = next { params["next"] = next }
+            if let limit = limit { params["limit"] = limit }
+            return .requestParameters(parameters: params, encoding: URLEncoding.queryString)
 
-        case .getStoreDetail:
+        case .fetchStoreDetail:
             return .requestPlain
 
-        case let .searchStore(keyword, page):
-            return .requestParameters(
-                parameters: ["keyword": keyword, "page": page],
-                encoding: URLEncoding.queryString
-            )
+        case .toggleLike(_, let status):
+            return .requestJSONEncodable(LikeStatusRequest(likeStatus: status))
 
-        case let .getPopularStores(limit):
-            return .requestParameters(
-                parameters: ["limit": limit],
-                encoding: URLEncoding.queryString
-            )
+        case .searchStores(let name):
+            return .requestParameters(parameters: ["name": name], encoding: URLEncoding.queryString)
 
-        case let .getNearbyStores(latitude, longitude, radius):
-            return .requestParameters(
-                parameters: [
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "radius": radius
-                ],
-                encoding: URLEncoding.queryString
-            )
+        case .fetchPopularStores(let category):
+            var params: [String: Any] = [:]
+            if let category = category { params["category"] = category }
+            return .requestParameters(parameters: params, encoding: URLEncoding.queryString)
 
-        case let .getMenuList(_, category):
-            if let category = category {
-                return .requestParameters(
-                    parameters: ["category": category],
-                    encoding: URLEncoding.queryString
-                )
-            }
+        case .fetchPopularKeywords:
             return .requestPlain
 
-        case .getMenuDetail:
-            return .requestPlain
+        case .fetchMyLikedStores(let category, let next, let limit):
+            var params: [String: Any] = [:]
+            if let category = category { params["category"] = category }
+            if let next = next { params["next"] = next }
+            if let limit = limit { params["limit"] = limit }
+            return .requestParameters(parameters: params, encoding: URLEncoding.queryString)
+
+        case .fetchUserReviews(_, let category, let next, let limit):
+            var params: [String: Any] = [:]
+            if let category = category { params["category"] = category }
+            if let next = next { params["next"] = next }
+            if let limit = limit { params["limit"] = limit }
+            return .requestParameters(parameters: params, encoding: URLEncoding.queryString)
         }
     }
 }
