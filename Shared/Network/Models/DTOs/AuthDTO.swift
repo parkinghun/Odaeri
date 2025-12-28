@@ -6,3 +6,8 @@
 //
 
 import Foundation
+
+struct RefreshTokenResponse: Decodable {
+    let accessToken: String
+    let refreshToken: String
+}
