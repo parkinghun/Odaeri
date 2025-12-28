@@ -11,6 +11,7 @@ enum AppFont {
     static let title1 = FontFamily.Pretendard.bold.of(size: 20)
     static let body1 = FontFamily.Pretendard.medium.of(size: 16)
     static let body2 = FontFamily.Pretendard.medium.of(size: 14)
+    static let body2Bold = FontFamily.Pretendard.bold.of(size: 14)
     static let body3 = FontFamily.Pretendard.medium.of(size: 13)
     static let caption = FontFamily.Pretendard.semiBold.of(size: 12)
     static let caption1 = FontFamily.Pretendard.regular.of(size: 12)

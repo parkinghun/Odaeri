@@ -122,20 +122,9 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     override func bind() {
         super.bind()
 
-        let viewDidLoadSubject = PassthroughSubject<Void, Never>()
-        let refreshSubject = PassthroughSubject<Void, Never>()
-
-        let input = HomeViewModel.Input(
-            viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
-            categorySelected: categoryView.categoryTapPublisher
-                .map { $0 as Category? }
-                .eraseToAnyPublisher(),
-            refreshTriggered: refreshSubject.eraseToAnyPublisher()
-        )
-
+        let input = HomeViewModel.Input()
         let output = viewModel.transform(input: input)
 
-        // 위치 선택
         locationView.tapPublisher
             .sink { [weak self] in
                 // TODO: 위치 선택 화면으로 이동
@@ -143,56 +132,12 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
             }
             .store(in: &cancellables)
 
-        // 로딩 상태
-        output.isLoading
-            .sink { [weak self] isLoading in
-                self?.setLoading(isLoading)
+        categoryView.categoryTapPublisher
+            .sink { category in
+                print("Selected category: \(category.title)")
+                // TODO: 선택된 카테고리에 따라 필터링
             }
             .store(in: &cancellables)
-
-        // 에러 처리
-        output.error
-            .sink { [weak self] errorMessage in
-                self?.showAlert(title: "오류", message: errorMessage)
-            }
-            .store(in: &cancellables)
-
-        // 실시간 인기 맛집 업데이트
-        output.trendingStores
-            .sink { [weak self] stores in
-                self?.updateTrendingStores(stores)
-            }
-            .store(in: &cancellables)
-
-        // 내가 픽업 가게 업데이트
-        output.myPickupStores
-            .sink { [weak self] stores in
-                self?.updateMyPickupStores(stores)
-            }
-            .store(in: &cancellables)
-
-        // ViewDidLoad 트리거
-        viewDidLoadSubject.send()
-    }
-
-    private func updateTrendingStores(_ stores: [StoreEntity]) {
-        guard var snapshot = dataSource?.snapshot() else { return }
-
-        snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .trendingRestaurants))
-        let items = stores.map { HomeSectionItem.trendingRestaurant($0) }
-        snapshot.appendItems(items, toSection: .trendingRestaurants)
-
-        dataSource?.apply(snapshot, animatingDifferences: true)
-    }
-
-    private func updateMyPickupStores(_ stores: [StoreEntity]) {
-        guard var snapshot = dataSource?.snapshot() else { return }
-
-        snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .myPickupStores))
-        let items = stores.map { HomeSectionItem.myPickupStore($0) }
-        snapshot.appendItems(items, toSection: .myPickupStores)
-
-        dataSource?.apply(snapshot, animatingDifferences: true)
     }
 }
 

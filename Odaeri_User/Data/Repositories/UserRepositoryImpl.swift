@@ -1,5 +1,5 @@
 //
-//  AuthRepositoryImpl.swift
+//  UserRepositoryImpl.swift
 //  Odaeri
 //
 //  Created by 박성훈 on 12/19/25.
@@ -9,10 +9,10 @@ import Foundation
 import Combine
 import Moya
 
-final class AuthRepositoryImpl: AuthRepository {
-    private let provider: MoyaProvider<AuthAPI>
+final class UserRepositoryImpl: UserRepository {
+    private let provider: MoyaProvider<UserAPI>
 
-    init(provider: MoyaProvider<AuthAPI> = MoyaProvider<AuthAPI>(plugins: [NetworkLoggerPlugin()])) {
+    init(provider: MoyaProvider<UserAPI> = MoyaProvider<UserAPI>(plugins: [NetworkLoggerPlugin()])) {
         self.provider = provider
     }
 
@@ -23,7 +23,7 @@ final class AuthRepositoryImpl: AuthRepository {
             deviceToken: deviceToken
         )
 
-        return provider.requestPublisher(AuthAPI.emailLogin(request: request))
+        return provider.requestPublisher(UserAPI.emailLogin(request: request))
             .map { (response: AuthResponse) in
                 AuthResult(from: response)
             }
@@ -36,7 +36,7 @@ final class AuthRepositoryImpl: AuthRepository {
             deviceToken: deviceToken
         )
 
-        return provider.requestPublisher(AuthAPI.kakaoLogin(request: request))
+        return provider.requestPublisher(UserAPI.kakaoLogin(request: request))
             .map { (response: AuthResponse) in
                 AuthResult(from: response)
             }
@@ -49,7 +49,7 @@ final class AuthRepositoryImpl: AuthRepository {
             deviceToken: deviceToken
         )
 
-        return provider.requestPublisher(AuthAPI.appleLogin(request: request))
+        return provider.requestPublisher(UserAPI.appleLogin(request: request))
             .map { (response: AuthResponse) in
                 AuthResult(from: response)
             }
@@ -57,12 +57,12 @@ final class AuthRepositoryImpl: AuthRepository {
     }
 
     func logout() -> AnyPublisher<Void, NetworkError> {
-        return provider.requestPublisher(AuthAPI.logout)
+        return provider.requestPublisher(UserAPI.logout)
     }
 
     func validateEmail(email: String) -> AnyPublisher<Void, NetworkError> {
         let request = EmailValidationRequest(email: email)
-        return provider.requestPublisher(AuthAPI.validateEmail(request: request))
+        return provider.requestPublisher(UserAPI.validateEmail(request: request))
     }
 
     func join(email: String, password: String, nick: String, phoneNum: String, deviceToken: String) -> AnyPublisher<AuthResult, NetworkError> {
@@ -74,7 +74,15 @@ final class AuthRepositoryImpl: AuthRepository {
             deviceToken: deviceToken
         )
 
-        return provider.requestPublisher(AuthAPI.join(request: request))
+        return provider.requestPublisher(UserAPI.join(request: request))
+            .map { (response: AuthResponse) in
+                AuthResult(from: response)
+            }
+            .eraseToAnyPublisher()
+    }
+
+    func refreshToken() -> AnyPublisher<AuthResult, NetworkError> {
+        return provider.requestPublisher(UserAPI.refreshToken)
             .map { (response: AuthResponse) in
                 AuthResult(from: response)
             }
