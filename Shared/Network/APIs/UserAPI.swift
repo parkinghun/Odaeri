@@ -9,81 +9,110 @@ import Foundation
 import Moya
 
 enum UserAPI {
-    case getProfile
-    case updateProfile(nickname: String?, profileImageURL: String?)
+    case validateEmail(request: EmailValidationRequest)
+    case join(request: JoinRequest)
+    case emailLogin(request: EmailLoginRequest)
+    case kakaoLogin(request: KakaoLoginRequest)
+    case appleLogin(request: AppleLoginRequest)
+    case logout
+    case updateDeviceToken(request: DeviceTokenRequest)
+    case getMyProfile
+    case updateMyProfile(request: ProfileUpdateRequest)
     case uploadProfileImage(imageData: Data)
-    case getMyOrders(page: Int, limit: Int)
-    case getFavoriteStores
-    case addFavoriteStore(storeId: Int)
-    case removeFavoriteStore(storeId: Int)
+    case searchUsers(nick: String)
 }
 
 extension UserAPI: BaseAPI {
     var endpoint: String {
         switch self {
-        case .getProfile, .updateProfile:
-            return "/users/me"
+        case .validateEmail:
+            return "/users/validation/email"
+        case .join:
+            return "/users/join"
+        case .emailLogin:
+            return "/users/login"
+        case .kakaoLogin:
+            return "/users/login/kakao"
+        case .appleLogin:
+            return "/users/login/apple"
+        case .logout:
+            return "/users/logout"
+        case .updateDeviceToken:
+            return "/users/deviceToken"
+        case .getMyProfile:
+            return "/users/me/profile"
+        case .updateMyProfile:
+            return "/users/me/profile"
         case .uploadProfileImage:
-            return "/users/me/profile-image"
-        case .getMyOrders:
-            return "/users/me/orders"
-        case .getFavoriteStores:
-            return "/users/me/favorite-stores"
-        case .addFavoriteStore(let storeId):
-            return "/users/me/favorite-stores/\(storeId)"
-        case .removeFavoriteStore(let storeId):
-            return "/users/me/favorite-stores/\(storeId)"
+            return "/users/profile/image"
+        case .searchUsers:
+            return "/users/search"
+        }
+    }
+
+    var requiresAuthentication: Bool {
+        switch self {
+        case .validateEmail, .join, .emailLogin, .kakaoLogin, .appleLogin:
+            return false
+        default:
+            return true
         }
     }
 
     var method: Moya.Method {
         switch self {
-        case .getProfile, .getMyOrders, .getFavoriteStores:
-            return .get
-        case .updateProfile:
-            return .patch
-        case .uploadProfileImage, .addFavoriteStore:
+        case .validateEmail, .join, .emailLogin, .kakaoLogin, .appleLogin, .logout, .uploadProfileImage:
             return .post
-        case .removeFavoriteStore:
-            return .delete
+        case .updateDeviceToken, .updateMyProfile:
+            return .put
+        case .getMyProfile, .searchUsers:
+            return .get
         }
     }
 
     var task: Task {
         switch self {
-        case .getProfile, .getFavoriteStores:
+        case .validateEmail(let request):
+            return .requestJSONEncodable(request)
+
+        case .join(let request):
+            return .requestJSONEncodable(request)
+
+        case .emailLogin(let request):
+            return .requestJSONEncodable(request)
+
+        case .kakaoLogin(let request):
+            return .requestJSONEncodable(request)
+
+        case .appleLogin(let request):
+            return .requestJSONEncodable(request)
+
+        case .logout:
             return .requestPlain
 
-        case let .updateProfile(nickname, profileImageURL):
-            var parameters = [String: Any]()
-            if let nickname = nickname {
-                parameters["nickname"] = nickname
-            }
-            if let profileImageURL = profileImageURL {
-                parameters["profileImageURL"] = profileImageURL
-            }
-            return .requestParameters(
-                parameters: parameters,
-                encoding: JSONEncoding.default
-            )
+        case .updateDeviceToken(let request):
+            return .requestJSONEncodable(request)
 
-        case let .uploadProfileImage(imageData):
+        case .getMyProfile:
+            return .requestPlain
+
+        case .updateMyProfile(let request):
+            return .requestJSONEncodable(request)
+
+        case .uploadProfileImage(let imageData):
             let formData = MultipartFormData(
                 provider: .data(imageData),
-                name: "image",
-                fileName: "profile.jpg",
+                name: "profile",
+                fileName: "profile_image.jpg",
                 mimeType: "image/jpeg"
             )
             return .uploadMultipart([formData])
 
-        case let .getMyOrders(page, limit):
+        case .searchUsers(let nick):
             return .requestParameters(
-                parameters: ["page": page, "limit": limit],
+                parameters: ["nick": nick],
                 encoding: URLEncoding.queryString
             )
-
-        case .addFavoriteStore, .removeFavoriteStore:
-            return .requestPlain
         }
     }
 }
