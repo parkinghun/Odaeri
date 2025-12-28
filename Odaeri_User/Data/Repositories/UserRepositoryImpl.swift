@@ -16,7 +16,7 @@ final class UserRepositoryImpl: UserRepository {
         self.provider = provider
     }
 
-    func emailLogin(email: String, password: String, deviceToken: String) -> AnyPublisher<AuthResult, NetworkError> {
+    func emailLogin(email: String, password: String, deviceToken: String) -> AnyPublisher<UserResult, NetworkError> {
         let request = EmailLoginRequest(
             email: email,
             password: password,
@@ -24,34 +24,34 @@ final class UserRepositoryImpl: UserRepository {
         )
 
         return provider.requestPublisher(UserAPI.emailLogin(request: request))
-            .map { (response: AuthResponse) in
-                AuthResult(from: response)
+            .map { (response: UserResponse) in
+                UserResult(from: response)
             }
             .eraseToAnyPublisher()
     }
 
-    func kakaoLogin(oauthToken: String, deviceToken: String) -> AnyPublisher<AuthResult, NetworkError> {
+    func kakaoLogin(oauthToken: String, deviceToken: String) -> AnyPublisher<UserResult, NetworkError> {
         let request = KakaoLoginRequest(
             oauthToken: oauthToken,
             deviceToken: deviceToken
         )
 
         return provider.requestPublisher(UserAPI.kakaoLogin(request: request))
-            .map { (response: AuthResponse) in
-                AuthResult(from: response)
+            .map { (response: UserResponse) in
+                UserResult(from: response)
             }
             .eraseToAnyPublisher()
     }
 
-    func appleLogin(idToken: String, deviceToken: String) -> AnyPublisher<AuthResult, NetworkError> {
+    func appleLogin(idToken: String, deviceToken: String) -> AnyPublisher<UserResult, NetworkError> {
         let request = AppleLoginRequest(
             idToken: idToken,
             deviceToken: deviceToken
         )
 
         return provider.requestPublisher(UserAPI.appleLogin(request: request))
-            .map { (response: AuthResponse) in
-                AuthResult(from: response)
+            .map { (response: UserResponse) in
+                UserResult(from: response)
             }
             .eraseToAnyPublisher()
     }
@@ -65,7 +65,7 @@ final class UserRepositoryImpl: UserRepository {
         return provider.requestPublisher(UserAPI.validateEmail(request: request))
     }
 
-    func join(email: String, password: String, nick: String, phoneNum: String, deviceToken: String) -> AnyPublisher<AuthResult, NetworkError> {
+    func join(email: String, password: String, nick: String, phoneNum: String, deviceToken: String) -> AnyPublisher<UserResult, NetworkError> {
         let request = JoinRequest(
             email: email,
             password: password,
@@ -75,16 +75,8 @@ final class UserRepositoryImpl: UserRepository {
         )
 
         return provider.requestPublisher(UserAPI.join(request: request))
-            .map { (response: AuthResponse) in
-                AuthResult(from: response)
-            }
-            .eraseToAnyPublisher()
-    }
-
-    func refreshToken() -> AnyPublisher<AuthResult, NetworkError> {
-        return provider.requestPublisher(UserAPI.refreshToken)
-            .map { (response: AuthResponse) in
-                AuthResult(from: response)
+            .map { (response: UserResponse) in
+                UserResult(from: response)
             }
             .eraseToAnyPublisher()
     }
