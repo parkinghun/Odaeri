@@ -1,5 +1,5 @@
 //
-//  AuthEntity.swift
+//  UserEntity.swift
 //  Odaeri
 //
 //  Created by 박성훈 on 12/17/25.
@@ -36,16 +36,16 @@ struct UserEntity {
         self.phoneNum = response.phoneNum
     }
 
-    init(from authResult: AuthResult) {
-        self.userId = authResult.userId
-        self.email = authResult.email
-        self.nick = authResult.nick
-        self.profileImage = authResult.profileImage ?? ""
+    init(from userResult: UserResult) {
+        self.userId = userResult.userId
+        self.email = userResult.email
+        self.nick = userResult.nick
+        self.profileImage = userResult.profileImage ?? ""
         self.phoneNum = ""
     }
 }
 
-struct AuthResult {
+struct UserResult {
     let userId: String
     let email: String
     let nick: String
@@ -69,7 +69,7 @@ struct AuthResult {
         self.refreshToken = refreshToken
     }
 
-    init(from response: AuthResponse) {
+    init(from response: UserResponse) {
         self.userId = response.userId
         self.email = response.email
         self.nick = response.nick
