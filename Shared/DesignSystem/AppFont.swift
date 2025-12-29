@@ -13,6 +13,7 @@ enum AppFont {
     static let body2 = FontFamily.Pretendard.medium.of(size: 14)
     static let body2Bold = FontFamily.Pretendard.bold.of(size: 14)
     static let body3 = FontFamily.Pretendard.medium.of(size: 13)
+    static let body3Bold = FontFamily.Pretendard.bold.of(size: 13)
     static let caption = FontFamily.Pretendard.semiBold.of(size: 12)
     static let caption1 = FontFamily.Pretendard.regular.of(size: 12)
     static let caption2 = FontFamily.Pretendard.regular.of(size: 10)
@@ -22,7 +23,6 @@ enum AppFont {
     static let brandBody1 = FontFamily.Jalnan.gothic.of(size: 20)
     static let brandCaption1 = FontFamily.Jalnan.gothic.of(size: 14)
 }
-
 
 final class FontPreviewView: UIView {
     private let stackView = UIStackView()

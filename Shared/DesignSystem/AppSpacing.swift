@@ -10,10 +10,16 @@ import Foundation
 enum AppSpacing {
     /// 2
     static let tiny: CGFloat = 2
+    /// 3
+    static let xxSmall: CGFloat = 3
     /// 4
     static let xSmall: CGFloat = 4
+    /// 6
+    static let semiSmall: CGFloat = 6
     /// 8
     static let small: CGFloat = 8
+    /// 10
+    static let smallMedium: CGFloat = 10
     /// 12
     static let medium: CGFloat = 12
     /// 16

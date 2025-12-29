@@ -20,7 +20,7 @@ enum AppImage {
     static let chevron = UIImage(named: "chevron")
     static let `default` = UIImage(named: "Default")
     static let detail = UIImage(named: "Detail")
-    static let distance = UIImage(named: "Distancere")
+    static let distance = UIImage(named: "Distance")
     static let likeEmpty = UIImage(named: "Like_Empty")
     static let likeFill = UIImage(named: "Like_Fill")
     static let list = UIImage(named: "List")
@@ -45,4 +45,7 @@ enum AppImage {
     static let pickFill = UIImage(named: "Pick_Fill")
     static let profileEmpty = UIImage(named: "Profile_Empty")
     static let profileFill = UIImage(named: "Profile_Fill")
+    
+    // MARK: - Ohters
+    static let pickchelin = UIImage(named: "PickchelinTag")
 }
