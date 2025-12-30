@@ -50,12 +50,12 @@ extension UserAPI: BaseAPI {
         }
     }
 
-    var requiresAuthentication: Bool {
+    var headerSet: HeaderSet {
         switch self {
         case .validateEmail, .join, .emailLogin, .kakaoLogin, .appleLogin:
-            return false
+            return .standard
         default:
-            return true
+            return .authenticated
         }
     }
 

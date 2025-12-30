@@ -33,4 +33,8 @@ extension BannerAPI: BaseAPI {
             return .requestPlain
         }
     }
+    
+    var headerSet: HeaderSet {
+        return .readImage
+    }
 }

@@ -9,7 +9,7 @@ import Foundation
 import Moya
 
 enum AuthAPI {
-    case refreshToken(token: String)
+    case refreshToken
 }
 
 extension AuthAPI: BaseAPI {
@@ -20,8 +20,8 @@ extension AuthAPI: BaseAPI {
         }
     }
 
-    var requiresAuthentication: Bool {
-        return true
+    var headerSet: HeaderSet {
+        return .refresh
     }
 
     var method: Moya.Method {
@@ -36,20 +36,5 @@ extension AuthAPI: BaseAPI {
         case .refreshToken:
             return .requestPlain
         }
-    }
-
-    var headers: [String: String]? {
-        var headers = [String: String]()
-        headers["Accept"] = "application/json"
-        headers["SeSACKey"] = APIEnvironment.current.apiKey
-        headers["Authorization"] = TokenManager.shared.accessToken
-
-        
-        switch self {
-        case .refreshToken(let token):
-            headers["RefreshToken"] = token
-        }
-
-        return headers
     }
 }

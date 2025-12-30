@@ -9,7 +9,7 @@ import Foundation
 import Moya
 
 enum StoreAPI {
-    case fetchNearbyStores(category: String?, lon: Double, lat: Double, distance: Int, next: String?, limit: Int?)
+    case fetchNearbyStores(category: String?, lon: Double?, lat: Double?, distance: Int?, next: String?, limit: Int?, order_by: String)
     case fetchStoreDetail(storeId: String)
     case toggleLike(storeId: String, status: Bool)
     case searchStores(name: String)
@@ -42,15 +42,17 @@ extension StoreAPI: BaseAPI {
 
     var task: Task {
         switch self {
-        case .fetchNearbyStores(let category, let lon, let lat, let dist, let next, let limit):
+        case let .fetchNearbyStores(category, lon, lat, dist, next, limit, order_by):
             var params: [String: Any] = [
-                "longitude": lon,
-                "latitude": lat,
-                "maxDistance": dist
+                "order_by": order_by
             ]
             if let category = category { params["category"] = category }
+            if let lon { params["longitude"] = lon }
+            if let lat { params["latitude"] = lat }
+            if let dist { params["maxDistance"] = dist }
             if let next = next { params["next"] = next }
             if let limit = limit { params["limit"] = limit }
+            
             return .requestParameters(parameters: params, encoding: URLEncoding.queryString)
 
         case .fetchStoreDetail:
