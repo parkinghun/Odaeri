@@ -1,5 +1,5 @@
 //
-//  AuthDTO.swift
+//  UserDTO.swift
 //  Odaeri
 //
 //  Created by 박성훈 on 12/17/25.
@@ -53,7 +53,7 @@ struct MessageResponse: Decodable {
     let message: String
 }
 
-struct AuthResponse: Decodable {
+struct UserResponse: Decodable {
     let userId: String
     let email: String
     let nick: String
