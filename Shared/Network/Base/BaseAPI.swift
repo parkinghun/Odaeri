@@ -11,7 +11,7 @@ import Moya
 protocol BaseAPI: TargetType {
     var apiVersion: String { get }
     var endpoint: String { get }
-    var requiresAuthentication: Bool { get }
+    var headerSet: HeaderSet { get }
 }
 
 extension BaseAPI {
@@ -27,21 +27,12 @@ extension BaseAPI {
         return "/\(apiVersion)\(endpoint)"
     }
 
-    var requiresAuthentication: Bool {
-        return true
+    var headerSet: HeaderSet {
+        return .authenticated
     }
 
     var headers: [String: String]? {
-        var headers = [String: String]()
-        headers["Content-Type"] = "application/json"
-        headers["Accept"] = "application/json"
-        headers["SeSACKey"] = APIEnvironment.current.apiKey
-
-        if requiresAuthentication {
-            headers["Authorization"] = TokenManager.shared.accessToken
-        }
-
-        return headers
+        return headerSet.toHeaders()
     }
 
     var validationType: ValidationType {
