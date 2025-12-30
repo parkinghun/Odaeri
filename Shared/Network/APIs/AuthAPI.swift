@@ -20,10 +20,6 @@ extension AuthAPI: BaseAPI {
         }
     }
 
-    var headerSet: HeaderSet {
-        return .refresh
-    }
-
     var method: Moya.Method {
         switch self {
         case .refreshToken:
@@ -36,5 +32,9 @@ extension AuthAPI: BaseAPI {
         case .refreshToken:
             return .requestPlain
         }
+    }
+    
+    var headerSet: HeaderSet {
+        return .refresh
     }
 }

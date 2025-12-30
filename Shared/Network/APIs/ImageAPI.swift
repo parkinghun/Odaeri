@@ -20,10 +20,6 @@ extension ImageAPI: BaseAPI {
         }
     }
 
-    var headerSet: HeaderSet {
-        return .readImage
-    }
-
     var method: Moya.Method {
         switch self {
         case .fetchImage: .get
@@ -34,6 +30,10 @@ extension ImageAPI: BaseAPI {
         switch self {
         case .fetchImage: .requestPlain
         }
+    }
+    
+    var headerSet: HeaderSet {
+        return .readImage
     }
 }
 

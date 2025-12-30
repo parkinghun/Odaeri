@@ -50,15 +50,6 @@ extension UserAPI: BaseAPI {
         }
     }
 
-    var headerSet: HeaderSet {
-        switch self {
-        case .validateEmail, .join, .emailLogin, .kakaoLogin, .appleLogin:
-            return .standard
-        default:
-            return .authenticated
-        }
-    }
-
     var method: Moya.Method {
         switch self {
         case .validateEmail, .join, .emailLogin, .kakaoLogin, .appleLogin, .logout, .uploadProfileImage:
@@ -113,6 +104,15 @@ extension UserAPI: BaseAPI {
                 parameters: ["nick": nick],
                 encoding: URLEncoding.queryString
             )
+        }
+    }
+    
+    var headerSet: HeaderSet {
+        switch self {
+        case .validateEmail, .join, .emailLogin, .kakaoLogin, .appleLogin:
+            return .standard
+        default:
+            return .authenticated
         }
     }
 }
