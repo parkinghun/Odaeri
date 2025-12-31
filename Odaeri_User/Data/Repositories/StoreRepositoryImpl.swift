@@ -10,15 +10,16 @@ import Combine
 import Moya
 
 final class StoreRepositoryImpl: StoreRepository {
-    private let provider = MoyaProvider<StoreAPI>()
+    private let provider = MoyaProvider<StoreAPI.User>()
 
     func fetchNearbyStores(
         category: String?,
-        longitude: Double,
-        latitude: Double,
-        distance: Int,
+        longitude: Double?,
+        latitude: Double?,
+        distance: Int?,
         next: String?,
-        limit: Int?
+        limit: Int?,
+        orderBy: String
     ) -> AnyPublisher<(stores: [StoreEntity], nextCursor: String?), NetworkError> {
         provider.requestPublisher(.fetchNearbyStores(
             category: category,
@@ -26,7 +27,8 @@ final class StoreRepositoryImpl: StoreRepository {
             lat: latitude,
             distance: distance,
             next: next,
-            limit: limit
+            limit: limit,
+            order_by: orderBy
         ))
         .map { (response: StoreListResponse) in
             let stores = response.data.map { StoreEntity(from: $0) }
@@ -68,7 +70,7 @@ final class StoreRepositoryImpl: StoreRepository {
     func fetchPopularKeywords() -> AnyPublisher<[String], NetworkError> {
         provider.requestPublisher(.fetchPopularKeywords)
             .map { (response: PopularKeywordsResponse) in
-                response.keywords
+                response.data
             }
             .eraseToAnyPublisher()
     }
@@ -99,10 +101,3 @@ final class StoreRepositoryImpl: StoreRepository {
             .eraseToAnyPublisher()
     }
 }
-
-// MARK: - Helper Response Models
-struct PopularKeywordsResponse: Decodable {
-    let keywords: [String]
-}
-
-struct EmptyResponse: Decodable {}

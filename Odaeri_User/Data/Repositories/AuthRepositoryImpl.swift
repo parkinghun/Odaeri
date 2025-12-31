@@ -16,8 +16,8 @@ final class AuthRepositoryImpl: AuthRepository {
         self.provider = provider
     }
 
-    func refreshToken(token: String) -> AnyPublisher<RefreshTokenResponse, NetworkError> {
-        return provider.requestPublisher(AuthAPI.refreshToken(token: token))
+    func refreshToken() -> AnyPublisher<RefreshTokenResponse, NetworkError> {
+        return provider.requestPublisher(AuthAPI.refreshToken)
             .eraseToAnyPublisher()
     }
 }
