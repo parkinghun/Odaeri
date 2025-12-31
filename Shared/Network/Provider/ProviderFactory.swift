@@ -17,8 +17,8 @@ enum ProviderFactory {
         return MoyaProvider<UserAPI>(plugins: makePlugins())
     }
 
-    static func makeStoreProvider() -> MoyaProvider<StoreAPI> {
-        return MoyaProvider<StoreAPI>(plugins: makePlugins())
+    static func makeStoreProvider() -> MoyaProvider<StoreAPI.User> {
+        return MoyaProvider<StoreAPI.User>(plugins: makePlugins())
     }
 
     static func makeOrderProvider() -> MoyaProvider<OrderAPI> {
@@ -57,8 +57,12 @@ enum ProviderFactory {
         return MoyaProvider<VideoAPI>(plugins: makePlugins())
     }
 
-    static func makeAdminProvider() -> MoyaProvider<AdminAPI> {
-        return MoyaProvider<AdminAPI>(plugins: makePlugins())
+    static func makeStoreAdminProvider() -> MoyaProvider<StoreAPI.Admin> {
+        return MoyaProvider<StoreAPI.Admin>(plugins: makePlugins())
+    }
+
+    static func makeMenuProvider() -> MoyaProvider<MenuAPI> {
+        return MoyaProvider<MenuAPI>(plugins: makePlugins())
     }
 
     private static func makePlugins() -> [PluginType] {
