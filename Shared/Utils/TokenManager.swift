@@ -6,11 +6,15 @@
 //
 
 import Foundation
+import Combine
 
 final class TokenManager {
     static let shared = TokenManager()
 
     private init() {}
+
+    private var refreshPublisher: AnyPublisher<Void, NetworkError>?
+    private let refreshLock = NSLock()
 
     private let keychain = KeychainManager.shared
 
@@ -71,5 +75,39 @@ final class TokenManager {
     func clearAllTokens() {
         try? keychain.deleteAll()
         UserManager.shared.clearUser()
+    }
+
+    func getOrCreateRefreshPublisher(
+        _ refreshBlock: @escaping () -> AnyPublisher<Void, NetworkError>
+    ) -> AnyPublisher<Void, NetworkError> {
+        refreshLock.lock()
+        defer { refreshLock.unlock() }
+
+        if let existingPublisher = refreshPublisher {
+            print("[TokenManager] Reusing existing refresh publisher")
+            return existingPublisher
+        }
+
+        print("[TokenManager] Creating new refresh publisher")
+        let newPublisher = refreshBlock()
+            .handleEvents(
+                receiveCompletion: { [weak self] _ in
+                    self?.refreshLock.lock()
+                    self?.refreshPublisher = nil
+                    self?.refreshLock.unlock()
+                    print("[TokenManager] Refresh publisher completed, cleared")
+                },
+                receiveCancel: { [weak self] in
+                    self?.refreshLock.lock()
+                    self?.refreshPublisher = nil
+                    self?.refreshLock.unlock()
+                    print("[TokenManager] Refresh publisher cancelled, cleared")
+                }
+            )
+            .share()
+            .eraseToAnyPublisher()
+
+        refreshPublisher = newPublisher
+        return newPublisher
     }
 }
