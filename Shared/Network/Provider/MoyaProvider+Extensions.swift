@@ -20,9 +20,22 @@ extension MoyaProvider {
                 .eraseToAnyPublisher()
         }
 
+        print("========== REQUEST DEBUG ==========")
+        print("BaseURL: \(target.baseURL)")
+        print("Path: \(target.path)")
+        print("Method: \(target.method)")
+        print("Headers: \(target.headers ?? [:])")
+        print("Task: \(target.task)")
+        print("===================================")
+
         return self.requestPublisher(target)
             .mapError { self.handleMoyaError($0) }
             .flatMap { response -> AnyPublisher<T, NetworkError> in
+                print("========== RESPONSE DEBUG ==========")
+                print("Status Code: \(response.statusCode)")
+                print("Response Headers: \(response.response?.allHeaderFields ?? [:])")
+                print("====================================")
+
                 if let error = self.parseError(from: response) {
                     return Fail(error: error).eraseToAnyPublisher()
                 }
@@ -33,8 +46,29 @@ extension MoyaProvider {
                         .setFailureType(to: NetworkError.self)
                         .eraseToAnyPublisher()
                 } catch {
+                    print("Decoding Error: \(error)")
                     return Fail(error: NetworkError.decodingFailed(error))
                         .eraseToAnyPublisher()
+                }
+            }
+            .catch { [weak self] error -> AnyPublisher<T, NetworkError> in
+                guard let self = self else {
+                    return Fail(error: error).eraseToAnyPublisher()
+                }
+
+                switch error {
+                case .invalidRefreshToken, .refreshTokenExpired:
+                    return Fail(error: error).eraseToAnyPublisher()
+
+                case .accessTokenExpired:
+                    return self.handleTokenRefresh()
+                        .flatMap { _ in
+                            self.requestPublisher(target, timeout: timeout)
+                        }
+                        .eraseToAnyPublisher()
+
+                default:
+                    return Fail(error: error).eraseToAnyPublisher()
                 }
             }
             .eraseToAnyPublisher()
@@ -59,6 +93,26 @@ extension MoyaProvider {
                 return Just(())
                     .setFailureType(to: NetworkError.self)
                     .eraseToAnyPublisher()
+            }
+            .catch { [weak self] error -> AnyPublisher<Void, NetworkError> in
+                guard let self = self else {
+                    return Fail(error: error).eraseToAnyPublisher()
+                }
+
+                switch error {
+                case .invalidRefreshToken, .refreshTokenExpired:
+                    return Fail(error: error).eraseToAnyPublisher()
+
+                case .accessTokenExpired:
+                    return self.handleTokenRefresh()
+                        .flatMap { _ -> AnyPublisher<Void, NetworkError> in
+                            self.requestPublisher(target, timeout: timeout)
+                        }
+                        .eraseToAnyPublisher()
+
+                default:
+                    return Fail(error: error).eraseToAnyPublisher()
+                }
             }
             .eraseToAnyPublisher()
     }
@@ -128,6 +182,14 @@ extension MoyaProvider {
             return .accessTokenExpired
         }
 
+        if statusCode == 401 {
+            return .invalidRefreshToken
+        }
+
+        if statusCode == 418 {
+            return .refreshTokenExpired
+        }
+
         if let errorResponse = try? response.map(ErrorResponse.self) {
             return .serverError(statusCode: statusCode, message: errorResponse.message)
         }
@@ -137,7 +199,7 @@ extension MoyaProvider {
 
     private func handleMoyaError(_ moyaError: MoyaError) -> NetworkError {
         switch moyaError {
-        case .underlying(let error, _):
+        case .underlying(let error, let response):
             let nsError = error as NSError
 
             if nsError.domain == NSURLErrorDomain {
@@ -152,6 +214,10 @@ extension MoyaProvider {
                 }
             }
 
+            if let response = response, let networkError = parseError(from: response) {
+                return networkError
+            }
+
             return .unknown(error)
 
         case .statusCode(let response):
@@ -162,6 +228,37 @@ extension MoyaProvider {
 
         default:
             return .unknown(moyaError)
+        }
+    }
+
+    private func handleTokenRefresh() -> AnyPublisher<Void, NetworkError> {
+        return TokenManager.shared.getOrCreateRefreshPublisher {
+            guard let refreshToken = TokenManager.shared.refreshToken else {
+                TokenManager.shared.clearTokens()
+                return Fail(error: NetworkError.refreshTokenExpired)
+                    .eraseToAnyPublisher()
+            }
+
+            let authProvider = MoyaProvider<AuthAPI>(plugins: [])
+            let publisher: AnyPublisher<RefreshTokenResponse, NetworkError> = authProvider.requestPublisher(
+                AuthAPI.refreshToken
+            )
+
+            return publisher
+                .flatMap { refreshResponse -> AnyPublisher<Void, NetworkError> in
+                    TokenManager.shared.saveTokens(
+                        accessToken: refreshResponse.accessToken,
+                        refreshToken: refreshResponse.refreshToken
+                    )
+                    return Just(())
+                        .setFailureType(to: NetworkError.self)
+                        .eraseToAnyPublisher()
+                }
+                .catch { error -> AnyPublisher<Void, NetworkError> in
+                    TokenManager.shared.clearTokens()
+                    return Fail(error: error).eraseToAnyPublisher()
+                }
+                .eraseToAnyPublisher()
         }
     }
 }
