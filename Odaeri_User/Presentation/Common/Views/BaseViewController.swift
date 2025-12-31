@@ -7,6 +7,7 @@
 
 import UIKit
 import Combine
+import SnapKit
 
 class BaseViewController<VM: ViewModelType>: UIViewController {
   
@@ -46,11 +47,7 @@ class BaseViewController<VM: ViewModelType>: UIViewController {
 
     private func setupLoadingIndicator() {
         view.addSubview(loadingIndicator)
-        loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-        ])
+        loadingIndicator.snp.makeConstraints { $0.center.equalToSuperview() }
     }
 
     func setLoading(_ isLoading: Bool) {
