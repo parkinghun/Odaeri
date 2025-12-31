@@ -9,5 +9,5 @@ import Foundation
 import Combine
 
 protocol AuthRepository {
-    func refreshToken(token: String) -> AnyPublisher<RefreshTokenResponse, NetworkError>
+    func refreshToken() -> AnyPublisher<RefreshTokenResponse, NetworkError>
 }

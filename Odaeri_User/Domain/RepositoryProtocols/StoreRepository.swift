@@ -9,7 +9,7 @@ import Foundation
 import Combine
 
 protocol StoreRepository {
-    func fetchNearbyStores(category: String?, longitude: Double, latitude: Double, distance: Int, next: String?, limit: Int?) -> AnyPublisher<(stores: [StoreEntity], nextCursor: String?), NetworkError>
+    func fetchNearbyStores(category: String?, longitude: Double?, latitude: Double?, distance: Int?, next: String?, limit: Int?, orderBy: String) -> AnyPublisher<(stores: [StoreEntity], nextCursor: String?), NetworkError>
 
     func fetchStoreDetail(storeId: String) -> AnyPublisher<StoreEntity, NetworkError>
 
