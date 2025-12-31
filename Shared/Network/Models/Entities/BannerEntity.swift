@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct BannerEntity {
+struct BannerEntity: Hashable, Equatable {
     let name: String
     let imageUrl: String
     let action: BannerAction
@@ -31,9 +31,18 @@ struct BannerEntity {
             self.action = .webView(path: item.payload.value)
         }
     }
+
+    static func == (lhs: BannerEntity, rhs: BannerEntity) -> Bool {
+        lhs.name == rhs.name && lhs.imageUrl == rhs.imageUrl
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+        hasher.combine(imageUrl)
+    }
 }
 
-enum BannerAction {
+enum BannerAction: Hashable, Equatable {
     case webView(path: String)
 
     var isWebView: Bool {

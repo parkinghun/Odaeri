@@ -7,8 +7,8 @@
 
 import Foundation
 
-struct StoreEntity {
-    let storeId: String?  // admin에서 필요함(가게 점주가 상태변경해줘야함)
+struct StoreEntity: Hashable, Equatable {
+    let storeId: String  // admin에서 필요함(가게 점주가 상태변경해줘야함)
     let name: String
     let category: String
     let description: String
@@ -22,16 +22,16 @@ struct StoreEntity {
     let storeImageUrls: [String]
     let hashTags: [String]
     let isPicchelin: Bool
-    let isPick: Bool?
-    let pickCount: Int?
-    let totalReviewCount: Int?
-    let totalOrderCount: Int?
-    let totalRating: Double?
+    let isPick: Bool
+    let pickCount: Int
+    let totalReviewCount: Int
+    let totalOrderCount: Int
+    let totalRating: Double
     let creator: CreatorEntity?
-    let menuList: [MenuEntity]?
+    let menuList: [MenuEntity]
 
     init(
-        storeId: String? = nil,
+        storeId: String,
         name: String,
         category: String,
         description: String,
@@ -45,13 +45,13 @@ struct StoreEntity {
         storeImageUrls: [String],
         hashTags: [String],
         isPicchelin: Bool = false,
-        isPick: Bool? = nil,
-        pickCount: Int? = nil,
-        totalReviewCount: Int? = nil,
-        totalOrderCount: Int? = nil,
-        totalRating: Double? = nil,
-        creator: CreatorEntity? = nil,
-        menuList: [MenuEntity]? = nil,
+        isPick: Bool,
+        pickCount: Int,
+        totalReviewCount: Int,
+        totalOrderCount: Int,
+        totalRating: Double,
+        creator: CreatorEntity,
+        menuList: [MenuEntity],
     ) {
         self.storeId = storeId
         self.name = name
@@ -100,6 +100,39 @@ struct StoreEntity {
         self.menuList = response.menuList.map { MenuEntity(from: $0) }
     }
 
+    init(from summary: StoreSummary) {
+        self.storeId = summary.storeId
+        self.name = summary.name
+        self.category = summary.category
+        self.description = ""
+        self.address = ""
+        self.longitude = summary.geolocation.longitude
+        self.latitude = summary.geolocation.latitude
+        self.open = ""
+        self.close = summary.close
+        self.estimatedPickupTime = nil
+        self.parkingGuide = ""
+        self.storeImageUrls = summary.storeImageUrls
+        self.hashTags = summary.hashTags
+        self.isPicchelin = summary.isPicchelin
+        self.isPick = summary.isPick
+        self.pickCount = summary.pickCount
+        self.totalReviewCount = summary.totalReviewCount
+        self.totalOrderCount = summary.totalOrderCount
+        self.totalRating = summary.totalRating
+        #warning("creator, menulist 수정")
+        self.creator = nil
+        self.menuList = []
+    }
+
+    static func == (lhs: StoreEntity, rhs: StoreEntity) -> Bool {
+        lhs.storeId == rhs.storeId
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(storeId)
+    }
+
     func toRequest() -> StoreRequest {
         return StoreRequest(
             name: name,
@@ -118,7 +151,7 @@ struct StoreEntity {
     }
 }
 
-struct CreatorEntity {
+struct CreatorEntity: Hashable, Equatable {
     let userId: String
     let nick: String
     let profileImage: String
@@ -133,5 +166,13 @@ struct CreatorEntity {
         self.userId = creator.userId
         self.nick = creator.nick
         self.profileImage = creator.profileImage
+    }
+
+    static func == (lhs: CreatorEntity, rhs: CreatorEntity) -> Bool {
+        lhs.userId == rhs.userId
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(userId)
     }
 }
