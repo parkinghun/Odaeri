@@ -10,13 +10,13 @@ import Combine
 
 final class LoginViewModel: BaseViewModel, ViewModelType {
 
-    private let repository: AuthRepository
+    private let repository: UserRepository
     private let currentEmail = CurrentValueSubject<String, Never>("")
     private let currentPassword = CurrentValueSubject<String, Never>("")
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let loginErrorSubject = PassthroughSubject<String, Never>()
 
-    init(repository: AuthRepository = AuthRepositoryImpl()) {
+    init(repository: UserRepository = UserRepositoryImpl()) {
         self.repository = repository
     }
 
@@ -133,13 +133,13 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
                         self?.loginErrorSubject.send(error.errorDescription)
                     }
                 },
-                receiveValue: { authResult in
+                receiveValue: { userResult in
                     TokenManager.shared.saveTokens(
-                        accessToken: authResult.accessToken,
-                        refreshToken: authResult.refreshToken
+                        accessToken: userResult.accessToken,
+                        refreshToken: userResult.refreshToken
                     )
 
-                    let user = UserEntity(from: authResult)
+                    let user = UserEntity(from: userResult)
                     UserManager.shared.saveUser(user)
 
                     completion()
