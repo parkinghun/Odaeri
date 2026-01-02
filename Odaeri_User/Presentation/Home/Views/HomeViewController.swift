@@ -12,42 +12,13 @@ import SnapKit
 final class HomeViewController: BaseViewController<HomeViewModel> {
     weak var coordinator: HomeCoordinator?
     
-    /*
-     실시간 인기 맛집
-     배너
-     
-     내가 픽업가게 (거리순)
-     (픽슐랭 / 마이픽)
-     */
-    
     private let locationView = LocationView()
-
-    private let scrollView: UIScrollView = {
-        let scrollView = UIScrollView()
-        scrollView.showsVerticalScrollIndicator = true
-        scrollView.showsHorizontalScrollIndicator = false
-        return scrollView
-    }()
-
-    private let contentView = UIView()
-
-    private let searchBar = SearchBar()
-    private let trendingSearchTickerView = TrendingSearchTickerView()
-
-    private lazy var modalMainView: UIView = {
-        let view = UIView()
-        view.backgroundColor = AppColor.gray15
-        view.layer.cornerRadius = 30
-        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-        return view
-    }()
-
-    private let categoryView = CategoryView()
 
     private lazy var collectionView: UICollectionView = {
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: createLayout())
-        collectionView.backgroundColor = .clear
-        collectionView.showsVerticalScrollIndicator = false
+        collectionView.backgroundColor = AppColor.brightSprout
+        collectionView.showsVerticalScrollIndicator = true
+        collectionView.showsHorizontalScrollIndicator = false
         return collectionView
     }()
 
@@ -55,6 +26,12 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     private typealias Snapshot = NSDiffableDataSourceSnapshot<HomeSection, HomeSectionItem>
 
     private var dataSource: DataSource?
+    private var categoryCell: CategoryCell?
+    private var topHeaderView: TopHeaderView?
+
+    private var bannerCount: Int = 0
+    private let userScrolledBannerSubject = PassthroughSubject<Int, Never>()
+    private let likeTapSubject = PassthroughSubject<LikeButton.TapEvent, Never>()
 
     override func setupUI() {
         super.setupUI()
@@ -62,15 +39,9 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
         view.backgroundColor = AppColor.brightSprout
 
         view.addSubview(locationView)
-        view.addSubview(scrollView)
+        view.addSubview(collectionView)
 
-        scrollView.addSubview(contentView)
-        contentView.addSubview(searchBar)
-        contentView.addSubview(trendingSearchTickerView)
-        contentView.addSubview(modalMainView)
-
-        modalMainView.addSubview(categoryView)
-        modalMainView.addSubview(collectionView)
+        collectionView.delegate = self
 
         configureDataSource()
 
@@ -80,45 +51,14 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
             $0.height.equalTo(32)
         }
 
-        scrollView.snp.makeConstraints {
-            $0.top.equalTo(locationView.snp.bottom).offset(AppSpacing.small)
-            $0.leading.trailing.bottom.equalToSuperview()
-        }
-
-        contentView.snp.makeConstraints {
-            $0.edges.equalToSuperview()
-            $0.width.equalTo(scrollView.snp.width)
-        }
-
-        searchBar.snp.makeConstraints {
-            $0.top.equalToSuperview()
-            $0.horizontalEdges.equalToSuperview().inset(AppSpacing.screenMargin)
-        }
-
-        trendingSearchTickerView.snp.makeConstraints {
-            $0.top.equalTo(searchBar.snp.bottom).offset(AppSpacing.medium)
-            $0.horizontalEdges.equalToSuperview().inset(AppSpacing.screenMargin)
-        }
-
-        modalMainView.snp.makeConstraints {
-            $0.top.equalTo(trendingSearchTickerView.snp.bottom).offset(12)
-            $0.leading.trailing.equalToSuperview()
-            $0.bottom.equalTo(view.snp.bottom)
-            $0.bottom.equalToSuperview()
-        }
-
-        categoryView.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(AppSpacing.screenMargin)
-            $0.leading.trailing.equalToSuperview()
-            $0.height.equalTo(80)
-        }
-
         collectionView.snp.makeConstraints {
-            $0.top.equalTo(categoryView.snp.bottom).offset(AppSpacing.medium)
+            $0.top.equalTo(locationView.snp.bottom).offset(AppSpacing.small)
             $0.leading.trailing.bottom.equalToSuperview()
         }
     }
     
+    private let categorySelectedSubject = PassthroughSubject<Category?, Never>()
+
     override func bind() {
         super.bind()
 
@@ -127,10 +67,10 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
 
         let input = HomeViewModel.Input(
             viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
-            categorySelected: categoryView.categoryTapPublisher
-                .map { $0 as Category? }
-                .eraseToAnyPublisher(),
-            refreshTriggered: refreshSubject.eraseToAnyPublisher()
+            categorySelected: categorySelectedSubject.eraseToAnyPublisher(),
+            refreshTriggered: refreshSubject.eraseToAnyPublisher(),
+            userScrolledBanner: userScrolledBannerSubject.eraseToAnyPublisher(),
+            storeLikeToggled: likeTapSubject.eraseToAnyPublisher()
         )
 
         let output = viewModel.transform(input: input)
@@ -157,10 +97,31 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
             }
             .store(in: &cancellables)
 
+        // 인기 검색어 업데이트
+        output.popularKeywords
+            .sink { [weak self] keywords in
+                self?.topHeaderView?.configure(with: keywords)
+            }
+            .store(in: &cancellables)
+
+        // 배너 업데이트
+        output.banners
+            .sink { [weak self] banners in
+                self?.updateBanners(banners)
+            }
+            .store(in: &cancellables)
+
+        // 배너 인덱스 변경 (자동 슬라이드)
+        output.currentBannerIndex
+            .sink { [weak self] index in
+                self?.scrollToBanner(at: index)
+            }
+            .store(in: &cancellables)
+
         // 실시간 인기 맛집 업데이트
-        output.trendingStores
+        output.popularStores
             .sink { [weak self] stores in
-                self?.updateTrendingStores(stores)
+                self?.updatePopularStores(stores)
             }
             .store(in: &cancellables)
 
@@ -171,16 +132,41 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
             }
             .store(in: &cancellables)
 
+        // 좋아요 토글 실패 시 되돌리기
+        output.likeToggleFailed
+            .sink { [weak self] storeId in
+                self?.revertLikeForStore(storeId: storeId)
+            }
+            .store(in: &cancellables)
+
         // ViewDidLoad 트리거
         viewDidLoadSubject.send()
     }
 
-    private func updateTrendingStores(_ stores: [StoreEntity]) {
+    private func updateBanners(_ banners: [BannerEntity]) {
+        bannerCount = banners.count
         guard var snapshot = dataSource?.snapshot() else { return }
 
-        snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .trendingRestaurants))
-        let items = stores.map { HomeSectionItem.trendingRestaurant($0) }
-        snapshot.appendItems(items, toSection: .trendingRestaurants)
+        snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .banner))
+        let items = banners.map { HomeSectionItem.banner($0) }
+        snapshot.appendItems(items, toSection: .banner)
+
+        dataSource?.apply(snapshot, animatingDifferences: true)
+    }
+
+    private func scrollToBanner(at index: Int) {
+        guard bannerCount > 0 else { return }
+
+        let bannerIndexPath = IndexPath(item: index, section: HomeSection.banner.rawValue)
+        collectionView.scrollToItem(at: bannerIndexPath, at: .centeredHorizontally, animated: true)
+    }
+
+    private func updatePopularStores(_ stores: [StoreEntity]) {
+        guard var snapshot = dataSource?.snapshot() else { return }
+
+        snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .popularRestaurants))
+        let items = stores.map { HomeSectionItem.popularRestaurants($0) }
+        snapshot.appendItems(items, toSection: .popularRestaurants)
 
         dataSource?.apply(snapshot, animatingDifferences: true)
     }
@@ -194,16 +180,38 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
 
         dataSource?.apply(snapshot, animatingDifferences: true)
     }
+
+    private func revertLikeForStore(storeId: String) {
+        for indexPath in collectionView.indexPathsForVisibleItems {
+            if let cell = collectionView.cellForItem(at: indexPath) as? PopularShopCell,
+               let item = dataSource?.itemIdentifier(for: indexPath),
+               case .popularRestaurants(let store) = item,
+               store.storeId == storeId {
+                cell.revertLike()
+                return
+            }
+
+            if let cell = collectionView.cellForItem(at: indexPath) as? ShopListCell,
+               let item = dataSource?.itemIdentifier(for: indexPath),
+               case .myPickupStore(let store) = item,
+               store.storeId == storeId {
+                cell.revertLike()
+                return
+            }
+        }
+    }
 }
 
 // MARK: - CollectionView Layout
 private extension HomeViewController {
     func createLayout() -> UICollectionViewLayout {
-        UICollectionViewCompositionalLayout { [weak self] sectionIndex, environment in
+        let layout = UICollectionViewCompositionalLayout { [weak self] sectionIndex, environment in
             guard let section = HomeSection(rawValue: sectionIndex) else { return nil }
 
             switch section {
-            case .trendingRestaurants:
+            case .topHeader:
+                return self?.createTopHeaderSection()
+            case .popularRestaurants:
                 return self?.createTrendingRestaurantsSection()
             case .banner:
                 return self?.createBannerSection()
@@ -211,18 +219,68 @@ private extension HomeViewController {
                 return self?.createMyPickupStoresSection()
             }
         }
+
+        let config = UICollectionViewCompositionalLayoutConfiguration()
+        layout.configuration = config
+        layout.register(TopHeaderBackgroundDecorationView.self, forDecorationViewOfKind: "TopHeaderBackgroundDecorationView")
+        layout.register(NormalBackgroundDecorationView.self, forDecorationViewOfKind: "NormalBackgroundDecorationView")
+
+        return layout
+    }
+
+    func createTopHeaderSection() -> NSCollectionLayoutSection {
+        let itemSize = NSCollectionLayoutSize(
+            widthDimension: .fractionalWidth(1.0),
+            heightDimension: .absolute(110)
+        )
+        let item = NSCollectionLayoutItem(layoutSize: itemSize)
+
+        let groupSize = NSCollectionLayoutSize(
+            widthDimension: .fractionalWidth(1.0),
+            heightDimension: .absolute(110)
+        )
+        let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+
+        let section = NSCollectionLayoutSection(group: group)
+        section.contentInsets = NSDirectionalEdgeInsets(
+            top: 0,
+            leading: 0,
+            bottom: 0,
+            trailing: 0
+        )
+
+        // Top Header (SearchBar + Ticker)
+        let topHeaderSize = NSCollectionLayoutSize(
+            widthDimension: .fractionalWidth(1.0),
+            heightDimension: .estimated(100)
+        )
+        let topHeader = NSCollectionLayoutBoundarySupplementaryItem(
+            layoutSize: topHeaderSize,
+            elementKind: "TopHeader",
+            alignment: .top
+        )
+        topHeader.contentInsets = NSDirectionalEdgeInsets(
+            top: 0,
+            leading: AppSpacing.screenMargin,
+            bottom: 0,
+            trailing: AppSpacing.screenMargin
+        )
+
+        section.boundarySupplementaryItems = [topHeader]
+
+        return section
     }
 
     func createTrendingRestaurantsSection() -> NSCollectionLayoutSection {
         let itemSize = NSCollectionLayoutSize(
             widthDimension: .fractionalWidth(1.0),
-            heightDimension: .estimated(100)
+            heightDimension: .absolute(176)
         )
         let item = NSCollectionLayoutItem(layoutSize: itemSize)
 
         let groupSize = NSCollectionLayoutSize(
-            widthDimension: .absolute(200),
-            heightDimension: .estimated(100)
+            widthDimension: .absolute(240),
+            heightDimension: .absolute(176)
         )
         let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
 
@@ -230,7 +288,7 @@ private extension HomeViewController {
         section.orthogonalScrollingBehavior = .continuous
         section.interGroupSpacing = AppSpacing.medium
         section.contentInsets = NSDirectionalEdgeInsets(
-            top: 0,
+            top: AppSpacing.medium,
             leading: AppSpacing.screenMargin,
             bottom: AppSpacing.large,
             trailing: AppSpacing.screenMargin
@@ -238,14 +296,23 @@ private extension HomeViewController {
 
         let headerSize = NSCollectionLayoutSize(
             widthDimension: .fractionalWidth(1.0),
-            heightDimension: .estimated(44)
+            heightDimension: .estimated(32)
         )
         let header = NSCollectionLayoutBoundarySupplementaryItem(
             layoutSize: headerSize,
             elementKind: UICollectionView.elementKindSectionHeader,
             alignment: .top
         )
+        header.contentInsets = NSDirectionalEdgeInsets(
+            top: 0,
+            leading: 0,
+            bottom: 0,
+            trailing: 0
+        )
         section.boundarySupplementaryItems = [header]
+
+        let backgroundDecoration = NSCollectionLayoutDecorationItem.background(elementKind: "NormalBackgroundDecorationView")
+        section.decorationItems = [backgroundDecoration]
 
         return section
     }
@@ -253,25 +320,28 @@ private extension HomeViewController {
     func createBannerSection() -> NSCollectionLayoutSection {
         let itemSize = NSCollectionLayoutSize(
             widthDimension: .fractionalWidth(1.0),
-            heightDimension: .absolute(120)
+            heightDimension: .absolute(100)
         )
         let item = NSCollectionLayoutItem(layoutSize: itemSize)
 
         let groupSize = NSCollectionLayoutSize(
-            widthDimension: .fractionalWidth(0.9),
-            heightDimension: .absolute(120)
+            widthDimension: .fractionalWidth(1.0),
+            heightDimension: .absolute(100)
         )
         let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
 
         let section = NSCollectionLayoutSection(group: group)
         section.orthogonalScrollingBehavior = .groupPaging
-        section.interGroupSpacing = AppSpacing.medium
+        section.interGroupSpacing = 0
         section.contentInsets = NSDirectionalEdgeInsets(
-            top: 0,
-            leading: AppSpacing.screenMargin,
-            bottom: AppSpacing.large,
-            trailing: AppSpacing.screenMargin
+            top: AppSpacing.medium,
+            leading: .zero,
+            bottom: AppSpacing.small,
+            trailing: .zero
         )
+
+        let backgroundDecoration = NSCollectionLayoutDecorationItem.background(elementKind: "NormalBackgroundDecorationView")
+        section.decorationItems = [backgroundDecoration]
 
         return section
     }
@@ -279,35 +349,43 @@ private extension HomeViewController {
     func createMyPickupStoresSection() -> NSCollectionLayoutSection {
         let itemSize = NSCollectionLayoutSize(
             widthDimension: .fractionalWidth(1.0),
-            heightDimension: .estimated(100)
+            heightDimension: .estimated(235)
         )
         let item = NSCollectionLayoutItem(layoutSize: itemSize)
 
         let groupSize = NSCollectionLayoutSize(
             widthDimension: .fractionalWidth(1.0),
-            heightDimension: .estimated(100)
+            heightDimension: .estimated(235)
         )
         let group = NSCollectionLayoutGroup.vertical(layoutSize: groupSize, subitems: [item])
 
         let section = NSCollectionLayoutSection(group: group)
-        section.interGroupSpacing = AppSpacing.medium
         section.contentInsets = NSDirectionalEdgeInsets(
             top: 0,
-            leading: AppSpacing.screenMargin,
+            leading: 0,
             bottom: AppSpacing.large,
-            trailing: AppSpacing.screenMargin
+            trailing: 0
         )
 
         let headerSize = NSCollectionLayoutSize(
             widthDimension: .fractionalWidth(1.0),
-            heightDimension: .estimated(44)
+            heightDimension: .estimated(64)
         )
         let header = NSCollectionLayoutBoundarySupplementaryItem(
             layoutSize: headerSize,
             elementKind: UICollectionView.elementKindSectionHeader,
             alignment: .top
         )
+        header.contentInsets = NSDirectionalEdgeInsets(
+            top: 0,
+            leading: AppSpacing.screenMargin,
+            bottom: 0,
+            trailing: AppSpacing.screenMargin
+        )
         section.boundarySupplementaryItems = [header]
+
+        let backgroundDecoration = NSCollectionLayoutDecorationItem.background(elementKind: "NormalBackgroundDecorationView")
+        section.decorationItems = [backgroundDecoration]
 
         return section
     }
@@ -316,18 +394,58 @@ private extension HomeViewController {
 // MARK: - CollectionView DataSource
 private extension HomeViewController {
     func configureDataSource() {
-        let cellRegistration = UICollectionView.CellRegistration<UICollectionViewCell, HomeSectionItem> { cell, indexPath, item in
-            // TODO: Cell 구성 (나중에 커스텀 셀로 교체)
-            var config = UIListContentConfiguration.cell()
-            switch item {
-            case .trendingRestaurant(let store):
-                config.text = store.name
-            case .banner(let banner):
-                config.text = banner.name
-            case .myPickupStore(let store):
-                config.text = store.name
-            }
-            cell.contentConfiguration = config
+        let categoryCellRegistration = UICollectionView.CellRegistration<CategoryCell, HomeSectionItem> { [weak self] cell, indexPath, item in
+            guard let self = self else { return }
+            self.categoryCell = cell
+
+            // Category 선택 바인딩
+            cell.categoryTapPublisher
+                .sink { [weak self] category in
+                    self?.categorySelectedSubject.send(category)
+                }
+                .store(in: &self.cancellables)
+        }
+
+        let popularShopCellRegistration = UICollectionView.CellRegistration<PopularShopCell, StoreEntity> { [weak self] cell, indexPath, store in
+            guard let self = self else { return }
+            cell.configure(with: store)
+
+            // 좋아요 버튼 이벤트 연결
+            cell.likeTapPublisher
+                .sink { [weak self] event in
+                    self?.likeTapSubject.send(event)
+                }
+                .store(in: &self.cancellables)
+        }
+
+        let bannerCellRegistration = UICollectionView.CellRegistration<BannerCell, BannerEntity> { [weak self] cell, indexPath, banner in
+            guard let self = self else { return }
+            cell.configure(with: banner, currentIndex: indexPath.item, totalCount: self.bannerCount)
+        }
+
+        let shopListCellRegistration = UICollectionView.CellRegistration<ShopListCell, StoreEntity> { [weak self] cell, indexPath, store in
+            guard let self = self else { return }
+            cell.configure(with: store)
+
+            // 좋아요 버튼 이벤트 연결
+            cell.likeTapPublisher
+                .sink { [weak self] event in
+                    self?.likeTapSubject.send(event)
+                }
+                .store(in: &self.cancellables)
+        }
+
+        let topHeaderRegistration = UICollectionView.SupplementaryRegistration<TopHeaderView>(
+            elementKind: "TopHeader"
+        ) { [weak self] supplementaryView, _, _ in
+            guard let self = self else { return }
+            self.topHeaderView = supplementaryView
+        }
+
+        let shopListHeaderRegistration = UICollectionView.SupplementaryRegistration<ShopListHeaderView>(
+            elementKind: UICollectionView.elementKindSectionHeader
+        ) { supplementaryView, elementKind, indexPath in
+            // ShopListHeaderView는 자체적으로 UI 구성
         }
 
         let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(
@@ -343,11 +461,31 @@ private extension HomeViewController {
         }
 
         dataSource = DataSource(collectionView: collectionView) { collectionView, indexPath, item in
-            collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: item)
+            switch item {
+            case .category:
+                return collectionView.dequeueConfiguredReusableCell(using: categoryCellRegistration, for: indexPath, item: item)
+            case .popularRestaurants(let store):
+                return collectionView.dequeueConfiguredReusableCell(using: popularShopCellRegistration, for: indexPath, item: store)
+            case .banner(let banner):
+                return collectionView.dequeueConfiguredReusableCell(using: bannerCellRegistration, for: indexPath, item: banner)
+            case .myPickupStore(let store):
+                return collectionView.dequeueConfiguredReusableCell(using: shopListCellRegistration, for: indexPath, item: store)
+            }
         }
 
         dataSource?.supplementaryViewProvider = { collectionView, kind, indexPath in
-            collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
+            switch kind {
+            case "TopHeader":
+                return collectionView.dequeueConfiguredReusableSupplementary(using: topHeaderRegistration, for: indexPath)
+            case UICollectionView.elementKindSectionHeader:
+                if let section = HomeSection(rawValue: indexPath.section), section == .myPickupStores {
+                    return collectionView.dequeueConfiguredReusableSupplementary(using: shopListHeaderRegistration, for: indexPath)
+                } else {
+                    return collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
+                }
+            default:
+                return nil
+            }
         }
 
         // 초기 데이터 적용
@@ -357,76 +495,32 @@ private extension HomeViewController {
     func applySnapshot() {
         var snapshot = Snapshot()
         snapshot.appendSections(HomeSection.allCases)
-
-        // TODO: 실제 데이터로 교체
-        let mockTrendingRestaurants = [
-            HomeSectionItem.trendingRestaurant(
-                StoreEntity(
-                    storeId: "1",
-                    name: "새싹 도넛 가게",
-                    category: "디저트",
-                    description: "",
-                    address: "",
-                    longitude: 0,
-                    latitude: 0,
-                    open: "7PM",
-                    close: "10PM",
-                    parkingGuide: "",
-                    storeImageUrls: [],
-                    hashTags: [],
-                    pickCount: 126,
-                    totalOrderCount: 135
-                )
-            ),
-            HomeSectionItem.trendingRestaurant(
-                StoreEntity(
-                    storeId: "2",
-                    name: "케이크 바이 새싹",
-                    category: "디저트",
-                    description: "",
-                    address: "",
-                    longitude: 0,
-                    latitude: 0,
-                    open: "6PM",
-                    close: "11PM",
-                    parkingGuide: "",
-                    storeImageUrls: [],
-                    hashTags: []
-                )
-            )
-        ]
-
-        let mockBanners = [
-            HomeSectionItem.banner(BannerEntity(name: "배너1", imageUrl: "", action: .webView(path: "")))
-        ]
-
-        let mockStores = [
-            HomeSectionItem.myPickupStore(
-                StoreEntity(
-                    storeId: "3",
-                    name: "새싹 마카롱 영등포직영점",
-                    category: "디저트",
-                    description: "",
-                    address: "1.3km",
-                    longitude: 0,
-                    latitude: 0,
-                    open: "7PM",
-                    close: "10PM",
-                    parkingGuide: "",
-                    storeImageUrls: [],
-                    hashTags: ["#돈가를", "#티라미수"],
-                    pickCount: 155,
-                    totalReviewCount: 145,
-                    totalOrderCount: 288,
-                    totalRating: 4.9
-                )
-            )
-        ]
-
-        snapshot.appendItems(mockTrendingRestaurants, toSection: .trendingRestaurants)
-        snapshot.appendItems(mockBanners, toSection: .banner)
-        snapshot.appendItems(mockStores, toSection: .myPickupStores)
-
+        snapshot.appendItems([.category], toSection: .topHeader)
         dataSource?.apply(snapshot, animatingDifferences: false)
+    }
+}
+
+// MARK: - UICollectionViewDelegate
+extension HomeViewController: UICollectionViewDelegate {
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        notifyUserScrolledBanner()
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate {
+            notifyUserScrolledBanner()
+        }
+    }
+
+    private func notifyUserScrolledBanner() {
+        guard bannerCount > 0 else { return }
+
+        let visibleIndexPaths = collectionView.indexPathsForVisibleItems
+            .filter { $0.section == HomeSection.banner.rawValue }
+            .sorted()
+
+        if let firstVisibleBannerIndexPath = visibleIndexPaths.first {
+            userScrolledBannerSubject.send(firstVisibleBannerIndexPath.item)
+        }
     }
 }

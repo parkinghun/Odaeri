@@ -9,20 +9,20 @@ import UIKit
 import SnapKit
 
 final class TrendingSearchTickerView: BaseView {
-    private var rank: String
-    private var searchText: String
-    
+    private var keywords: [String] = []
+    private var currentIndex: Int = 0
+    private var timer: Timer?
+
     var onSearchTapped: ((String) -> Void)?
-    
+
     private let iconImageView: UIImageView = {
-        let image = AppImage.default?.withRenderingMode(.alwaysTemplate)
-        let imageView = UIImageView(image: image)
+        let imageView = UIImageView(image: AppImage.default)
         imageView.tintColor = AppColor.deepSprout
         imageView.setContentHuggingPriority(.required, for: .horizontal)
         imageView.setContentCompressionResistancePriority(.required, for: .horizontal)
         return imageView
     }()
-    
+
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.text = "인기검색어"
@@ -32,7 +32,7 @@ final class TrendingSearchTickerView: BaseView {
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         return label
     }()
-    
+
     private lazy var searchKeywordButton: UIButton = {
         let button = UIButton(type: .system)
         button.tintColor = AppColor.blackSprout
@@ -40,10 +40,6 @@ final class TrendingSearchTickerView: BaseView {
         button.contentHorizontalAlignment = .leading
         button.setContentHuggingPriority(.defaultLow, for: .horizontal)
         button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        let title = "\(rank) \(searchText)"
-        button.setTitle(title, for: .normal)
-
         button.addTarget(self, action: #selector(keywordTappped), for: .touchUpInside)
         return button
     }()
@@ -59,38 +55,71 @@ final class TrendingSearchTickerView: BaseView {
         stack.alignment = .center
         return stack
     }()
-    
-    init(
-        rank: String = "1",
-        searchText: String = "스타벅스"
-    ) {
-        self.rank = rank
-        self.searchText = searchText
-        super.init(frame: .zero)
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
     }
-    
+
+    deinit {
+        stopTimer()
+    }
+
     override func setupView() {
         addSubview(stackView)
-        
+
         stackView.snp.makeConstraints {
             $0.edges.equalToSuperview()
         }
-        
+
         iconImageView.snp.makeConstraints {
             $0.size.equalTo(16)
         }
     }
-    
-    func updateSearch(rank: String, text: String) {
-        self.rank = rank
-        self.searchText = text
-        
-        UIView.transition(with: searchKeywordButton, duration: 0.3, options: .transitionCrossDissolve) {
-            self.searchKeywordButton.setTitle("\(rank) \(text)", for: .normal)
+
+    func configure(with keywords: [String]) {
+        self.keywords = keywords
+        self.currentIndex = 0
+
+        stopTimer()
+
+        guard !keywords.isEmpty else { return }
+
+        updateKeywordDisplay()
+        startTimer()
+    }
+
+    private func startTimer() {
+        timer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            self?.showNextKeyword()
         }
     }
-    
+
+    private func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    private func showNextKeyword() {
+        guard !keywords.isEmpty else { return }
+
+        currentIndex = (currentIndex + 1) % keywords.count
+        updateKeywordDisplay()
+    }
+
+    private func updateKeywordDisplay() {
+        guard !keywords.isEmpty else { return }
+
+        let rank = currentIndex + 1
+        let keyword = keywords[currentIndex]
+        let title = "\(rank) \(keyword)"
+
+        UIView.transition(with: searchKeywordButton, duration: 0.3, options: .transitionCrossDissolve) {
+            self.searchKeywordButton.setTitle(title, for: .normal)
+        }
+    }
+
     @objc private func keywordTappped() {
-        onSearchTapped?(searchText)
+        guard !keywords.isEmpty else { return }
+        onSearchTapped?(keywords[currentIndex])
     }
 }

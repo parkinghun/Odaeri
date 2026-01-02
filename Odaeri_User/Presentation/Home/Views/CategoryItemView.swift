@@ -16,7 +16,7 @@ final class CategoryItemView: BaseView {
         let view = UIView()
         view.backgroundColor = AppColor.gray0
         view.layer.cornerRadius = 16
-        view.layer.borderWidth = 1
+        view.layer.borderWidth = 1.5
         view.layer.borderColor = isSelected ? AppColor.blackSprout.cgColor : AppColor.gray30.cgColor
         return view
     }()
