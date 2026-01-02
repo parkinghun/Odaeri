@@ -27,7 +27,7 @@ final class PopularShopCell: BaseCollectionViewCell {
     private let picchelinImageView: UIImageView = {
         let view = UIImageView()
         view.image = AppImage.pickchelin
-        view.contentMode = .scaleAspectFit
+        view.contentMode = .scaleAspectFill
         view.isHidden = true
         return view
     }()
@@ -146,7 +146,8 @@ final class PopularShopCell: BaseCollectionViewCell {
         
         picchelinImageView.snp.makeConstraints { make in
             make.top.trailing.equalToSuperview().inset(AppSpacing.small)
-            make.height.equalTo(20)
+            make.width.equalTo(61)
+            make.height.equalTo(32)
         }
         
         infoContainerView.snp.makeConstraints { make in
