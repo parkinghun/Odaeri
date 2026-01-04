@@ -33,4 +33,10 @@ final class HomeCoordinator: Coordinator {
         let viewController = ShopDetailViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
     }
+
+    func showEventWeb(path: String) {
+        let viewModel = EventWebViewModel(path: path)
+        let viewController = EventWebViewController(viewModel: viewModel)
+        navigationController.pushViewController(viewController, animated: true)
+    }
 }
