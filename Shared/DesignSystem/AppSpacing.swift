@@ -24,10 +24,12 @@ enum AppSpacing {
     static let medium: CGFloat = 12
     /// 16
     static let large: CGFloat = 16
+    /// 20
+    static let xLarge: CGFloat = 20
     /// 24
-    static let xLarge: CGFloat = 24
+    static let xxLarge: CGFloat = 24
     /// 32
-    static let xxLarge: CGFloat = 32
+    static let xxxLarge: CGFloat = 32
     
     // 유동적인 패딩이 필요할 때 (예: 화면 좌우 여백)
     static let screenMargin: CGFloat = 20

@@ -12,6 +12,7 @@ enum AppColor {
     static let deepSprout = UIColor(hex: "#B7C8B1")
     static let brightSprout = UIColor(hex: "#E0E4D9")
     static let brightForsythia = UIColor(hex: "#FDC020")
+    static let translucent90 = UIColor(hex: "#2D303199")
 
     // MARK: - GrayScale
     static let gray0 = UIColor(hex: "#FFFFFF")

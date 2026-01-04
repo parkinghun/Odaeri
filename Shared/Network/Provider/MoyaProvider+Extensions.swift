@@ -182,12 +182,12 @@ extension MoyaProvider {
             return .accessTokenExpired
         }
 
-        if statusCode == 401 {
-            return .invalidRefreshToken
-        }
-
         if statusCode == 418 {
             return .refreshTokenExpired
+        }
+
+        if statusCode == 401 {
+            return .unauthorized
         }
 
         if let errorResponse = try? response.map(ErrorResponse.self) {
@@ -256,7 +256,16 @@ extension MoyaProvider {
                 }
                 .catch { error -> AnyPublisher<Void, NetworkError> in
                     TokenManager.shared.clearTokens()
-                    return Fail(error: error).eraseToAnyPublisher()
+
+                    // Refresh Token API에서 401(unauthorized)이 발생하면 invalidRefreshToken으로 변환
+                    let finalError: NetworkError
+                    if case .unauthorized = error {
+                        finalError = .invalidRefreshToken
+                    } else {
+                        finalError = error
+                    }
+
+                    return Fail(error: finalError).eraseToAnyPublisher()
                 }
                 .eraseToAnyPublisher()
         }

@@ -24,6 +24,18 @@ final class CustomTabBarController: UITabBarController {
         selectedIndex = item.rawValue
         customTabBar.selectTab(item)
     }
+
+    override func setTabBarHidden(_ hidden: Bool, animated: Bool = true) {
+        if animated {
+            UIView.animate(withDuration: 0.3) {
+                self.customTabBar.alpha = hidden ? 0 : 1
+                self.customTabBar.isHidden = hidden
+            }
+        } else {
+            customTabBar.alpha = hidden ? 0 : 1
+            customTabBar.isHidden = hidden
+        }
+    }
 }
 
 // MARK: - Setup

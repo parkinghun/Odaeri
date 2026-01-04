@@ -502,6 +502,17 @@ private extension HomeViewController {
 
 // MARK: - UICollectionViewDelegate
 extension HomeViewController: UICollectionViewDelegate {
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard let item = dataSource?.itemIdentifier(for: indexPath) else { return }
+
+        switch item {
+        case .popularRestaurants(let store), .myPickupStore(let store):
+            coordinator?.showStoreDetail(storeId: store.storeId)
+        case .category, .banner:
+            break
+        }
+    }
+
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         notifyUserScrolledBanner()
     }

@@ -6,8 +6,11 @@
 //
 
 import UIKit
+import Combine
 
 class BaseCollectionViewCell: UICollectionViewCell {
+    var cancellables = Set<AnyCancellable>()
+    
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
@@ -19,5 +22,10 @@ class BaseCollectionViewCell: UICollectionViewCell {
 
     func setupUI() {
         // Override point for subclasses
+    }
+    
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        cancellables.removeAll()
     }
 }

@@ -8,13 +8,15 @@
 import Foundation
 
 enum HomeSection: Int, CaseIterable {
-    case trendingRestaurants
+    case topHeader
+    case popularRestaurants
     case banner
     case myPickupStores
 
     var title: String {
         switch self {
-        case .trendingRestaurants: return "실시간 인기 맛집"
+        case .topHeader: return ""
+        case .popularRestaurants: return "실시간 인기 맛집"
         case .banner: return ""
         case .myPickupStores: return "내가 픽업 가게"
         }
@@ -22,7 +24,8 @@ enum HomeSection: Int, CaseIterable {
 }
 
 enum HomeSectionItem: Hashable, Equatable {
-    case trendingRestaurant(StoreEntity)
+    case category
+    case popularRestaurants(StoreEntity)
     case banner(BannerEntity)
     case myPickupStore(StoreEntity)
 }

@@ -9,14 +9,18 @@ import UIKit
 
 enum AppFont {
     static let title1 = FontFamily.Pretendard.bold.of(size: 20)
+    static let body1Bold = FontFamily.Pretendard.bold.of(size: 16)
     static let body1 = FontFamily.Pretendard.medium.of(size: 16)
+    static let body1Regular = FontFamily.Pretendard.regular.of(size: 16)
     static let body2 = FontFamily.Pretendard.medium.of(size: 14)
+    static let body2Regular = FontFamily.Pretendard.regular.of(size: 14)
     static let body2Bold = FontFamily.Pretendard.bold.of(size: 14)
     static let body3 = FontFamily.Pretendard.medium.of(size: 13)
     static let body3Bold = FontFamily.Pretendard.bold.of(size: 13)
     static let caption = FontFamily.Pretendard.semiBold.of(size: 12)
     static let caption1 = FontFamily.Pretendard.regular.of(size: 12)
     static let caption2 = FontFamily.Pretendard.regular.of(size: 10)
+    static let caption2Medium = FontFamily.Pretendard.medium.of(size: 10)
     static let caption3 = FontFamily.Pretendard.regular.of(size: 8)
     
     static let brandTitle1 = FontFamily.Jalnan.gothic.of(size: 24)

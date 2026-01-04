@@ -30,6 +30,10 @@ struct StoreEntity: Hashable, Equatable {
     let creator: CreatorEntity?
     let menuList: [MenuEntity]
 
+    var rate: String {
+        return String(format: "%.1f", totalRating)
+    }
+    
     init(
         storeId: String,
         name: String,

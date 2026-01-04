@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct MenuEntity {
+struct MenuEntity: Hashable {
     let name: String
     let description: String
     let originInformation: String
@@ -15,10 +15,14 @@ struct MenuEntity {
     let category: String
     let tags: [String]
     let menuImageUrl: String
-    private let isSoldOut: Bool
+    let isSoldOut: Bool
     
     var formattedPrice: String {
         return price.formatted() + "원"
+    }
+
+    var priceValue: Int {
+        return price
     }
 
     init(

@@ -15,6 +15,7 @@ enum NetworkError: Error {
 
     case serverError(statusCode: Int, message: String)
 
+    case unauthorized
     case accessTokenExpired
     case invalidRefreshToken
     case refreshTokenExpired
@@ -31,12 +32,14 @@ enum NetworkError: Error {
             return "데이터 처리 중 오류가 발생했습니다: \(error.localizedDescription)"
         case .serverError(let statusCode, let message):
             return "[\(statusCode)] \(message)"
+        case .unauthorized:
+            return "인증에 실패했습니다. 로그인 정보를 확인해주세요."
         case .accessTokenExpired:
             return "로그인 세션이 만료되었습니다. 다시 로그인해주세요."
         case .invalidRefreshToken:
-            return "인증할 수 없는 리프레시 토큰입니다."
+            return "인증 정보가 유효하지 않습니다. 다시 로그인해주세요."
         case .refreshTokenExpired:
-            return "리프레시 토큰이 만료되었습니다. 다시 로그인 해주세요."
+            return "로그인 세션이 만료되었습니다. 다시 로그인해주세요."
         case .unknown(let error):
             if let error = error {
                 return "알 수 없는 오류: \(error.localizedDescription)"
@@ -49,6 +52,8 @@ enum NetworkError: Error {
         switch self {
         case .serverError(let code, _):
             return code
+        case .unauthorized:
+            return 401
         case .accessTokenExpired:
             return 419
         case .invalidRefreshToken:
@@ -77,7 +82,7 @@ enum NetworkError: Error {
             return true
         case .serverError(let statusCode, _):
             return statusCode == 503 || statusCode >= 500
-        case .accessTokenExpired, .invalidRefreshToken, .refreshTokenExpired:
+        case .accessTokenExpired, .invalidRefreshToken, .refreshTokenExpired, .unauthorized:
             return false
         case .decodingFailed, .unknown:
             return false

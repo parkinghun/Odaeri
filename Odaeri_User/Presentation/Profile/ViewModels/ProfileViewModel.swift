@@ -10,12 +10,12 @@ import Combine
 
 final class ProfileViewModel: BaseViewModel, ViewModelType {
     
-    private let authRepository: AuthRepository
+    private let userRepository: UserRepository
     private let logoutErrorSubject = PassthroughSubject<String, Never>()
 
     
-    init(authRepository: AuthRepository = AuthRepositoryImpl()) {
-        self.authRepository = authRepository
+    init(userRepository: UserRepository = UserRepositoryImpl()) {
+        self.userRepository = userRepository
     }
     
     struct Input {
@@ -29,7 +29,7 @@ final class ProfileViewModel: BaseViewModel, ViewModelType {
     
     func transform(input: Input) -> Output {
         let logoutSuccessSubject = PassthroughSubject<Void, Never>()
-
+        
         input.logoutButtonTapped
             .sink { [weak self] _ in
                 guard let self else { return }
@@ -46,7 +46,7 @@ final class ProfileViewModel: BaseViewModel, ViewModelType {
     }
 
     private func performLogout(completion: @escaping () -> Void) {
-        authRepository.logout()
+        userRepository.logout()
             .sink(
                 receiveCompletion: { [weak self] result in
                     guard let self else { return }

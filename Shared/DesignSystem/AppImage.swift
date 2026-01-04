@@ -8,6 +8,20 @@
 import UIKit
 
 enum AppImage {
+    private static func image(_ name: String) -> UIImage {
+        guard let image = UIImage(named: name) else {
+            return UIImage()
+        }
+        return image.withRenderingMode(.alwaysTemplate)
+    }
+    
+    private static func systemImage(_ name: String) -> UIImage {
+        guard let image = UIImage(systemName: name) else {
+            return UIImage()
+        }
+        return image.withRenderingMode(.alwaysTemplate)
+    }
+    
     // MARK: - Category
     static let bakery = UIImage(named: "Bakery")
     static let coffee = UIImage(named: "Coffee")
@@ -16,23 +30,26 @@ enum AppImage {
     static let more = UIImage(named: "More")
     
     // MARK: - Icon
-    static let check = UIImage(named: "Check")
-    static let chevron = UIImage(named: "chevron")
-    static let `default` = UIImage(named: "Default")
-    static let detail = UIImage(named: "Detail")
-    static let distance = UIImage(named: "Distance")
-    static let likeEmpty = UIImage(named: "Like_Empty")
-    static let likeFill = UIImage(named: "Like_Fill")
-    static let list = UIImage(named: "List")
-    static let location = UIImage(named: "Location")
-    static let parking = UIImage(named: "Parking")
-    static let run = UIImage(named: "Run")
-    static let search = UIImage(named: "Search")
-    static let sesac = UIImage(named: "Sesac")
-    static let starEmpty = UIImage(named: "Star_Empty")
-    static let starFill = UIImage(named: "Star_Fill")
-    static let time = UIImage(named: "Time")
-    static let write = UIImage(named: "Write")
+    static let check = image("Check")
+    static let checkmarkFill = systemImage("checkmark.square.fill")
+    static let checkmarkEmpty = systemImage("checkmark.square")
+    static let chevron = image("chevron")
+    static let `default` = image("Default")
+    static let detail = image("Detail")
+    static let distance = image("Distance")
+    static let likeEmpty = image("Like_Empty")
+    static let likeFill = image("Like_Fill")
+    static let list = image("List")
+    static let location = image("Location")
+    static let parking = image("Parking")
+    static let run = image("Run")
+    static let search = image("Search")
+    static let sesac = image("Sesac")
+    static let starEmpty = image("Star_Empty")
+    static let starFill = image("Star_Fill")
+    static let time = image("Time")
+    static let write = image("Write")
+    static let bike = image("bike")
     
     // MARK: - TabBar
     static let communityEmpty = UIImage(named: "Community_Empty")

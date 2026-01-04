@@ -29,6 +29,8 @@ final class HomeCoordinator: Coordinator {
     }
 
     func showStoreDetail(storeId: String) {
-        delegate?.homeCoordinatorDidSelectStore(self, storeId: storeId)
+        let viewModel = ShopDetailViewModel(storeId: storeId)
+        let viewController = ShopDetailViewController(viewModel: viewModel)
+        navigationController.pushViewController(viewController, animated: true)
     }
 }
