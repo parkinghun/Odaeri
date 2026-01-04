@@ -11,6 +11,11 @@ import Moya
 
 final class BannerRepositoryImpl: BannerRepository {
     private let provider = MoyaProvider<BannerAPI>()
+    private let tokenManager: TokenManager
+
+    init(tokenManager: TokenManager = TokenManager.shared) {
+        self.tokenManager = tokenManager
+    }
 
     func fetchBanners() -> AnyPublisher<[BannerEntity], NetworkError> {
         provider.requestPublisher(.getBanners)
@@ -18,5 +23,9 @@ final class BannerRepositoryImpl: BannerRepository {
                 response.data.map { BannerEntity(from: $0) }
             }
             .eraseToAnyPublisher()
+    }
+
+    func getAccessToken() -> String? {
+        return tokenManager.accessToken
     }
 }
