@@ -8,6 +8,7 @@
 import UIKit
 import SnapKit
 import Combine
+import CoreLocation
 
 final class PopularShopCell: BaseCollectionViewCell {
     
@@ -206,19 +207,31 @@ final class PopularShopCell: BaseCollectionViewCell {
         }
     }
     
-    func configure(with store: StoreEntity) {
+    func configure(with store: StoreEntity, currentLocation: CLLocation?) {
         imageView.setImage(url: store.storeImageUrls.first)
-        
+
         nameLabel.text = store.name
         likeCountLabel.text = "\(store.pickCount)개"
-        
+
         likeButton.configure(storeId: store.storeId, isPicked: store.isPick)
-        
+
         picchelinImageView.isHidden = !store.isPicchelin
-        
-        distanceLabel.text = "3.2km"
+
+        if let currentLocation = currentLocation {
+            let distance = RouteManager.shared.calculateDistance(
+                from: currentLocation.coordinate,
+                to: CLLocationCoordinate2D(latitude: store.latitude, longitude: store.longitude)
+            )
+            distanceLabel.text = String(format: "%.1fkm", distance)
+
+            let estimatedSteps = RouteManager.shared.calculateEstimatedSteps(distanceInKm: distance)
+            runLabel.text = "\(estimatedSteps)보"
+        } else {
+            distanceLabel.text = "--km"
+            runLabel.text = "--보"
+        }
+
         timeLabel.text = store.close
-        runLabel.text = "135회"
     }
     
     func revertLike() {

@@ -8,6 +8,7 @@
 import UIKit
 import SnapKit
 import Combine
+import CoreLocation
 
 final class ShopListCell: BaseCollectionViewCell {
     
@@ -305,44 +306,56 @@ final class ShopListCell: BaseCollectionViewCell {
         }
     }
     
-    func configure(with store: StoreEntity) {
+    func configure(with store: StoreEntity, currentLocation: CLLocation?) {
         mainImageView.setImage(url: store.storeImageUrls.first)
         subImageView1.setImage(url: store.storeImageUrls.count > 1 ? store.storeImageUrls[1] : nil)
         subImageView2.setImage(url: store.storeImageUrls.count > 2 ? store.storeImageUrls[2] : nil)
-        
+
         nameLabel.text = store.name
         likeCountLabel.text = "\(store.pickCount)개"
-        
+
         rateLabel.text = String(format: "%.1f", store.totalRating)
         rateCountLabel.text = "(\(store.totalReviewCount))"
-        
+
         likeButton.configure(storeId: store.storeId, isPicked: store.isPick)
-        
+
         picchelinImageView.isHidden = !store.isPicchelin
-        
-        distanceLabel.text = "3.2km"
+
+        if let currentLocation = currentLocation {
+            let distance = RouteManager.shared.calculateDistance(
+                from: currentLocation.coordinate,
+                to: CLLocationCoordinate2D(latitude: store.latitude, longitude: store.longitude)
+            )
+            distanceLabel.text = String(format: "%.1fkm", distance)
+
+            let estimatedSteps = RouteManager.shared.calculateEstimatedSteps(distanceInKm: distance)
+            runLabel.text = "\(estimatedSteps)보"
+        } else {
+            distanceLabel.text = "--km"
+            runLabel.text = "--보"
+        }
+
         timeLabel.text = store.close
-        runLabel.text = "135회"
-        
+
         hashTagStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        
+
         for hashTag in store.hashTags {
             let containerView = UIView()
             containerView.backgroundColor = AppColor.deepSprout
             containerView.layer.cornerRadius = 8
-            
+
             let hashTagLabel = UILabel()
             hashTagLabel.text = hashTag
             hashTagLabel.font = AppFont.caption
             hashTagLabel.textColor = AppColor.gray0
-            
+
             containerView.addSubview(hashTagLabel)
-            
+
             hashTagLabel.snp.makeConstraints { make in
                 make.verticalEdges.equalToSuperview().inset(AppSpacing.xxSmall)
                 make.horizontalEdges.equalToSuperview().inset(AppSpacing.small)
             }
-            
+
             hashTagStackView.addArrangedSubview(containerView)
         }
     }
