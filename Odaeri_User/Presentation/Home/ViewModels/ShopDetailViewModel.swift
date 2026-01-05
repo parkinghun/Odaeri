@@ -7,18 +7,22 @@
 
 import Foundation
 import Combine
+import CoreLocation
 
 final class ShopDetailViewModel: BaseViewModel, ViewModelType {
     private let storeRepository: StoreRepository
+    private let locationManager: LocationManager
     private let storeId: String
     private let errorSubject = PassthroughSubject<String, Never>()
 
     init(
         storeId: String,
-        storeRepository: StoreRepository = StoreRepositoryImpl()
+        storeRepository: StoreRepository = StoreRepositoryImpl(),
+        locationManager: LocationManager = .shared
     ) {
         self.storeId = storeId
         self.storeRepository = storeRepository
+        self.locationManager = locationManager
     }
 
     struct Input {
@@ -28,11 +32,28 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
 
     struct Output {
         let storeDetail: AnyPublisher<StoreEntity, Never>
+        let currentLocation: AnyPublisher<CLLocation?, Never>
         let error: AnyPublisher<String, Never>
     }
 
     func transform(input: Input) -> Output {
         let storeDetailSubject = PassthroughSubject<StoreEntity, Never>()
+        let currentLocationSubject = CurrentValueSubject<CLLocation?, Never>(nil)
+
+        // 위치 업데이트 구독
+        locationManager.locationSubject
+            .compactMap { $0 }
+            .sink { location in
+                print("📍 뷰모델 위치 수신: \(location.coordinate)")
+                currentLocationSubject.send(location)
+            }
+            .store(in: &cancellables)
+
+        input.viewDidLoad
+            .sink { [weak self] _ in
+                self?.locationManager.checkPermissionAndStartUpdating()
+            }
+            .store(in: &cancellables)
 
         input.viewDidLoad
             .flatMap { [weak self] _ -> AnyPublisher<StoreEntity, Never> in
@@ -71,6 +92,7 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
 
         return Output(
             storeDetail: storeDetailSubject.eraseToAnyPublisher(),
+            currentLocation: currentLocationSubject.eraseToAnyPublisher(),
             error: errorSubject.eraseToAnyPublisher()
         )
     }

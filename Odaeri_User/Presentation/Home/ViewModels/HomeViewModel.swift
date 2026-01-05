@@ -7,10 +7,12 @@
 
 import Foundation
 import Combine
+import CoreLocation
 
 final class HomeViewModel: BaseViewModel, ViewModelType {
     private let storeRepository: StoreRepository
     private let bannerRepository: BannerRepository
+    private let locationManager: LocationManager
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let errorSubject = PassthroughSubject<String, Never>()
 
@@ -23,10 +25,12 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
 
     init(
         storeRepository: StoreRepository = StoreRepositoryImpl(),
-        bannerRepository: BannerRepository = BannerRepositoryImpl()
+        bannerRepository: BannerRepository = BannerRepositoryImpl(),
+        locationManager: LocationManager = .shared
     ) {
         self.storeRepository = storeRepository
         self.bannerRepository = bannerRepository
+        self.locationManager = locationManager
     }
 
     struct Input {
@@ -43,6 +47,7 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
         let popularStores: AnyPublisher<[StoreEntity], Never>
         let myPickupStores: AnyPublisher<[StoreEntity], Never>
         let currentBannerIndex: AnyPublisher<Int, Never>
+        let currentLocation: AnyPublisher<CLLocation?, Never>
         let isLoading: AnyPublisher<Bool, Never>
         let error: AnyPublisher<String, Never>
         let likeToggleFailed: AnyPublisher<String, Never>
@@ -54,10 +59,19 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
         let popularStoresSubject = PassthroughSubject<[StoreEntity], Never>()
         let myPickupStoresSubject = PassthroughSubject<[StoreEntity], Never>()
         let likeToggleFailedSubject = PassthroughSubject<String, Never>()
+        let currentLocationSubject = CurrentValueSubject<CLLocation?, Never>(nil)
 
-        // viewDidLoad 시 데이터 불러오기
+        // 위치 업데이트 구독
+        locationManager.locationSubject
+            .sink { location in
+                currentLocationSubject.send(location)
+            }
+            .store(in: &cancellables)
+
+        // viewDidLoad 시 데이터 불러오기 및 위치 권한 요청
         input.viewDidLoad
             .sink { [weak self] _ in
+                self?.locationManager.checkPermissionAndStartUpdating()
                 self?.fetchPopularKeywords(subject: popularKeywordsSubject)
                 self?.fetchBanners(subject: bannersSubject)
                 self?.fetchPopularStores(subject: popularStoresSubject)
@@ -133,6 +147,7 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
             popularStores: popularStoresSubject.eraseToAnyPublisher(),
             myPickupStores: myPickupStoresSubject.eraseToAnyPublisher(),
             currentBannerIndex: currentBannerIndexSubject.eraseToAnyPublisher(),
+            currentLocation: currentLocationSubject.eraseToAnyPublisher(),
             isLoading: isLoadingSubject.eraseToAnyPublisher(),
             error: errorSubject.eraseToAnyPublisher(),
             likeToggleFailed: likeToggleFailedSubject.eraseToAnyPublisher()
