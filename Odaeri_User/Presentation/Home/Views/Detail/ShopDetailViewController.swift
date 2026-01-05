@@ -8,6 +8,7 @@
 import UIKit
 import Combine
 import SnapKit
+import CoreLocation
 
 final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
 
@@ -44,6 +45,7 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
 
     private var currentStore: StoreEntity?
     private let likeTapSubject = PassthroughSubject<Bool, Never>()
+    private var currentLocation: CLLocation?
 
     private var selectedMenus: [MenuEntity] = []
 
@@ -158,6 +160,19 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
             }
             .store(in: &cancellables)
 
+        output.currentLocation
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] location in
+                guard let self else { return }
+                self.currentLocation = location
+
+                // 위치가 업데이트되면 StoreInfoCell을 다시 렌더링
+                if location != nil, let snapshot = self.dataSource?.snapshot() {
+                    self.dataSource?.applySnapshotUsingReloadData(snapshot)
+                }
+            }
+            .store(in: &cancellables)
+
         likeButton.tapPublisher
             .sink { [weak self] event in
                 self?.likeTapSubject.send(event.newState)
@@ -261,8 +276,8 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
             cell.configure(with: store)
         }
 
-        let storeInfoCellRegistration = UICollectionView.CellRegistration<StoreInfoCell, StoreEntity> { cell, indexPath, store in
-            cell.configure(with: store)
+        let storeInfoCellRegistration = UICollectionView.CellRegistration<StoreInfoCell, StoreEntity> { [weak self] cell, indexPath, store in
+            cell.configure(with: store, currentLocation: self?.currentLocation)
         }
 
         let menuCellRegistration = UICollectionView.CellRegistration<MenuCell, MenuEntity> { cell, indexPath, menu in
@@ -587,8 +602,10 @@ final class StoreInfoCell: UICollectionViewCell {
 
     private let estimatedTimeView: UIView = {
         let view = UIView()
-        view.backgroundColor = AppColor.brightSprout
+        view.backgroundColor = AppColor.gray0
         view.layer.cornerRadius = 16
+        view.layer.borderWidth = 1
+        view.layer.borderColor = AppColor.gray30.cgColor
         view.clipsToBounds = true
         return view
     }()
@@ -705,7 +722,7 @@ final class StoreInfoCell: UICollectionViewCell {
 
         estimatedTimeView.snp.makeConstraints { make in
             make.top.equalTo(detailInfoView.snp.bottom).offset(AppSpacing.medium)
-            make.horizontalEdges.equalToSuperview().inset(AppSpacing.screenMargin)
+            make.leading.equalToSuperview().inset(AppSpacing.screenMargin)
         }
 
         estimatedTimeIconImageView.snp.makeConstraints { make in
@@ -728,20 +745,31 @@ final class StoreInfoCell: UICollectionViewCell {
         }
     }
 
-    func configure(with store: StoreEntity) {
+    func configure(with store: StoreEntity, currentLocation: CLLocation?) {
         nameLabel.text = store.name
         picchelinImageView.isHidden = !store.isPicchelin
 
         likeIconLabelView.updateText("\(store.pickCount)개")
         rateIconLabelView.updateText(store.rate)
         rateCountLabel.text = "(\(store.totalReviewCount))"
-        orderCountLabel.text = "누적 주문 135회"
+        orderCountLabel.text = "누적 주문 \(store.totalOrderCount)회"
 
         addressInfoRow.configure(info: .address, text: store.address)
         timeInfoRow.configure(info: .time, text: "매일 \(store.open) ~ \(store.close)")
         parkingInfoRow.configure(info: .parking, text: store.parkingGuide)
 
-        estimatedTimeLabel.text = "예상 소요시간 \(store.estimatedPickupTime)분 (3.2km)"
+        if let currentLocation = currentLocation {
+            let distance = RouteManager.shared.calculateDistance(
+                from: currentLocation.coordinate,
+                to: CLLocationCoordinate2D(latitude: store.latitude, longitude: store.longitude)
+            )
+            let estimatedTime = RouteManager.shared.calculateEstimatedTime(distanceInKm: distance)
+            let formattedTime = RouteManager.shared.formatTime(estimatedTime)
+
+            estimatedTimeLabel.text = "예상 소요시간 \(formattedTime) (\(String(format: "%.1f", distance))km)"
+        } else {
+            estimatedTimeLabel.text = "예상 소요시간 --분 (--km)"
+        }
     }
 }
 

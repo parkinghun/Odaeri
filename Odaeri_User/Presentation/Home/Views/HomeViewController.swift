@@ -8,12 +8,13 @@
 import UIKit
 import Combine
 import SnapKit
+import CoreLocation
 
 final class HomeViewController: BaseViewController<HomeViewModel> {
     weak var coordinator: HomeCoordinator?
-    
+
     private let locationView = LocationView()
-    
+
     private lazy var collectionView: UICollectionView = {
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: createLayout())
         collectionView.backgroundColor = AppColor.brightSprout
@@ -21,17 +22,19 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
         collectionView.showsHorizontalScrollIndicator = false
         return collectionView
     }()
-    
+
     private typealias DataSource = UICollectionViewDiffableDataSource<HomeSection, HomeSectionItem>
     private typealias Snapshot = NSDiffableDataSourceSnapshot<HomeSection, HomeSectionItem>
-    
+
     private var dataSource: DataSource?
     private var categoryCell: CategoryCell?
     private var topHeaderView: TopHeaderView?
-    
+
     private var bannerCount: Int = 0
     private let userScrolledBannerSubject = PassthroughSubject<Int, Never>()
     private let likeTapSubject = PassthroughSubject<LikeButton.TapEvent, Never>()
+
+    private var currentLocation: CLLocation?
     
     override func setupUI() {
         super.setupUI()
@@ -46,7 +49,7 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
         configureDataSource()
         
         locationView.snp.makeConstraints {
-            $0.top.equalTo(view.safeAreaLayoutGuide).offset(AppSpacing.small)
+            $0.top.equalTo(view.safeAreaLayoutGuide)
             $0.leading.equalToSuperview().offset(AppSpacing.screenMargin)
             $0.height.equalTo(32)
         }
@@ -138,7 +141,19 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
                 self?.revertLikeForStore(storeId: storeId)
             }
             .store(in: &cancellables)
-        
+
+        // 현재 위치 업데이트
+        output.currentLocation
+            .sink { [weak self] location in
+                guard let self else { return }
+                self.currentLocation = location
+                
+                if let snapshot = self.dataSource?.snapshot(), snapshot.numberOfItems > 0 {
+                    self.dataSource?.apply(snapshot, animatingDifferences: false)
+                }
+            }
+            .store(in: &cancellables)
+
         // ViewDidLoad 트리거
         viewDidLoadSubject.send()
     }
@@ -408,14 +423,14 @@ private extension HomeViewController {
         
         let popularShopCellRegistration = UICollectionView.CellRegistration<PopularShopCell, StoreEntity> { [weak self] cell, indexPath, store in
             guard let self = self else { return }
-            cell.configure(with: store)
-            
+            cell.configure(with: store, currentLocation: self.currentLocation)
+
             // 좋아요 버튼 이벤트 연결
             cell.likeTapPublisher
                 .sink { [weak self] event in
                     self?.likeTapSubject.send(event)
                 }
-                .store(in: &self.cancellables)
+                .store(in: &cell.cancellables)
         }
         
         let bannerCellRegistration = UICollectionView.CellRegistration<BannerCell, BannerEntity> { [weak self] cell, indexPath, banner in
@@ -425,14 +440,14 @@ private extension HomeViewController {
         
         let shopListCellRegistration = UICollectionView.CellRegistration<ShopListCell, StoreEntity> { [weak self] cell, indexPath, store in
             guard let self = self else { return }
-            cell.configure(with: store)
-            
+            cell.configure(with: store, currentLocation: self.currentLocation)
+
             // 좋아요 버튼 이벤트 연결
             cell.likeTapPublisher
                 .sink { [weak self] event in
                     self?.likeTapSubject.send(event)
                 }
-                .store(in: &self.cancellables)
+                .store(in: &cell.cancellables)
         }
         
         let topHeaderRegistration = UICollectionView.SupplementaryRegistration<TopHeaderView>(

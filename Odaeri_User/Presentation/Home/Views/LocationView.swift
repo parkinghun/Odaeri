@@ -19,6 +19,7 @@ final class LocationView: BaseView {
 
     private let locationImageView: UIImageView = {
         let imageView = UIImageView(image: AppImage.location)
+        imageView.tintColor = AppColor.gray90
         return imageView
     }()
 
