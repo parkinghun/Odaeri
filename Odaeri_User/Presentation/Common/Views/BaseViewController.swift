@@ -10,7 +10,7 @@ import Combine
 import SnapKit
 
 class BaseViewController<VM: ViewModelType>: UIViewController {
-  
+
     let viewModel: VM
     var cancellables = Set<AnyCancellable>()
 
@@ -20,7 +20,7 @@ class BaseViewController<VM: ViewModelType>: UIViewController {
         indicator.hidesWhenStopped = true
         return indicator
     }()
-    
+
     init(viewModel: VM) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
@@ -34,6 +34,7 @@ class BaseViewController<VM: ViewModelType>: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = AppColor.gray0
+        setupNavigationBar()
         setupLoadingIndicator()
         setupUI()
         bind()
@@ -43,6 +44,40 @@ class BaseViewController<VM: ViewModelType>: UIViewController {
     }
 
     func bind() {
+    }
+
+    private func setupNavigationBar() {
+        guard let navigationController = navigationController,
+              navigationController.viewControllers.count > 1 else {
+            return
+        }
+
+        navigationItem.hidesBackButton = true
+
+        let backButton = createBackButton()
+        backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
+
+        let backBarButtonItem = UIBarButtonItem(customView: backButton)
+        navigationItem.leftBarButtonItem = backBarButtonItem
+    }
+
+    private func createBackButton() -> UIButton {
+        let button = UIButton(type: .system)
+        button.setImage(AppImage.chevron, for: .normal)
+        button.tintColor = AppColor.gray0
+        button.snp.makeConstraints { make in
+            make.size.equalTo(32)
+        }
+        return button
+    }
+
+    func setRightBarButtons(_ buttons: [UIButton]) {
+        let barButtonItems = buttons.map { UIBarButtonItem(customView: $0) }
+        navigationItem.rightBarButtonItems = barButtonItems
+    }
+
+    @objc private func backButtonTapped() {
+        navigationController?.popViewController(animated: true)
     }
 
     private func setupLoadingIndicator() {

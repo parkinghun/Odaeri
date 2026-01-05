@@ -10,6 +10,12 @@ import UIKit
 final class CustomTabBarController: UITabBarController {
     private let customTabBar = CustomTabBar()
 
+    override var viewControllers: [UIViewController]? {
+        didSet {
+            setupNavigationObservers()
+        }
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupCustomTabBar()
@@ -47,6 +53,14 @@ private extension CustomTabBarController {
         view.addSubview(customTabBar)
     }
 
+    func setupNavigationObservers() {
+        viewControllers?.forEach { viewController in
+            if let navigationController = viewController as? UINavigationController {
+                navigationController.delegate = self
+            }
+        }
+    }
+
     func layoutCustomTabBar() {
         let tabBarHeight: CGFloat = 60 + view.safeAreaInsets.bottom
         customTabBar.frame = CGRect(
@@ -63,5 +77,18 @@ private extension CustomTabBarController {
 extension CustomTabBarController: CustomTabBarDelegate {
     func tabBar(_ tabBar: CustomTabBar, didSelect item: TabBarItem) {
         selectedIndex = item.rawValue
+    }
+}
+
+// MARK: - UINavigationControllerDelegate
+
+extension CustomTabBarController: UINavigationControllerDelegate {
+    func navigationController(
+        _ navigationController: UINavigationController,
+        willShow viewController: UIViewController,
+        animated: Bool
+    ) {
+        let isRootViewController = navigationController.viewControllers.count == 1
+        setTabBarHidden(!isRootViewController, animated: animated)
     }
 }

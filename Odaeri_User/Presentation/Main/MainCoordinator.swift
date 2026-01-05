@@ -36,7 +36,7 @@ final class MainCoordinator: Coordinator {
 private extension MainCoordinator {
     func createTab(for item: TabBarItem) -> UINavigationController {
         let tabNavigationController = UINavigationController()
-        tabNavigationController.navigationBar.isHidden = true
+        configureNavigationBarAppearance(for: tabNavigationController)
 
         switch item {
         case .home:
@@ -84,6 +84,18 @@ private extension MainCoordinator {
         }
 
         return tabNavigationController
+    }
+
+    func configureNavigationBarAppearance(for navigationController: UINavigationController) {
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundColor = .clear
+        appearance.shadowColor = .clear
+
+        navigationController.navigationBar.standardAppearance = appearance
+        navigationController.navigationBar.scrollEdgeAppearance = appearance
+        navigationController.navigationBar.compactAppearance = appearance
+        navigationController.navigationBar.tintColor = AppColor.gray100
     }
 }
 

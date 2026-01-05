@@ -28,22 +28,19 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
         collectionView.backgroundColor = AppColor.gray15
         collectionView.showsVerticalScrollIndicator = false
         collectionView.delegate = self
+        collectionView.contentInsetAdjustmentBehavior = .never
         return collectionView
     }()
 
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
 
-    private let backButton: UIButton = {
-        let button = UIButton()
-        button.setImage(AppImage.chevron, for: .normal)
-        button.tintColor = AppColor.gray0
-        button.backgroundColor = AppColor.gray75.withAlphaComponent(0.3)
-        button.layer.cornerRadius = 20
-        button.clipsToBounds = true
+    private lazy var likeButton: LikeButton = {
+        let button = LikeButton()
+        button.snp.makeConstraints { make in
+            make.width.height.equalTo(40)
+        }
         return button
     }()
-
-    private let likeButton = LikeButton()
 
     private var currentStore: StoreEntity?
     private let likeTapSubject = PassthroughSubject<Bool, Never>()
@@ -89,17 +86,7 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        navigationController?.setNavigationBarHidden(true, animated: false)
-    }
-
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        (tabBarController as? CustomTabBarController)?.setTabBarHidden(true, animated: false)
-    }
-
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        (tabBarController as? CustomTabBarController)?.setTabBarHidden(false, animated: false)
+        setRightBarButtons([likeButton])
     }
 
     override func setupUI() {
@@ -109,8 +96,6 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
 
         view.addSubview(collectionView)
         view.addSubview(checkoutView)
-        view.addSubview(backButton)
-        view.addSubview(likeButton)
 
         checkoutView.addSubview(totalPriceLabel)
         checkoutView.addSubview(selectedCountLabel)
@@ -144,18 +129,6 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
             make.height.equalTo(52)
         }
 
-        backButton.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide).offset(AppSpacing.small)
-            make.leading.equalToSuperview().offset(AppSpacing.screenMargin)
-            make.width.height.equalTo(40)
-        }
-
-        likeButton.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide).offset(AppSpacing.small)
-            make.trailing.equalToSuperview().inset(AppSpacing.screenMargin)
-            make.width.height.equalTo(40)
-        }
-
         configureDataSource()
     }
 
@@ -182,12 +155,6 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] errorMessage in
                 self?.showAlert(title: "오류", message: errorMessage)
-            }
-            .store(in: &cancellables)
-
-        backButton.tapPublisher()
-            .sink { [weak self] in
-                self?.navigationController?.popViewController(animated: true)
             }
             .store(in: &cancellables)
 
