@@ -98,4 +98,51 @@ final class KeychainManager {
             throw KeychainError.deleteFailed(status: status)
         }
     }
+
+    func save<T: Encodable>(_ object: T, for key: String) throws {
+        let data = try JSONEncoder().encode(object)
+
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked
+        ]
+
+        SecItemDelete(query as CFDictionary)
+
+        let addStatus = SecItemAdd(query as CFDictionary, nil)
+
+        guard addStatus == errSecSuccess else {
+            throw KeychainError.saveFailed(status: addStatus)
+        }
+    }
+
+    func get<T: Decodable>(for key: String, type: T.Type) throws -> T {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        guard status == errSecSuccess else {
+            if status == errSecItemNotFound {
+                throw KeychainError.itemNotFound
+            }
+            throw KeychainError.loadFailed(status: status)
+        }
+
+        guard let data = result as? Data else {
+            throw KeychainError.dataConversionFailed
+        }
+
+        let object = try JSONDecoder().decode(T.self, from: data)
+        return object
+    }
 }
