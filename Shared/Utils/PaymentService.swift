@@ -18,7 +18,7 @@ enum PaymentError: LocalizedError {
     case amountMismatch
     case duplicateReceipt
     case unknown
-
+    
     var errorDescription: String? {
         switch self {
         case .cancelled:
@@ -44,9 +44,9 @@ struct PaymentRequest {
     let amount: String
     let productName: String
     let buyerName: String
-
-    init(storeId: String, amount: Int, storeName: String, buyerName: String = "박성훈") {
-        self.merchantUid = "ios_\(storeId)_\(Int(Date().timeIntervalSince1970*1000))"
+    
+    init(orderCode: String, amount: Int, storeName: String, buyerName: String = "박성훈") {
+        self.merchantUid = orderCode
         self.amount = "\(amount)"
         self.productName = "Odaeri - \(storeName)"
         self.buyerName = buyerName
@@ -54,8 +54,16 @@ struct PaymentRequest {
 }
 
 final class PaymentService {
+    private enum PaymentConfig {
+        static let pgId = "INIpayTest"
+        static let appScheme = "portone"
+    }
+    
     private let paymentRepository: PaymentRepository
     private let iamport: Iamport
+    private lazy var userCode: String = {
+        Bundle.main.value(for: .iamportUserCode)
+    }()
     
     init(paymentRepository: PaymentRepository = PaymentRepositoryImpl(),
          iamport: Iamport = Iamport.shared) {
@@ -63,17 +71,51 @@ final class PaymentService {
         self.iamport = iamport
     }
     
-    
-    private enum PaymentConfig {
-        static let pgId = "INIpayTest"
-        static let appScheme = "portone"
+    func processPaymentFlow(
+        webView: WKWebView,
+        request: PaymentRequest
+    ) -> AnyPublisher<PaymentValidationEntity, PaymentError> {
+        requestPayment(webView: webView, request: request)
+            .tryMap { response -> String in
+                guard let response = response else {
+                    throw PaymentError.invalidResponse
+                }
+                
+                guard response.success == true else {
+                    if let errorMsg = response.error_msg {
+                        throw PaymentError.failed(message: errorMsg)
+                    }
+                    throw PaymentError.cancelled
+                }
+                
+                guard let impUID = response.imp_uid else {
+                    throw PaymentError.invalidResponse
+                }
+                
+                return impUID
+            }
+            .flatMap { [weak self] impUID -> AnyPublisher<PaymentValidationEntity, Error> in
+                guard let self = self else {
+                    return Fail(error: PaymentError.unknown)
+                        .eraseToAnyPublisher()
+                }
+                
+                return self.validateReceipt(impUID: impUID)
+                    .mapError { networkError -> Error in
+                        return PaymentError.validationFailed(networkError)
+                    }
+                    .eraseToAnyPublisher()
+            }
+            .mapError { error -> PaymentError in
+                if let paymentError = error as? PaymentError {
+                    return paymentError
+                }
+                return .unknown
+            }
+            .eraseToAnyPublisher()
     }
     
-    private lazy var userCode: String = {
-        Bundle.main.value(for: .iamportUserCode)
-    }()
-    
-    func createPayment(from request: PaymentRequest) -> IamportPayment {
+    private func createPayment(from request: PaymentRequest) -> IamportPayment {
         let payment = IamportPayment(
             pg: PG.html5_inicis.makePgRawName(pgId: PaymentConfig.pgId),
             merchant_uid: request.merchantUid,
@@ -88,7 +130,7 @@ final class PaymentService {
         return payment
     }
     
-    func requestPayment(
+    private func requestPayment(
         webView: WKWebView,
         request: PaymentRequest
     ) -> AnyPublisher<IamportResponse?, Never> {
@@ -105,27 +147,13 @@ final class PaymentService {
                 userCode: self.userCode,
                 payment: payment
             ) { iamportResponse in
-                print("========== IAMPORT RESPONSE ==========")
-                print("Success: \(iamportResponse?.success ?? false)")
-                print("IMP UID: \(iamportResponse?.imp_uid ?? "nil")")
-                print("Merchant UID: \(iamportResponse?.merchant_uid ?? "nil")")
-                print("Error Code: \(iamportResponse?.error_code ?? "nil")")
-                print("Error Message: \(iamportResponse?.error_msg ?? "nil")")
-                print("======================================")
-                
                 promise(.success(iamportResponse))
-                
-                
             }
         }
         .eraseToAnyPublisher()
     }
     
-    func validateReceipt(impUID: String) -> AnyPublisher<PaymentValidationEntity, NetworkError> {
+    private func validateReceipt(impUID: String) -> AnyPublisher<PaymentValidationEntity, NetworkError> {
         paymentRepository.validateReceipt(impUID: impUID)
-    }
-    
-    func fetchReceipt(orderCode: String) -> AnyPublisher<PaymentReceiptEntity, NetworkError> {
-        paymentRepository.fetchReceipt(orderCode: orderCode)
     }
 }
