@@ -10,12 +10,41 @@ import Combine
 import WebKit
 import iamport_ios
 
+enum PaymentError: LocalizedError {
+    case cancelled
+    case failed(message: String)
+    case validationFailed(NetworkError)
+    case invalidResponse
+    case amountMismatch
+    case duplicateReceipt
+    case unknown
+
+    var errorDescription: String? {
+        switch self {
+        case .cancelled:
+            return "결제가 취소되었습니다."
+        case .failed(let message):
+            return message
+        case .validationFailed(let networkError):
+            return "영수증 검증 실패: \(networkError.localizedDescription)"
+        case .invalidResponse:
+            return "결제 응답이 올바르지 않습니다."
+        case .amountMismatch:
+            return "결제 금액이 일치하지 않습니다."
+        case .duplicateReceipt:
+            return "이미 처리된 결제입니다."
+        case .unknown:
+            return "알 수 없는 오류가 발생했습니다."
+        }
+    }
+}
+
 struct PaymentRequest {
     let merchantUid: String
     let amount: String
     let productName: String
     let buyerName: String
-    
+
     init(storeId: String, amount: Int, storeName: String, buyerName: String = "박성훈") {
         self.merchantUid = "ios_\(storeId)_\(Int(Date().timeIntervalSince1970*1000))"
         self.amount = "\(amount)"
