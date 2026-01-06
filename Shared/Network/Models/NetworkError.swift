@@ -88,4 +88,13 @@ enum NetworkError: Error {
             return false
         }
     }
+
+    var isNetworkConnectionError: Bool {
+        switch self {
+        case .timeout, .noInternetConnection:
+            return true
+        default:
+            return false
+        }
+    }
 }

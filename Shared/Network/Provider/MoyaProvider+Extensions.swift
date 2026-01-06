@@ -36,6 +36,12 @@ extension MoyaProvider {
                 print("Response Headers: \(response.response?.allHeaderFields ?? [:])")
                 print("====================================")
 
+                print("========== SERVER ERROR BODY ==========")
+                if let body = String(data: response.data, encoding: .utf8) {
+                    print(body) // 서버가 보내준 실제 JSON 전문 출력
+                }
+                print("=======================================")
+                
                 if let error = self.parseError(from: response) {
                     return Fail(error: error).eraseToAnyPublisher()
                 }
@@ -58,6 +64,11 @@ extension MoyaProvider {
 
                 switch error {
                 case .invalidRefreshToken, .refreshTokenExpired:
+                    NotificationCenter.default.post(name: .refreshTokenExpired, object: nil)
+                    return Fail(error: error).eraseToAnyPublisher()
+
+                case .unauthorized:
+                    NotificationCenter.default.post(name: .unauthorizedAccess, object: nil)
                     return Fail(error: error).eraseToAnyPublisher()
 
                 case .accessTokenExpired:
@@ -257,7 +268,6 @@ extension MoyaProvider {
                 .catch { error -> AnyPublisher<Void, NetworkError> in
                     TokenManager.shared.clearTokens()
 
-                    // Refresh Token API에서 401(unauthorized)이 발생하면 invalidRefreshToken으로 변환
                     let finalError: NetworkError
                     if case .unauthorized = error {
                         finalError = .invalidRefreshToken
