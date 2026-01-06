@@ -11,14 +11,14 @@ import Foundation
 struct PaymentValidationEntity {
     let paymentId: String
     let orderItem: OrderItemEntity
-    let createdAt: String
-    let updatedAt: String
+    let createdAt: Date?
+    let updatedAt: Date?
 
     init(from response: PaymentValidationResponse) {
         self.paymentId = response.paymentId
         self.orderItem = OrderItemEntity(from: response.orderItem)
-        self.createdAt = response.createdAt
-        self.updatedAt = response.updatedAt
+        self.createdAt = response.createdAt.toDate()
+        self.updatedAt = response.updatedAt.toDate()
     }
 }
 
@@ -26,83 +26,21 @@ struct OrderItemEntity {
     let orderId: String
     let orderCode: String
     let totalPrice: Int
-    let store: StoreInfoEntity
+    let store: OrderStoreInfoEntity
     let orderMenuList: [OrderMenuEntity]
     let paidAt: String?
-    let createdAt: String
-    let updatedAt: String
+    let createdAt: Date?
+    let updatedAt: Date?
 
     init(from response: OrderItemResponse) {
         self.orderId = response.orderId
         self.orderCode = response.orderCode
         self.totalPrice = response.totalPrice
-        self.store = StoreInfoEntity(from: response.store)
+        self.store = OrderStoreInfoEntity(from: response.store)
         self.orderMenuList = response.orderMenuList.map { OrderMenuEntity(from: $0) }
         self.paidAt = response.paidAt
-        self.createdAt = response.createdAt
-        self.updatedAt = response.updatedAt
-    }
-}
-
-struct StoreInfoEntity {
-    let id: String
-    let category: String
-    let name: String
-    let close: String
-    let storeImageUrls: [String]
-    let hashTags: [String]
-    let longitude: Double
-    let latitude: Double
-    let createdAt: String
-    let updatedAt: String
-
-    init(from response: StoreInfoResponse) {
-        self.id = response.id
-        self.category = response.category
-        self.name = response.name
-        self.close = response.close
-        self.storeImageUrls = response.storeImageUrls
-        self.hashTags = response.hashTags
-        self.longitude = response.geolocation.longitude
-        self.latitude = response.geolocation.latitude
-        self.createdAt = response.createdAt
-        self.updatedAt = response.updatedAt
-    }
-}
-
-struct OrderMenuEntity {
-    let menu: MenuDetailEntity
-    let quantity: Int
-
-    init(from response: OrderMenuResponse) {
-        self.menu = MenuDetailEntity(from: response.menu)
-        self.quantity = response.quantity
-    }
-}
-
-struct MenuDetailEntity {
-    let id: String
-    let category: String
-    let name: String
-    let description: String
-    let originInformation: String
-    let price: Int
-    let tags: [String]
-    let menuImageUrl: String
-    let createdAt: String
-    let updatedAt: String
-
-    init(from response: MenuDetailResponse) {
-        self.id = response.id
-        self.category = response.category
-        self.name = response.name
-        self.description = response.description
-        self.originInformation = response.originInformation
-        self.price = response.price
-        self.tags = response.tags
-        self.menuImageUrl = response.menuImageUrl
-        self.createdAt = response.createdAt
-        self.updatedAt = response.updatedAt
+        self.createdAt = response.createdAt.toDate()
+        self.updatedAt = response.updatedAt.toDate()
     }
 }
 
@@ -149,8 +87,8 @@ struct PaymentReceiptEntity {
     let startedAt: String?
     let paidAt: String?
     let receiptUrl: String?
-    let createdAt: String
-    let updatedAt: String
+    let createdAt: Date?
+    let updatedAt: Date?
 
     init(from response: PaymentReceiptResponse) {
         self.impUid = response.impUid
@@ -194,7 +132,7 @@ struct PaymentReceiptEntity {
         self.startedAt = response.startedAt
         self.paidAt = response.paidAt
         self.receiptUrl = response.receiptUrl
-        self.createdAt = response.createdAt
-        self.updatedAt = response.updatedAt
+        self.createdAt = response.createdAt.toDate()
+        self.updatedAt = response.updatedAt.toDate()
     }
 }

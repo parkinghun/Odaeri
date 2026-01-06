@@ -34,8 +34,8 @@ struct OrderItemResponse: Decodable {
     let orderId: String
     let orderCode: String
     let totalPrice: Int
-    let store: StoreInfoResponse
-    let orderMenuList: [OrderMenuResponse]
+    let store: OrderStoreInfo
+    let orderMenuList: [OrderMenuDTO]
     let paidAt: String?
     let createdAt: String
     let updatedAt: String
@@ -47,50 +47,6 @@ struct OrderItemResponse: Decodable {
         case store
         case orderMenuList = "order_menu_list"
         case paidAt, createdAt, updatedAt
-    }
-}
-
-struct StoreInfoResponse: Decodable {
-    let id: String
-    let category: String
-    let name: String
-    let close: String
-    let storeImageUrls: [String]
-    let hashTags: [String]
-    let geolocation: Geolocation
-    let createdAt: String
-    let updatedAt: String
-
-    enum CodingKeys: String, CodingKey {
-        case id, category, name, close
-        case storeImageUrls = "store_image_urls"
-        case hashTags, geolocation, createdAt, updatedAt
-    }
-}
-
-struct OrderMenuResponse: Decodable {
-    let menu: MenuDetailResponse
-    let quantity: Int
-}
-
-struct MenuDetailResponse: Decodable {
-    let id: String
-    let category: String
-    let name: String
-    let description: String
-    let originInformation: String
-    let price: Int
-    let tags: [String]
-    let menuImageUrl: String
-    let createdAt: String
-    let updatedAt: String
-
-    enum CodingKeys: String, CodingKey {
-        case id, category, name, description
-        case originInformation = "origin_information"
-        case price, tags
-        case menuImageUrl = "menu_image_url"
-        case createdAt, updatedAt
     }
 }
 
