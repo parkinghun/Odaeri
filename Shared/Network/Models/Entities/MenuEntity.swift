@@ -8,6 +8,7 @@
 import Foundation
 
 struct MenuEntity: Hashable {
+    let menuId: String
     let name: String
     let description: String
     let originInformation: String
@@ -16,7 +17,7 @@ struct MenuEntity: Hashable {
     let tags: [String]
     let menuImageUrl: String
     let isSoldOut: Bool
-    
+
     var formattedPrice: String {
         return price.formatted() + "원"
     }
@@ -26,6 +27,7 @@ struct MenuEntity: Hashable {
     }
 
     init(
+        menuId: String,
         name: String,
         description: String,
         originInformation: String,
@@ -33,8 +35,9 @@ struct MenuEntity: Hashable {
         category: String,
         tags: [String],
         menuImageUrl: String,
-        isSoldOut: Bool = false,
+        isSoldOut: Bool = false
     ) {
+        self.menuId = menuId
         self.name = name
         self.description = description
         self.originInformation = originInformation
@@ -46,6 +49,7 @@ struct MenuEntity: Hashable {
     }
 
     init(from response: MenuResponse) {
+        self.menuId = response.menuId
         self.name = response.name
         self.description = response.description
         self.originInformation = response.originInformation
