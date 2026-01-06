@@ -20,11 +20,72 @@ final class AppCoordinator: Coordinator {
         self.navigationController.isNavigationBarHidden = true
     }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     func start() {
         window.rootViewController = navigationController
         window.makeKeyAndVisible()
 
+        setupNotificationObservers()
         checkAuthenticationStatus()
+    }
+
+    private func setupNotificationObservers() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleUnauthorizedAccess),
+            name: .unauthorizedAccess,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleRefreshTokenExpired),
+            name: .refreshTokenExpired,
+            object: nil
+        )
+    }
+
+    @objc private func handleUnauthorizedAccess() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            self.tokenManager.clearTokens()
+
+            let alert = UIAlertController(
+                title: "인증 오류",
+                message: "로그인이 필요합니다. 다시 로그인해주세요.",
+                preferredStyle: .alert
+            )
+
+            alert.addAction(UIAlertAction(title: "확인", style: .default) { _ in
+                self.showAuthFlow()
+            })
+
+            self.navigationController.present(alert, animated: true)
+        }
+    }
+
+    @objc private func handleRefreshTokenExpired() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            self.tokenManager.clearTokens()
+
+            let alert = UIAlertController(
+                title: "세션 만료",
+                message: "로그인 세션이 만료되었습니다. 다시 로그인해주세요.",
+                preferredStyle: .alert
+            )
+
+            alert.addAction(UIAlertAction(title: "확인", style: .default) { _ in
+                self.showAuthFlow()
+            })
+
+            self.navigationController.present(alert, animated: true)
+        }
     }
 
     private func checkAuthenticationStatus() {
@@ -42,6 +103,16 @@ final class AppCoordinator: Coordinator {
         mainCoordinator.delegate = self
         addChild(mainCoordinator)
         mainCoordinator.start()
+
+        retryPendingPayments()
+    }
+
+    private func retryPendingPayments() {
+        let pendingCount = PaymentService.shared.getPendingPaymentsCount()
+        guard pendingCount > 0 else { return }
+
+        print("앱 시작 시 pending payment \(pendingCount)개 재검증 시작")
+        PaymentService.shared.retryPendingPayments()
     }
 
     func showAuthFlow() {
