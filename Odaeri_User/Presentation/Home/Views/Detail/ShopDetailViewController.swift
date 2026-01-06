@@ -8,10 +8,8 @@
 import UIKit
 import Combine
 import SnapKit
-import CoreLocation
 
 final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
-
     enum Section: Hashable {
         case imageCarousel
         case storeInfo
@@ -45,9 +43,11 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
 
     private var currentStore: StoreEntity?
     private let likeTapSubject = PassthroughSubject<Bool, Never>()
-    private var currentLocation: CLLocation?
+    private var estimatedTimeText: String = "예상 소요시간 --분 (--km)"
 
     private var selectedMenus: [MenuEntity] = []
+    private let menuSelectedSubject = CurrentValueSubject<[MenuEntity], Never>([])
+    private let checkoutTapSubject = PassthroughSubject<(store: StoreEntity, selectedMenus: [MenuEntity]), Never>()
 
     private let checkoutView: UIView = {
         let view = UIView()
@@ -141,7 +141,9 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
 
         let input = ShopDetailViewModel.Input(
             viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
-            storeLikeToggled: likeTapSubject.eraseToAnyPublisher()
+            storeLikeToggled: likeTapSubject.eraseToAnyPublisher(),
+            menuSelected: menuSelectedSubject.eraseToAnyPublisher(),
+            checkoutButtonTapped: checkoutTapSubject.eraseToAnyPublisher()
         )
 
         let output = viewModel.transform(input: input)
@@ -160,14 +162,13 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
             }
             .store(in: &cancellables)
 
-        output.currentLocation
+        output.estimatedTimeText
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] location in
-                guard let self else { return }
-                self.currentLocation = location
+            .sink { [weak self] timeText in
+                guard let self = self else { return }
+                self.estimatedTimeText = timeText
 
-                // 위치가 업데이트되면 StoreInfoCell을 다시 렌더링
-                if location != nil, let snapshot = self.dataSource?.snapshot() {
+                if let snapshot = self.dataSource?.snapshot() {
                     self.dataSource?.applySnapshotUsingReloadData(snapshot)
                 }
             }
@@ -176,6 +177,45 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
         likeButton.tapPublisher
             .sink { [weak self] event in
                 self?.likeTapSubject.send(event.newState)
+            }
+            .store(in: &cancellables)
+
+        output.totalPrice
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] totalPrice in
+                self?.totalPriceLabel.text = totalPrice == 0 ? "0원" : "\(totalPrice.formatted())원"
+            }
+            .store(in: &cancellables)
+
+        output.selectedCount
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] count in
+                self?.selectedCountLabel.text = count == 0 ? "" : "\(count)개 선택"
+            }
+            .store(in: &cancellables)
+
+        Publishers.CombineLatest(output.isCheckoutEnabled, output.isProcessingCheckout)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isCheckoutEnabled, isProcessing in
+                guard let self = self else { return }
+                let shouldEnable = isCheckoutEnabled && !isProcessing
+                self.checkoutButton.isEnabled = shouldEnable
+                self.checkoutButton.backgroundColor = shouldEnable ? AppColor.deepSprout : AppColor.gray45
+                self.checkoutButton.alpha = isProcessing ? 0.6 : 1.0
+            }
+            .store(in: &cancellables)
+
+        checkoutButton.tapPublisher()
+            .compactMap { [weak self] _ -> (StoreEntity, [MenuEntity])? in
+                guard let self = self,
+                      let store = self.currentStore,
+                      !self.selectedMenus.isEmpty else {
+                    return nil
+                }
+                return (store, self.selectedMenus)
+            }
+            .sink { [weak self] storeAndMenus in
+                self?.checkoutTapSubject.send(storeAndMenus)
             }
             .store(in: &cancellables)
 
@@ -277,7 +317,8 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
         }
 
         let storeInfoCellRegistration = UICollectionView.CellRegistration<StoreInfoCell, StoreEntity> { [weak self] cell, indexPath, store in
-            cell.configure(with: store, currentLocation: self?.currentLocation)
+            guard let self = self else { return }
+            cell.configure(with: store, estimatedTimeText: self.estimatedTimeText)
         }
 
         let menuCellRegistration = UICollectionView.CellRegistration<MenuCell, MenuEntity> { cell, indexPath, menu in
@@ -349,22 +390,6 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
         dataSource.apply(snapshot, animatingDifferences: false)
     }
 
-    private func updateCheckoutView() {
-        let totalPrice = selectedMenus.reduce(0) { sum, menu in
-            return sum + menu.priceValue
-        }
-
-        totalPriceLabel.text = totalPrice == 0 ? "0원" : "\(totalPrice.formatted())원"
-        selectedCountLabel.text = selectedMenus.isEmpty ? "" : "\(selectedMenus.count)개 선택"
-
-        if selectedMenus.isEmpty {
-            checkoutButton.isEnabled = false
-            checkoutButton.backgroundColor = AppColor.gray45
-        } else {
-            checkoutButton.isEnabled = true
-            checkoutButton.backgroundColor = AppColor.deepSprout
-        }
-    }
 }
 
 extension ShopDetailViewController: UICollectionViewDelegate {
@@ -390,465 +415,10 @@ extension ShopDetailViewController: UICollectionViewDelegate {
                 }
             }
 
-            updateCheckoutView()
+            menuSelectedSubject.send(selectedMenus)
 
         default:
             break
         }
-    }
-}
-
-// MARK: - ImageCarouselCell
-
-final class ImageCarouselCell: UICollectionViewCell {
-    private lazy var imageCollectionView: UICollectionView = {
-        let layout = UICollectionViewFlowLayout()
-        layout.scrollDirection = .horizontal
-        layout.minimumLineSpacing = 0
-        layout.minimumInteritemSpacing = 0
-
-        let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        collectionView.backgroundColor = AppColor.gray30
-        collectionView.isPagingEnabled = true
-        collectionView.showsHorizontalScrollIndicator = false
-        collectionView.delegate = self
-        collectionView.dataSource = self
-        collectionView.register(StoreImageCell.self, forCellWithReuseIdentifier: "StoreImageCell")
-        return collectionView
-    }()
-
-    private let pageControl: UIPageControl = {
-        let control = UIPageControl()
-        control.currentPageIndicatorTintColor = AppColor.gray0
-        control.pageIndicatorTintColor = AppColor.gray60
-        control.isUserInteractionEnabled = false
-        return control
-    }()
-
-    private var storeImages: [String] = []
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupUI()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupUI() {
-        contentView.addSubview(imageCollectionView)
-        contentView.addSubview(pageControl)
-
-        imageCollectionView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
-
-        pageControl.snp.makeConstraints { make in
-            make.centerX.equalToSuperview()
-            make.bottom.equalToSuperview().inset(AppSpacing.xxxLarge)
-        }
-    }
-
-    func configure(with store: StoreEntity) {
-        storeImages = store.storeImageUrls
-        pageControl.numberOfPages = storeImages.count
-        pageControl.currentPage = 0
-        imageCollectionView.reloadData()
-    }
-}
-
-extension ImageCarouselCell: UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
-    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return storeImages.count
-    }
-
-    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "StoreImageCell", for: indexPath) as! StoreImageCell
-        cell.configure(with: storeImages[indexPath.item])
-        return cell
-    }
-
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        return collectionView.bounds.size
-    }
-
-    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-        let pageIndex = Int(scrollView.contentOffset.x / scrollView.frame.width)
-        pageControl.currentPage = pageIndex
-    }
-}
-
-// MARK: - StoreImageCell
-
-final class StoreImageCell: UICollectionViewCell {
-    private let imageView: UIImageView = {
-        let view = UIImageView()
-        view.contentMode = .scaleAspectFill
-        view.clipsToBounds = true
-        view.backgroundColor = AppColor.gray30
-        return view
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        contentView.addSubview(imageView)
-
-        imageView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func prepareForReuse() {
-        super.prepareForReuse()
-        imageView.resetImage()
-    }
-
-    func configure(with urlString: String?) {
-        imageView.setImage(url: urlString)
-    }
-}
-
-// MARK: - StoreInfoCell
-
-final class StoreInfoCell: UICollectionViewCell {
-    private let containerView: UIView = {
-        let view = UIView()
-        view.backgroundColor = AppColor.gray15
-        view.layer.cornerRadius = 16
-        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-        view.clipsToBounds = true
-        return view
-    }()
-
-    private let nameLabel: UILabel = {
-        let label = UILabel()
-        label.font = AppFont.title1
-        label.textColor = AppColor.gray90
-        return label
-    }()
-
-    private let picchelinImageView: UIImageView = {
-        let view = UIImageView()
-        view.image = AppImage.pickchelin
-        view.contentMode = .scaleAspectFill
-        view.clipsToBounds = true
-        view.isHidden = true
-        return view
-    }()
-
-    private let likeIconLabelView = IconLabelView(
-        icon: AppImage.likeFill,
-        iconColor: AppColor.brightForsythia,
-        font: AppFont.body1Bold,
-        textColor: AppColor.gray90
-    )
-
-    private let rateIconLabelView = IconLabelView(
-        icon: AppImage.starFill,
-        iconColor: AppColor.brightForsythia,
-        font: AppFont.body1Bold,
-        textColor: AppColor.gray90
-    )
-
-    private let rateCountLabel: UILabel = {
-        let label = UILabel()
-        label.font = AppFont.body1Regular
-        label.textColor = AppColor.gray60
-        return label
-    }()
-
-    private let orderIconImageView: UIImageView = {
-        let view = UIImageView()
-        view.image = AppImage.bike
-        view.tintColor = AppColor.gray45
-        view.contentMode = .scaleAspectFit
-        return view
-    }()
-
-    private let orderCountLabel: UILabel = {
-        let label = UILabel()
-        label.font = AppFont.body3
-        label.textColor = AppColor.gray45
-        return label
-    }()
-
-    private let detailInfoView: UIView = {
-        let view = UIView()
-        view.backgroundColor = AppColor.gray0
-        view.layer.cornerRadius = 12
-        view.layer.borderWidth = 1
-        view.layer.borderColor = AppColor.gray30.cgColor
-        view.clipsToBounds = true
-        return view
-    }()
-
-    private let addressInfoRow = StoreInfoRowView()
-    private let timeInfoRow = StoreInfoRowView()
-    private let parkingInfoRow = StoreInfoRowView()
-
-    private lazy var infoStackView: UIStackView = {
-        let stackView = UIStackView(arrangedSubviews: [addressInfoRow, timeInfoRow, parkingInfoRow])
-        stackView.spacing = 13.5
-        stackView.axis = .vertical
-        stackView.alignment = .fill
-        stackView.distribution = .fillEqually
-        return stackView
-    }()
-
-    private let estimatedTimeView: UIView = {
-        let view = UIView()
-        view.backgroundColor = AppColor.gray0
-        view.layer.cornerRadius = 16
-        view.layer.borderWidth = 1
-        view.layer.borderColor = AppColor.gray30.cgColor
-        view.clipsToBounds = true
-        return view
-    }()
-
-    private let estimatedTimeIconImageView: UIImageView = {
-        let view = UIImageView()
-        view.image = AppImage.run
-        view.tintColor = AppColor.gray75
-        view.contentMode = .scaleAspectFit
-        return view
-    }()
-
-    private let estimatedTimeLabel: UILabel = {
-        let label = UILabel()
-        label.font = AppFont.body2Regular
-        label.textColor = AppColor.gray75
-        return label
-    }()
-
-    private let findRouteButton: UIButton = {
-        let button = UIButton()
-        button.setTitle("길찾기", for: .normal)
-        button.setTitleColor(AppColor.gray0, for: .normal)
-        button.titleLabel?.font = AppFont.title1
-        button.backgroundColor = AppColor.deepSprout
-        button.layer.cornerRadius = 12
-        button.clipsToBounds = true
-        return button
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupUI()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupUI() {
-        contentView.addSubview(containerView)
-
-        containerView.addSubview(nameLabel)
-        containerView.addSubview(picchelinImageView)
-        containerView.addSubview(likeIconLabelView)
-        containerView.addSubview(rateIconLabelView)
-        containerView.addSubview(rateCountLabel)
-        containerView.addSubview(orderIconImageView)
-        containerView.addSubview(orderCountLabel)
-        containerView.addSubview(detailInfoView)
-        containerView.addSubview(estimatedTimeView)
-        containerView.addSubview(findRouteButton)
-
-        detailInfoView.addSubview(infoStackView)
-
-        estimatedTimeView.addSubview(estimatedTimeIconImageView)
-        estimatedTimeView.addSubview(estimatedTimeLabel)
-
-        setupConstraints()
-    }
-
-    private func setupConstraints() {
-        containerView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
-
-        nameLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(AppSpacing.xxxLarge)
-            make.leading.equalToSuperview().offset(AppSpacing.screenMargin)
-        }
-
-        picchelinImageView.snp.makeConstraints { make in
-            make.leading.equalTo(nameLabel.snp.trailing).offset(AppSpacing.small)
-            make.centerY.equalTo(nameLabel)
-            make.width.equalTo(65)
-            make.height.equalTo(34)
-        }
-
-        likeIconLabelView.snp.makeConstraints { make in
-            make.top.equalTo(nameLabel.snp.bottom).offset(AppSpacing.medium)
-            make.leading.equalToSuperview().offset(AppSpacing.screenMargin)
-        }
-
-        rateIconLabelView.snp.makeConstraints { make in
-            make.centerY.equalTo(likeIconLabelView)
-            make.leading.equalTo(likeIconLabelView.snp.trailing).offset(AppSpacing.medium)
-        }
-
-        rateCountLabel.snp.makeConstraints { make in
-            make.leading.equalTo(rateIconLabelView.snp.trailing).offset(AppSpacing.tiny)
-            make.centerY.equalTo(rateIconLabelView)
-        }
-
-        orderIconImageView.snp.makeConstraints { make in
-            make.trailing.equalTo(orderCountLabel.snp.leading).offset(-AppSpacing.tiny)
-            make.centerY.equalTo(rateIconLabelView)
-            make.size.equalTo(20)
-        }
-
-        orderCountLabel.snp.makeConstraints { make in
-            make.centerY.equalTo(orderIconImageView)
-            make.trailing.equalToSuperview().inset(AppSpacing.screenMargin)
-        }
-
-        detailInfoView.snp.makeConstraints { make in
-            make.top.equalTo(likeIconLabelView.snp.bottom).offset(AppSpacing.medium)
-            make.horizontalEdges.equalToSuperview().inset(AppSpacing.screenMargin)
-        }
-
-        infoStackView.snp.makeConstraints { make in
-            make.verticalEdges.equalToSuperview().inset(AppSpacing.large)
-            make.horizontalEdges.equalToSuperview().inset(AppSpacing.screenMargin)
-        }
-
-        estimatedTimeView.snp.makeConstraints { make in
-            make.top.equalTo(detailInfoView.snp.bottom).offset(AppSpacing.medium)
-            make.leading.equalToSuperview().inset(AppSpacing.screenMargin)
-        }
-
-        estimatedTimeIconImageView.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(AppSpacing.medium)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(20)
-        }
-
-        estimatedTimeLabel.snp.makeConstraints { make in
-            make.leading.equalTo(estimatedTimeIconImageView.snp.trailing).offset(AppSpacing.tiny)
-            make.trailing.equalToSuperview().inset(AppSpacing.medium)
-            make.top.bottom.equalToSuperview().inset(AppSpacing.small)
-        }
-
-        findRouteButton.snp.makeConstraints { make in
-            make.top.equalTo(estimatedTimeView.snp.bottom).offset(AppSpacing.medium)
-            make.leading.trailing.equalToSuperview().inset(AppSpacing.screenMargin)
-            make.height.equalTo(52)
-            make.bottom.equalToSuperview().inset(AppSpacing.large)
-        }
-    }
-
-    func configure(with store: StoreEntity, currentLocation: CLLocation?) {
-        nameLabel.text = store.name
-        picchelinImageView.isHidden = !store.isPicchelin
-
-        likeIconLabelView.updateText("\(store.pickCount)개")
-        rateIconLabelView.updateText(store.rate)
-        rateCountLabel.text = "(\(store.totalReviewCount))"
-        orderCountLabel.text = "누적 주문 \(store.totalOrderCount)회"
-
-        addressInfoRow.configure(info: .address, text: store.address)
-        timeInfoRow.configure(info: .time, text: "매일 \(store.open) ~ \(store.close)")
-        parkingInfoRow.configure(info: .parking, text: store.parkingGuide)
-
-        if let currentLocation = currentLocation {
-            let distance = RouteManager.shared.calculateDistance(
-                from: currentLocation.coordinate,
-                to: CLLocationCoordinate2D(latitude: store.latitude, longitude: store.longitude)
-            )
-            let estimatedTime = RouteManager.shared.calculateEstimatedTime(distanceInKm: distance)
-            let formattedTime = RouteManager.shared.formatTime(estimatedTime)
-
-            estimatedTimeLabel.text = "예상 소요시간 \(formattedTime) (\(String(format: "%.1f", distance))km)"
-        } else {
-            estimatedTimeLabel.text = "예상 소요시간 --분 (--km)"
-        }
-    }
-}
-
-// MARK: - StoreInfoRowView
-
-final class StoreInfoRowView: UIView {
-    enum Info: String {
-        case address = "가게주소"
-        case time = "영업시간"
-        case parking = "주차여부"
-
-        var icon: UIImage {
-            switch self {
-            case .address: AppImage.distance
-            case .time: AppImage.time
-            case .parking: AppImage.parking
-            }
-        }
-    }
-
-    private let titleLabel: UILabel = {
-        let label = UILabel()
-        label.font = AppFont.body2
-        label.textColor = AppColor.gray60
-        label.setContentHuggingPriority(.required, for: .horizontal)
-        label.setContentCompressionResistancePriority(.required, for: .horizontal)
-        return label
-    }()
-
-    private let iconImageView: UIImageView = {
-        let view = UIImageView()
-        view.contentMode = .scaleAspectFit
-        return view
-    }()
-
-    private let infoLabel: UILabel = {
-        let label = UILabel()
-        label.font = AppFont.body2
-        label.textColor = AppColor.gray60
-        label.numberOfLines = 0
-        return label
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupUI()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupUI() {
-        addSubview(titleLabel)
-        addSubview(iconImageView)
-        addSubview(infoLabel)
-
-        titleLabel.snp.makeConstraints { make in
-            make.leading.equalToSuperview()
-            make.centerY.equalToSuperview()
-        }
-
-        iconImageView.snp.makeConstraints { make in
-            make.leading.equalTo(titleLabel.snp.trailing).offset(AppSpacing.medium)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(20)
-        }
-
-        infoLabel.snp.makeConstraints { make in
-            make.leading.equalTo(iconImageView.snp.trailing).offset(AppSpacing.xSmall)
-            make.trailing.equalToSuperview()
-            make.top.bottom.equalToSuperview()
-        }
-    }
-
-    func configure(info: Info, text: String) {
-        titleLabel.text = info.rawValue
-        iconImageView.image = info.icon
-        iconImageView.tintColor = AppColor.deepSprout
-        infoLabel.text = text
     }
 }
