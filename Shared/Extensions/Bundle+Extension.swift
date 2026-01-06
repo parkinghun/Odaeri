@@ -11,12 +11,14 @@ extension Bundle {
     enum InfoPlistKey: String {
         case baseURL = "BaseURL"
         case apiKey = "APIKey"
+        case iamportUserCode = "IamPortUserCode"
     }
 
     func value(for key: InfoPlistKey) -> String {
         guard let value = object(forInfoDictionaryKey: key.rawValue) as? String else {
             fatalError("\(key.rawValue) not found in Info.plist.")
         }
+        print(key.rawValue, " - \(value)" )
         return value
     }
 }
