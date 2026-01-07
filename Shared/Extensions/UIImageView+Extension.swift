@@ -62,18 +62,20 @@ extension UIImageView {
         animated: Bool = true,
         downsample: Bool = true
     ) {
-        // 1. 기존 작업 취소 (셀 재사용 대응)
-        cancelImageLoad()
-
-        // 2. URL이 없으면 placeholder만 표시
+        // 1. URL이 없으면 placeholder만 표시
         guard let url = url, !url.isEmpty else {
             self.image = placeholder
             return
         }
 
-        // 3. 같은 URL이면 재요청하지 않음 (최적화)
-        if currentImageURL == url, self.image != nil {
+        // 2. 같은 URL이면 재요청하지 않음 (최적화)
+        if currentImageURL == url {
             return
+        }
+
+        // 3. 기존 작업 취소 (다른 URL일 때만)
+        if currentImageURL != url {
+            cancelImageLoad()
         }
 
         // 4. 현재 로딩 중인 URL 저장
