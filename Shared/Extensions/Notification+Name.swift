@@ -11,10 +11,17 @@ extension Notification.Name {
     static let unauthorizedAccess = Notification.Name("com.odaeri.unauthorizedAccess")
     static let refreshTokenExpired = Notification.Name("com.odaeri.refreshTokenExpired")
     static let pendingPaymentValidated = Notification.Name("com.odaeri.pendingPaymentValidated")
+    static let storeLikeUpdated = Notification.Name("com.odaeri.storeLikeUpdated")
 }
 
 struct PendingPaymentValidatedInfo {
     let validationEntity: PaymentValidationEntity
     let storeName: String
     let count: Int
+}
+
+struct StoreLikeUpdateInfo {
+    let storeId: String
+    let isPick: Bool
+    let pickCount: Int
 }

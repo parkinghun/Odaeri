@@ -169,15 +169,13 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
             .sink { [weak self] timeText in
                 guard let self = self else { return }
                 self.estimatedTimeText = timeText
-
-                if let snapshot = self.dataSource?.snapshot() {
-                    self.dataSource?.applySnapshotUsingReloadData(snapshot)
-                }
+                self.reconfigureStoreInfoCell()
             }
             .store(in: &cancellables)
 
         likeButton.tapPublisher
             .sink { [weak self] event in
+                self?.applyLikeUpdate(isPicked: event.newState)
                 self?.likeTapSubject.send(event.newState)
             }
             .store(in: &cancellables)
@@ -193,6 +191,13 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] count in
                 self?.selectedCountLabel.text = count == 0 ? "" : "\(count)개 선택"
+            }
+            .store(in: &cancellables)
+
+        output.likeToggleFailed
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.revertLikeUpdate()
             }
             .store(in: &cancellables)
 
@@ -320,13 +325,15 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
 
         let storeInfoCellRegistration = UICollectionView.CellRegistration<StoreInfoCell, StoreEntity> { [weak self] cell, indexPath, store in
             guard let self = self else { return }
-            cell.configure(with: store, estimatedTimeText: self.estimatedTimeText)
+            let resolvedStore = self.currentStore?.storeId == store.storeId ? (self.currentStore ?? store) : store
+            cell.configure(with: resolvedStore, estimatedTimeText: self.estimatedTimeText)
 
+            cell.cancellables.removeAll()
             cell.findRouteButtonTapPublisher
                 .sink { [weak self] _ in
                     self?.findRouteButtonTapSubject.send(())
                 }
-                .store(in: &self.cancellables)
+                .store(in: &cell.cancellables)
         }
 
         let menuCellRegistration = UICollectionView.CellRegistration<MenuCell, MenuEntity> { cell, indexPath, menu in
@@ -396,6 +403,47 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
         }
 
         dataSource.apply(snapshot, animatingDifferences: false)
+    }
+
+    private func applyLikeUpdate(isPicked: Bool) {
+        guard let store = currentStore else { return }
+        let updatedPickCount = max(0, store.pickCount + (isPicked ? 1 : -1))
+        let updatedStore = store.updatingPick(isPick: isPicked, pickCount: updatedPickCount)
+        currentStore = updatedStore
+        reconfigureStoreInfoCell()
+        notifyStoreLikeUpdated(store: updatedStore)
+    }
+
+    private func revertLikeUpdate() {
+        likeButton.revert()
+        guard let store = currentStore else { return }
+        let revertedPickCount = max(0, store.pickCount + (store.isPick ? -1 : 1))
+        let revertedStore = store.updatingPick(isPick: !store.isPick, pickCount: revertedPickCount)
+        currentStore = revertedStore
+        reconfigureStoreInfoCell()
+        notifyStoreLikeUpdated(store: revertedStore)
+    }
+
+    private func reconfigureStoreInfoCell() {
+        guard var snapshot = dataSource?.snapshot(),
+              snapshot.sectionIdentifiers.contains(Section.storeInfo),
+              let item = snapshot.itemIdentifiers(inSection: Section.storeInfo).first else {
+            return
+        }
+        snapshot.reconfigureItems([item])
+        dataSource?.apply(snapshot, animatingDifferences: false)
+    }
+
+    private func notifyStoreLikeUpdated(store: StoreEntity) {
+        NotificationCenter.default.post(
+            name: .storeLikeUpdated,
+            object: nil,
+            userInfo: ["info": StoreLikeUpdateInfo(
+                storeId: store.storeId,
+                isPick: store.isPick,
+                pickCount: store.pickCount
+            )]
+        )
     }
 
 }

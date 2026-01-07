@@ -35,6 +35,7 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     private let likeTapSubject = PassthroughSubject<LikeButton.TapEvent, Never>()
 
     private var currentLocation: CLLocation?
+    private var storeCache: [String: StoreEntity] = [:]
     
     override func setupUI() {
         super.setupUI()
@@ -142,15 +143,23 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
             }
             .store(in: &cancellables)
 
+        NotificationCenter.default.publisher(for: .storeLikeUpdated)
+            .compactMap { $0.userInfo?["info"] as? StoreLikeUpdateInfo }
+            .sink { [weak self] info in
+                self?.applyStoreLikeUpdate(
+                    storeId: info.storeId,
+                    isPicked: info.isPick,
+                    pickCount: info.pickCount
+                )
+            }
+            .store(in: &cancellables)
+
         // 현재 위치 업데이트
         output.currentLocation
             .sink { [weak self] location in
                 guard let self else { return }
                 self.currentLocation = location
-                
-                if let snapshot = self.dataSource?.snapshot(), snapshot.numberOfItems > 0 {
-                    self.dataSource?.apply(snapshot, animatingDifferences: false)
-                }
+                self.reconfigureVisibleStoreCells()
             }
             .store(in: &cancellables)
 
@@ -177,6 +186,7 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     }
     
     private func updatePopularStores(_ stores: [StoreEntity]) {
+        stores.forEach { storeCache[$0.storeId] = $0 }
         guard var snapshot = dataSource?.snapshot() else { return }
         
         snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .popularRestaurants))
@@ -187,6 +197,7 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     }
     
     private func updateMyPickupStores(_ stores: [StoreEntity]) {
+        stores.forEach { storeCache[$0.storeId] = $0 }
         guard var snapshot = dataSource?.snapshot() else { return }
         
         snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .myPickupStores))
@@ -197,23 +208,71 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     }
     
     private func revertLikeForStore(storeId: String) {
-        for indexPath in collectionView.indexPathsForVisibleItems {
-            if let cell = collectionView.cellForItem(at: indexPath) as? PopularShopCell,
-               let item = dataSource?.itemIdentifier(for: indexPath),
-               case .popularRestaurants(let store) = item,
-               store.storeId == storeId {
-                cell.revertLike()
-                return
-            }
-            
-            if let cell = collectionView.cellForItem(at: indexPath) as? ShopListCell,
-               let item = dataSource?.itemIdentifier(for: indexPath),
-               case .myPickupStore(let store) = item,
-               store.storeId == storeId {
-                cell.revertLike()
-                return
+        revertStoreLikeUpdate(storeId: storeId)
+    }
+
+    private func applyStoreLikeUpdate(storeId: String, isPicked: Bool, pickCount: Int? = nil) {
+        guard let baseStore = storeCache[storeId] ?? findStoreInSnapshot(storeId: storeId) else { return }
+        let updatedPickCount = pickCount ?? max(0, baseStore.pickCount + (isPicked ? 1 : -1))
+        let updatedStore = baseStore.updatingPick(isPick: isPicked, pickCount: updatedPickCount)
+        storeCache[storeId] = updatedStore
+        reconfigureStoreCells(storeId: storeId)
+    }
+
+    private func revertStoreLikeUpdate(storeId: String) {
+        guard let baseStore = storeCache[storeId] ?? findStoreInSnapshot(storeId: storeId) else { return }
+        let revertedPickCount = max(0, baseStore.pickCount + (baseStore.isPick ? -1 : 1))
+        let revertedStore = baseStore.updatingPick(isPick: !baseStore.isPick, pickCount: revertedPickCount)
+        storeCache[storeId] = revertedStore
+        reconfigureStoreCells(storeId: storeId)
+    }
+
+    private func findStoreInSnapshot(storeId: String) -> StoreEntity? {
+        guard let snapshot = dataSource?.snapshot() else { return nil }
+        for item in snapshot.itemIdentifiers {
+            switch item {
+            case .popularRestaurants(let store) where store.storeId == storeId:
+                return store
+            case .myPickupStore(let store) where store.storeId == storeId:
+                return store
+            default:
+                break
             }
         }
+        return nil
+    }
+
+    private func reconfigureStoreCells(storeId: String) {
+        guard var snapshot = dataSource?.snapshot() else { return }
+        let items = snapshot.itemIdentifiers.compactMap { item -> HomeSectionItem? in
+            switch item {
+            case .popularRestaurants(let store) where store.storeId == storeId:
+                return item
+            case .myPickupStore(let store) where store.storeId == storeId:
+                return item
+            default:
+                return nil
+            }
+        }
+        guard !items.isEmpty else { return }
+        snapshot.reconfigureItems(items)
+        dataSource?.apply(snapshot, animatingDifferences: false)
+    }
+
+    private func reconfigureVisibleStoreCells() {
+        guard var snapshot = dataSource?.snapshot() else { return }
+        let items = collectionView.indexPathsForVisibleItems.compactMap { indexPath -> HomeSectionItem? in
+            guard let item = dataSource?.itemIdentifier(for: indexPath) else { return nil }
+            switch item {
+            case .popularRestaurants, .myPickupStore:
+                return item
+            default:
+                return nil
+            }
+        }
+        guard !items.isEmpty else { return }
+        snapshot.reconfigureItems(items)
+        dataSource?.apply(snapshot, animatingDifferences: false)
     }
 }
 
@@ -423,11 +482,14 @@ private extension HomeViewController {
         
         let popularShopCellRegistration = UICollectionView.CellRegistration<PopularShopCell, StoreEntity> { [weak self] cell, indexPath, store in
             guard let self = self else { return }
-            cell.configure(with: store, currentLocation: self.currentLocation)
+            let resolvedStore = self.storeCache[store.storeId] ?? store
+            cell.configure(with: resolvedStore, currentLocation: self.currentLocation)
 
             // 좋아요 버튼 이벤트 연결
+            cell.cancellables.removeAll()
             cell.likeTapPublisher
                 .sink { [weak self] event in
+                    self?.applyStoreLikeUpdate(storeId: event.storeId, isPicked: event.newState)
                     self?.likeTapSubject.send(event)
                 }
                 .store(in: &cell.cancellables)
@@ -440,11 +502,14 @@ private extension HomeViewController {
         
         let shopListCellRegistration = UICollectionView.CellRegistration<ShopListCell, StoreEntity> { [weak self] cell, indexPath, store in
             guard let self = self else { return }
-            cell.configure(with: store, currentLocation: self.currentLocation)
+            let resolvedStore = self.storeCache[store.storeId] ?? store
+            cell.configure(with: resolvedStore, currentLocation: self.currentLocation)
 
             // 좋아요 버튼 이벤트 연결
+            cell.cancellables.removeAll()
             cell.likeTapPublisher
                 .sink { [weak self] event in
+                    self?.applyStoreLikeUpdate(storeId: event.storeId, isPicked: event.newState)
                     self?.likeTapSubject.send(event)
                 }
                 .store(in: &cell.cancellables)

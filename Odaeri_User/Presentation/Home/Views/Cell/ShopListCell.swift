@@ -18,6 +18,7 @@ final class ShopListCell: BaseCollectionViewCell {
         view.clipsToBounds = true
         view.layer.cornerRadius = 8
         view.backgroundColor = AppColor.gray30
+        view.isUserInteractionEnabled = true
         return view
     }()
     
@@ -43,6 +44,8 @@ final class ShopListCell: BaseCollectionViewCell {
     var likeTapPublisher: AnyPublisher<LikeButton.TapEvent, Never> {
         likeButton.tapPublisher.eraseToAnyPublisher()
     }
+
+    private var currentPickCount: Int = 0
     
     private let picchelinImageView: UIImageView = {
         let view = UIImageView()
@@ -214,7 +217,7 @@ final class ShopListCell: BaseCollectionViewCell {
         }
         
         likeButton.snp.makeConstraints { make in
-            make.bottom.leading.equalToSuperview().inset(AppSpacing.small)
+            make.top.leading.equalToSuperview().inset(AppSpacing.small)
             make.width.height.equalTo(24)
         }
         
@@ -312,7 +315,8 @@ final class ShopListCell: BaseCollectionViewCell {
         subImageView2.setImage(url: store.storeImageUrls.count > 2 ? store.storeImageUrls[2] : nil)
 
         nameLabel.text = store.name
-        likeCountLabel.text = "\(store.pickCount)개"
+        currentPickCount = store.pickCount
+        updateLikeCountLabel()
 
         rateLabel.text = String(format: "%.1f", store.totalRating)
         rateCountLabel.text = "(\(store.totalReviewCount))"
@@ -360,7 +364,17 @@ final class ShopListCell: BaseCollectionViewCell {
         }
     }
     
+    func updateLikeCount(isPicked: Bool) {
+        currentPickCount = max(0, currentPickCount + (isPicked ? 1 : -1))
+        updateLikeCountLabel()
+    }
+
     func revertLike() {
         likeButton.revert()
+        updateLikeCount(isPicked: likeButton.isPicked)
+    }
+
+    private func updateLikeCountLabel() {
+        likeCountLabel.text = "\(currentPickCount)개"
     }
 }

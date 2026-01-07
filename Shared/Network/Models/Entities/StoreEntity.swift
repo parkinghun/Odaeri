@@ -80,6 +80,34 @@ struct StoreEntity: Hashable, Equatable {
         self.menuList = menuList
     }
 
+    init(copying store: StoreEntity, isPick: Bool, pickCount: Int) {
+        self.storeId = store.storeId
+        self.name = store.name
+        self.category = store.category
+        self.description = store.description
+        self.address = store.address
+        self.longitude = store.longitude
+        self.latitude = store.latitude
+        self.open = store.open
+        self.close = store.close
+        self.estimatedPickupTime = store.estimatedPickupTime
+        self.parkingGuide = store.parkingGuide
+        self.storeImageUrls = store.storeImageUrls
+        self.hashTags = store.hashTags
+        self.isPicchelin = store.isPicchelin
+        self.isPick = isPick
+        self.pickCount = pickCount
+        self.totalReviewCount = store.totalReviewCount
+        self.totalOrderCount = store.totalOrderCount
+        self.totalRating = store.totalRating
+        self.creator = store.creator
+        self.menuList = store.menuList
+    }
+
+    func updatingPick(isPick: Bool, pickCount: Int) -> StoreEntity {
+        return StoreEntity(copying: self, isPick: isPick, pickCount: pickCount)
+    }
+
     init(from response: StoreResponse) {
         self.storeId = response.storeId
         self.name = response.name

@@ -24,6 +24,8 @@ final class PopularShopCell: BaseCollectionViewCell {
     var likeTapPublisher: AnyPublisher<LikeButton.TapEvent, Never> {
         likeButton.tapPublisher.eraseToAnyPublisher()
     }
+
+    private var currentPickCount: Int = 0
     
     private let picchelinImageView: UIImageView = {
         let view = UIImageView()
@@ -211,7 +213,8 @@ final class PopularShopCell: BaseCollectionViewCell {
         imageView.setImage(url: store.storeImageUrls.first)
 
         nameLabel.text = store.name
-        likeCountLabel.text = "\(store.pickCount)개"
+        currentPickCount = store.pickCount
+        updateLikeCountLabel()
 
         likeButton.configure(storeId: store.storeId, isPicked: store.isPick)
 
@@ -234,8 +237,17 @@ final class PopularShopCell: BaseCollectionViewCell {
         timeLabel.text = store.close
     }
     
+    func updateLikeCount(isPicked: Bool) {
+        currentPickCount = max(0, currentPickCount + (isPicked ? 1 : -1))
+        updateLikeCountLabel()
+    }
+
     func revertLike() {
         likeButton.revert()
+        updateLikeCount(isPicked: likeButton.isPicked)
+    }
+
+    private func updateLikeCountLabel() {
+        likeCountLabel.text = "\(currentPickCount)개"
     }
 }
-

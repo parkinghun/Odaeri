@@ -53,12 +53,14 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
         let isCheckoutEnabled: AnyPublisher<Bool, Never>
         let isProcessingCheckout: AnyPublisher<Bool, Never>
         let error: AnyPublisher<String, Never>
+        let likeToggleFailed: AnyPublisher<Void, Never>
     }
 
     func transform(input: Input) -> Output {
         let storeDetailSubject = PassthroughSubject<StoreEntity, Never>()
         let currentLocationSubject = CurrentValueSubject<CLLocation?, Never>(nil)
         let estimatedTimeSubject = PassthroughSubject<String, Never>()
+        let likeToggleFailedSubject = PassthroughSubject<Void, Never>()
 
         // 위치 업데이트 구독
         locationManager.locationSubject
@@ -143,6 +145,7 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
                 return self.storeRepository.toggleLike(storeId: self.storeId, status: newStatus)
                     .catch { [weak self] error -> AnyPublisher<Void, Never> in
                         self?.errorSubject.send(error.errorDescription)
+                        likeToggleFailedSubject.send(())
                         return Empty().eraseToAnyPublisher()
                     }
                     .eraseToAnyPublisher()
@@ -277,7 +280,8 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
             selectedCount: selectedCount,
             isCheckoutEnabled: isCheckoutEnabled,
             isProcessingCheckout: isProcessingCheckoutSubject.eraseToAnyPublisher(),
-            error: errorSubject.eraseToAnyPublisher()
+            error: errorSubject.eraseToAnyPublisher(),
+            likeToggleFailed: likeToggleFailedSubject.eraseToAnyPublisher()
         )
     }
 }
