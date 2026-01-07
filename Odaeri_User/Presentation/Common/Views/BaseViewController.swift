@@ -10,17 +10,21 @@ import Combine
 import SnapKit
 
 class BaseViewController<VM: ViewModelType>: UIViewController {
-
+    
     let viewModel: VM
     var cancellables = Set<AnyCancellable>()
-
+    
     private(set) lazy var loadingIndicator: UIActivityIndicatorView = {
         let indicator = UIActivityIndicatorView(style: .large)
         indicator.color = AppColor.blackSprout
         indicator.hidesWhenStopped = true
         return indicator
     }()
-
+    
+    open var navigationBarHidden: Bool {
+        return navigationController?.viewControllers.count ?? 0 <= 1
+    }
+    
     init(viewModel: VM) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
@@ -31,6 +35,11 @@ class BaseViewController<VM: ViewModelType>: UIViewController {
         fatalError("init(coder:) has not been implemented")
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(navigationBarHidden, animated: animated)
+    }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = AppColor.gray0
@@ -39,28 +48,28 @@ class BaseViewController<VM: ViewModelType>: UIViewController {
         setupUI()
         bind()
     }
-
+    
     func setupUI() {
     }
-
+    
     func bind() {
     }
-
+    
     private func setupNavigationBar() {
         guard let navigationController = navigationController,
               navigationController.viewControllers.count > 1 else {
             return
         }
-
+        
         navigationItem.hidesBackButton = true
-
+        
         let backButton = createBackButton()
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
-
+        
         let backBarButtonItem = UIBarButtonItem(customView: backButton)
         navigationItem.leftBarButtonItem = backBarButtonItem
     }
-
+    
     private func createBackButton() -> UIButton {
         let button = UIButton(type: .system)
         button.setImage(AppImage.chevron, for: .normal)
@@ -70,21 +79,21 @@ class BaseViewController<VM: ViewModelType>: UIViewController {
         }
         return button
     }
-
+    
     func setRightBarButtons(_ buttons: [UIButton]) {
         let barButtonItems = buttons.map { UIBarButtonItem(customView: $0) }
         navigationItem.rightBarButtonItems = barButtonItems
     }
-
+    
     @objc private func backButtonTapped() {
         navigationController?.popViewController(animated: true)
     }
-
+    
     private func setupLoadingIndicator() {
         view.addSubview(loadingIndicator)
         loadingIndicator.snp.makeConstraints { $0.center.equalToSuperview() }
     }
-
+    
     func setLoading(_ isLoading: Bool) {
         if isLoading {
             view.endEditing(true)
@@ -95,18 +104,18 @@ class BaseViewController<VM: ViewModelType>: UIViewController {
             view.isUserInteractionEnabled = true
         }
     }
-
+    
     func showAlert(title: String, message: String, confirmTitle: String = "확인") {
         let alert = UIAlertController(
             title: title,
             message: message,
             preferredStyle: .alert
         )
-
+        
         alert.addAction(UIAlertAction(title: confirmTitle, style: .default))
         present(alert, animated: true)
     }
-
+    
     deinit {
         cancellables.removeAll()
     }

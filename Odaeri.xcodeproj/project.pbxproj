@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B534344D2F0B979E00D8E200 /* iamport-ios in Frameworks */ = {isa = PBXBuildFile; productRef = B534344C2F0B979E00D8E200 /* iamport-ios */; };
 		B55131A02EE9571900DBEA27 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = B551319F2EE9571900DBEA27 /* .gitignore */; };
 		B55131A52EE96ADF00DBEA27 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = B55131A42EE96ADF00DBEA27 /* FirebaseAnalytics */; };
 		B55131A72EE96ADF00DBEA27 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = B55131A62EE96ADF00DBEA27 /* FirebaseMessaging */; };
@@ -117,6 +118,7 @@
 				B55131A72EE96ADF00DBEA27 /* FirebaseMessaging in Frameworks */,
 				B55131A52EE96ADF00DBEA27 /* FirebaseAnalytics in Frameworks */,
 				B55135302EF1732600DBEA27 /* Moya in Frameworks */,
+				B534344D2F0B979E00D8E200 /* iamport-ios in Frameworks */,
 				B551352E2EF1732600DBEA27 /* CombineMoya in Frameworks */,
 				B55135332EF198E600DBEA27 /* SnapKit in Frameworks */,
 			);
@@ -190,6 +192,7 @@
 				B551352D2EF1732600DBEA27 /* CombineMoya */,
 				B551352F2EF1732600DBEA27 /* Moya */,
 				B55135322EF198E600DBEA27 /* SnapKit */,
+				B534344C2F0B979E00D8E200 /* iamport-ios */,
 			);
 			productName = Odaeri;
 			productReference = B55131872EE9559300DBEA27 /* Odaeri_User.app */;
@@ -250,6 +253,7 @@
 				B55131A32EE96ADF00DBEA27 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				B551352C2EF1732600DBEA27 /* XCRemoteSwiftPackageReference "Moya" */,
 				B55135312EF198E600DBEA27 /* XCRemoteSwiftPackageReference "SnapKit" */,
+				B534344B2F0B979E00D8E200 /* XCRemoteSwiftPackageReference "iamport-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B55131882EE9559300DBEA27 /* Products */;
@@ -313,10 +317,14 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Odaeri_User/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "오대리";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "경로 안내 및 실시간 남은 거리 계산을 위해 위치 정보가 필요합니다.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "걸음 수 측정을 위해 동작 및 피트니스 정보 접근 권한이 필요합니다.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -349,10 +357,14 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Odaeri_User/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "오대리";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "경로 안내 및 실시간 남은 거리 계산을 위해 위치 정보가 필요합니다.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "걸음 수 측정을 위해 동작 및 피트니스 정보 접근 권한이 필요합니다.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -599,6 +611,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		B534344B2F0B979E00D8E200 /* XCRemoteSwiftPackageReference "iamport-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/iamport/iamport-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.4.7;
+			};
+		};
 		B55131A32EE96ADF00DBEA27 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
@@ -626,6 +646,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		B534344C2F0B979E00D8E200 /* iamport-ios */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B534344B2F0B979E00D8E200 /* XCRemoteSwiftPackageReference "iamport-ios" */;
+			productName = "iamport-ios";
+		};
 		B55131A42EE96ADF00DBEA27 /* FirebaseAnalytics */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = B55131A32EE96ADF00DBEA27 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

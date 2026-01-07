@@ -1,5 +1,5 @@
 {
-  "originHash" : "f0861c49e0aedb89337ad425405cda46cf05f6a5350846d6e2ac3864a0d270fa",
+  "originHash" : "266489f92f7eda4bd5f461497963ec41f8c0cdce53931c51655f5fad7fc54576",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -92,6 +92,15 @@
       }
     },
     {
+      "identity" : "iamport-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/iamport/iamport-ios.git",
+      "state" : {
+        "revision" : "cfa5ca2bb0f2be4e51981f14fd20d32d6c9d3636",
+        "version" : "1.4.7"
+      }
+    },
+    {
       "identity" : "interop-ios-for-google-sdks",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/google/interop-ios-for-google-sdks.git",
@@ -170,6 +179,15 @@
       "state" : {
         "revision" : "c169a5744230951031770e27e475ff6eefe51f9d",
         "version" : "1.33.3"
+      }
+    },
+    {
+      "identity" : "then",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/devxoul/Then.git",
+      "state" : {
+        "revision" : "e421a7b3440a271834337694e6050133a3958bc7",
+        "version" : "2.7.0"
       }
     }
   ],

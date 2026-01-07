@@ -48,6 +48,7 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
     private var selectedMenus: [MenuEntity] = []
     private let menuSelectedSubject = CurrentValueSubject<[MenuEntity], Never>([])
     private let checkoutTapSubject = PassthroughSubject<(store: StoreEntity, selectedMenus: [MenuEntity]), Never>()
+    private let findRouteButtonTapSubject = PassthroughSubject<Void, Never>()
 
     private let checkoutView: UIView = {
         let view = UIView()
@@ -143,7 +144,8 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
             viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
             storeLikeToggled: likeTapSubject.eraseToAnyPublisher(),
             menuSelected: menuSelectedSubject.eraseToAnyPublisher(),
-            checkoutButtonTapped: checkoutTapSubject.eraseToAnyPublisher()
+            checkoutButtonTapped: checkoutTapSubject.eraseToAnyPublisher(),
+            findRouteButtonTapped: findRouteButtonTapSubject.eraseToAnyPublisher()
         )
 
         let output = viewModel.transform(input: input)
@@ -319,6 +321,12 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
         let storeInfoCellRegistration = UICollectionView.CellRegistration<StoreInfoCell, StoreEntity> { [weak self] cell, indexPath, store in
             guard let self = self else { return }
             cell.configure(with: store, estimatedTimeText: self.estimatedTimeText)
+
+            cell.findRouteButtonTapPublisher
+                .sink { [weak self] _ in
+                    self?.findRouteButtonTapSubject.send(())
+                }
+                .store(in: &self.cancellables)
         }
 
         let menuCellRegistration = UICollectionView.CellRegistration<MenuCell, MenuEntity> { cell, indexPath, menu in

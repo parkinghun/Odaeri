@@ -16,6 +16,8 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
 
     private let viewDidLoadSubject = PassthroughSubject<Void, Never>()
     private let viewDidDisappearSubject = PassthroughSubject<Void, Never>()
+    private let userDidDragMapSubject = PassthroughSubject<Void, Never>()
+    private let mapCameraAltitudeChangedSubject = PassthroughSubject<CLLocationDistance, Never>()
     private var is3DCameraMode = true
 
     private lazy var mapView: MKMapView = {
@@ -88,11 +90,29 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         return button
     }()
 
+    private let relocateButton: UIButton = {
+        let button = UIButton(type: .system)
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+        let image = UIImage(systemName: "location.fill", withConfiguration: config)
+        button.setImage(image, for: .normal)
+        button.tintColor = AppColor.blackSprout
+        button.backgroundColor = AppColor.gray0
+        button.layer.cornerRadius = 8
+        button.layer.shadowColor = UIColor.black.cgColor
+        button.layer.shadowOpacity = 0.1
+        button.layer.shadowOffset = CGSize(width: 0, height: 2)
+        button.layer.shadowRadius = 4
+        return button
+    }()
+
     private var passedPathOverlay: MKPolyline?
     private var remainingPathOverlay: MKPolyline?
+    private var destinationAnnotation: MKPointAnnotation?
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        setupMapGestureRecognizer()
+        addDestinationAnnotation()
         viewDidLoadSubject.send(())
     }
 
@@ -109,6 +129,7 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         view.addSubview(cancelButton)
         view.addSubview(rerouteButton)
         view.addSubview(cameraModeButton)
+        view.addSubview(relocateButton)
 
         infoContainerView.addSubview(distanceLabel)
         infoContainerView.addSubview(timeLabel)
@@ -154,7 +175,37 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
             $0.height.equalTo(44)
         }
 
+        relocateButton.snp.makeConstraints {
+            $0.trailing.equalToSuperview().offset(-16)
+            $0.bottom.equalTo(cameraModeButton.snp.top).offset(-12)
+            $0.width.height.equalTo(44)
+        }
+
         mapView.delegate = self
+    }
+
+    private func setupMapGestureRecognizer() {
+        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handleMapPan(_:)))
+        panGesture.delegate = self
+        mapView.addGestureRecognizer(panGesture)
+    }
+
+    @objc private func handleMapPan(_ gesture: UIPanGestureRecognizer) {
+        if gesture.state == .began || gesture.state == .changed {
+            userDidDragMapSubject.send(())
+        }
+    }
+
+    private func addDestinationAnnotation() {
+        let annotation = MKPointAnnotation()
+        annotation.coordinate = CLLocationCoordinate2D(
+            latitude: viewModel.destination.latitude,
+            longitude: viewModel.destination.longitude
+        )
+        annotation.title = viewModel.destination.name
+        annotation.subtitle = viewModel.destination.address
+        destinationAnnotation = annotation
+        mapView.addAnnotation(annotation)
     }
 
     override func bind() {
@@ -175,7 +226,10 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
             viewDidDisappear: viewDidDisappearSubject.eraseToAnyPublisher(),
             cancelButtonTapped: cancelButton.tapPublisher(),
             rerouteButtonTapped: rerouteButton.tapPublisher(),
-            toggleCameraMode: cameraModeToggled
+            toggleCameraMode: cameraModeToggled,
+            userDidDragMap: userDidDragMapSubject.eraseToAnyPublisher(),
+            relocateButtonTapped: relocateButton.tapPublisher(),
+            mapCameraAltitudeChanged: mapCameraAltitudeChangedSubject.eraseToAnyPublisher()
         )
 
         let output = viewModel.transform(input: input)
@@ -211,6 +265,7 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         output.camera
             .receive(on: DispatchQueue.main)
             .compactMap { $0 }
+            .throttle(for: .seconds(0.5), scheduler: DispatchQueue.main, latest: true)
             .sink { [weak self] camera in
                 self?.mapView.setCamera(camera, animated: true)
             }
@@ -239,6 +294,20 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
                 self?.showRerouteConfirmationAlert()
             }
             .store(in: &cancellables)
+
+        output.isTrackingUser
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isTracking in
+                self?.updateRelocateButton(isTracking: isTracking)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func updateRelocateButton(isTracking: Bool) {
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+        let imageName = isTracking ? "location.fill" : "location"
+        let image = UIImage(systemName: imageName, withConfiguration: config)
+        relocateButton.setImage(image, for: .normal)
     }
 
     private func showRerouteConfirmationAlert() {
@@ -314,5 +383,34 @@ extension NavigationViewController: MKMapViewDelegate {
         }
 
         return renderer
+    }
+
+    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+        guard annotation is MKPointAnnotation else { return nil }
+
+        let identifier = "DestinationAnnotation"
+        var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+
+        if annotationView == nil {
+            annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            annotationView?.canShowCallout = true
+            annotationView?.markerTintColor = AppColor.blackSprout
+            annotationView?.glyphImage = UIImage(systemName: "flag.fill")
+        } else {
+            annotationView?.annotation = annotation
+        }
+
+        return annotationView
+    }
+
+    func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+        let altitude = mapView.camera.altitude
+        mapCameraAltitudeChangedSubject.send(altitude)
+    }
+}
+
+extension NavigationViewController: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return true
     }
 }

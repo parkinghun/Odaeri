@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import CoreLocation
+import MapKit
 
 final class ShopDetailViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: HomeCoordinator?
@@ -15,20 +16,24 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
     private let storeRepository: StoreRepository
     private let orderRepository: OrderRepository
     private let locationManager: LocationManager
+    private let routeManager: RouteManager
     private let storeId: String
     private let errorSubject = PassthroughSubject<String, Never>()
     private let isProcessingCheckoutSubject = CurrentValueSubject<Bool, Never>(false)
+    private var cachedRoute: MKRoute?
 
     init(
         storeId: String,
         storeRepository: StoreRepository = StoreRepositoryImpl(),
         orderRepository: OrderRepository = OrderRepositoryImpl(),
-        locationManager: LocationManager = .shared
+        locationManager: LocationManager = .shared,
+        routeManager: RouteManager = .shared
     ) {
         self.storeId = storeId
         self.storeRepository = storeRepository
         self.orderRepository = orderRepository
         self.locationManager = locationManager
+        self.routeManager = routeManager
     }
 
     struct Input {
@@ -36,6 +41,7 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
         let storeLikeToggled: AnyPublisher<Bool, Never>
         let menuSelected: AnyPublisher<[MenuEntity], Never>
         let checkoutButtonTapped: AnyPublisher<(store: StoreEntity, selectedMenus: [MenuEntity]), Never>
+        let findRouteButtonTapped: AnyPublisher<Void, Never>
     }
 
     struct Output {
@@ -52,6 +58,7 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
     func transform(input: Input) -> Output {
         let storeDetailSubject = PassthroughSubject<StoreEntity, Never>()
         let currentLocationSubject = CurrentValueSubject<CLLocation?, Never>(nil)
+        let estimatedTimeSubject = PassthroughSubject<String, Never>()
 
         // 위치 업데이트 구독
         locationManager.locationSubject
@@ -85,6 +92,46 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
                 storeDetailSubject.send(store)
             }
             .store(in: &cancellables)
+
+        Publishers.CombineLatest(
+            storeDetailSubject,
+            currentLocationSubject.compactMap { $0 }
+        )
+        .flatMap { [weak self] store, currentLocation -> AnyPublisher<(MKRoute, StoreEntity), Never> in
+            guard let self = self else {
+                return Empty().eraseToAnyPublisher()
+            }
+
+            return Future<(MKRoute, StoreEntity), Never> { promise in
+                Task {
+                    do {
+                        let route = try await self.routeManager.calculateWalkingRoute(
+                            from: currentLocation.coordinate,
+                            to: CLLocationCoordinate2D(
+                                latitude: store.latitude,
+                                longitude: store.longitude
+                            )
+                        )
+                        promise(.success((route, store)))
+                    } catch {
+                        print("경로 계산 실패: \(error.localizedDescription)")
+                    }
+                }
+            }
+            .eraseToAnyPublisher()
+        }
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] route, store in
+            guard let self = self else { return }
+            self.cachedRoute = route
+
+            let distanceInKm = route.distance / 1000.0
+            let timeInSeconds = route.expectedTravelTime
+            let formattedTime = self.routeManager.formatTime(timeInSeconds)
+
+            estimatedTimeSubject.send("예상 소요시간 \(formattedTime) (\(String(format: "%.1f", distanceInKm))km)")
+        }
+        .store(in: &cancellables)
 
         input.storeLikeToggled
             .debounce(for: .seconds(0.3), scheduler: RunLoop.main)
@@ -170,25 +217,57 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
             }
             .store(in: &cancellables)
 
-        let estimatedTimeText = Publishers.CombineLatest(
-            storeDetailSubject,
-            currentLocationSubject
+        Publishers.CombineLatest(
+            input.findRouteButtonTapped,
+            storeDetailSubject
         )
-        .map { store, currentLocation -> String in
-            guard let currentLocation = currentLocation else {
-                return "예상 소요시간 --분 (--km)"
+        .compactMap { [weak self] _, store -> (MKRoute?, StoreEntity, CLLocation?)? in
+            guard let self = self else { return nil }
+            return (self.cachedRoute, store, self.locationManager.locationSubject.value)
+        }
+        .flatMap { [weak self] cachedRoute, store, currentLocation -> AnyPublisher<(MKRoute, StoreEntity), Never> in
+            guard let self = self else {
+                return Empty().eraseToAnyPublisher()
             }
 
-            let distance = RouteManager.shared.calculateDistance(
-                from: currentLocation.coordinate,
-                to: CLLocationCoordinate2D(latitude: store.latitude, longitude: store.longitude)
-            )
-            let estimatedTime = RouteManager.shared.calculateEstimatedTime(distanceInKm: distance)
-            let formattedTime = RouteManager.shared.formatTime(estimatedTime)
+            if let cachedRoute = cachedRoute {
+                return Just((cachedRoute, store))
+                    .eraseToAnyPublisher()
+            }
 
-            return "예상 소요시간 \(formattedTime) (\(String(format: "%.1f", distance))km)"
+            guard let currentLocation = currentLocation else {
+                self.errorSubject.send("현재 위치를 확인할 수 없습니다.")
+                return Empty().eraseToAnyPublisher()
+            }
+
+            return Future<(MKRoute, StoreEntity), Never> { promise in
+                Task {
+                    do {
+                        let route = try await self.routeManager.calculateWalkingRoute(
+                            from: currentLocation.coordinate,
+                            to: CLLocationCoordinate2D(
+                                latitude: store.latitude,
+                                longitude: store.longitude
+                            )
+                        )
+                        promise(.success((route, store)))
+                    } catch {
+                        self.errorSubject.send("경로를 찾을 수 없습니다.")
+                    }
+                }
+            }
+            .eraseToAnyPublisher()
         }
-        .eraseToAnyPublisher()
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] route, store in
+            guard let self = self else { return }
+            self.coordinator?.showNavigation(route: route, destination: store)
+        }
+        .store(in: &cancellables)
+
+        let estimatedTimeText = estimatedTimeSubject
+            .prepend("예상 소요시간 --분 (--km)")
+            .eraseToAnyPublisher()
 
         return Output(
             storeDetail: storeDetailSubject.eraseToAnyPublisher(),

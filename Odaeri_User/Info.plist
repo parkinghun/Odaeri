@@ -2,8 +2,31 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>UIUserInterfaceStyle</key>
-	<string>Light</string>
+	<key>IamPortUserCode</key>
+	<string>$(iamportUserCode)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>portone</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>payment.portone</string>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>None</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>Kakao</string>
+			</array>
+		</dict>
+	</array>
+	<key>APIKey</key>
+	<string>$(apiKey)</string>
+	<key>BaseURL</key>
+	<string>$(baseURL)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -11,10 +34,19 @@
 	</dict>
 	<key>TempAccesstoken</key>
 	<string>$(accessToken)</string>
-	<key>APIKey</key>
-	<string>$(apiKey)</string>
-	<key>BaseURL</key>
-	<string>$(baseURL)</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>JalnanGothic.otf</string>
+		<string>Pretendard-Black.otf</string>
+		<string>Pretendard-Bold.otf</string>
+		<string>Pretendard-ExtraBold.otf</string>
+		<string>Pretendard-ExtraLight.otf</string>
+		<string>Pretendard-Light.otf</string>
+		<string>Pretendard-Medium.otf</string>
+		<string>Pretendard-Regular.otf</string>
+		<string>Pretendard-SemiBold.otf</string>
+		<string>Pretendard-Thin.otf</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -35,19 +67,50 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+		<string>location</string>
 	</array>
-	<key>UIAppFonts</key>
+	<key>LSApplicationQueriesSchemes</key>
 	<array>
-		<string>JalnanGothic.otf</string>
-		<string>Pretendard-Black.otf</string>
-		<string>Pretendard-Bold.otf</string>
-		<string>Pretendard-ExtraBold.otf</string>
-		<string>Pretendard-ExtraLight.otf</string>
-		<string>Pretendard-Light.otf</string>
-		<string>Pretendard-Medium.otf</string>
-		<string>Pretendard-Regular.otf</string>
-		<string>Pretendard-SemiBold.otf</string>
-		<string>Pretendard-Thin.otf</string>
+		<string>kakaokompassauth</string>
+		<string>kakaolink</string>
+		<string>kakaoplus</string>
+		<string>kftc-bankpay</string>
+		<string>ispmobile</string>
+		<string>itms-apps</string>
+		<string>hdcardappcardansimclick</string>
+		<string>smhyundaiansimclick</string>
+		<string>shinhan-sr-ansimclick</string>
+		<string>smshinhanansimclick</string>
+		<string>kb-acp</string>
+		<string>kb-auth</string>
+		<string>kb-screen</string>
+		<string>kbbank</string>
+		<string>liivbank</string>
+		<string>newliiv</string>
+		<string>mpocket.online.ansimclick</string>
+		<string>ansimclickscard</string>
+		<string>ansimclickipcollect</string>
+		<string>vguardstart</string>
+		<string>samsungpay</string>
+		<string>scardcertiapp</string>
+		<string>lottesmartpay</string>
+		<string>lotteappcard</string>
+		<string>cloudpay</string>
+		<string>nhappcardansimclick</string>
+		<string>nonghyupcardansimclick</string>
+		<string>citispay</string>
+		<string>citicardappkr</string>
+		<string>citimobileapp</string>
+		<string>kakaotalk</string>
+		<string>payco</string>
+		<string>chaipayment</string>
+		<string>hyundaicardappcardid</string>
+		<string>com.wooricard.wcard</string>
+		<string>lmslpay</string>
+		<string>lguthepay-xpay</string>
+		<string>supertoss</string>
+		<string>newsmartpib</string>
+		<string>kakaobank</string>
 	</array>
 </dict>
 </plist>

@@ -13,7 +13,6 @@ import iamport_ios
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
     
-    // AppDelegate.swift 설정
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
         Iamport.shared.receivedURL(url)
         return true

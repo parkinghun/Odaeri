@@ -7,8 +7,12 @@
 
 import UIKit
 import SnapKit
+import Combine
 
 final class StoreInfoCell: BaseCollectionViewCell {
+    var findRouteButtonTapPublisher: AnyPublisher<Void, Never> {
+        findRouteButton.tapPublisher()
+    }
     private let containerView: UIView = {
         let view = UIView()
         view.backgroundColor = AppColor.gray15

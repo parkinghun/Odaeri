@@ -33,6 +33,9 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         let cancelButtonTapped: AnyPublisher<Void, Never>
         let rerouteButtonTapped: AnyPublisher<Void, Never>
         let toggleCameraMode: AnyPublisher<Bool, Never>
+        let userDidDragMap: AnyPublisher<Void, Never>
+        let relocateButtonTapped: AnyPublisher<Void, Never>
+        let mapCameraAltitudeChanged: AnyPublisher<CLLocationDistance, Never>
     }
 
     struct Output {
@@ -44,6 +47,7 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         let distanceToDestination: AnyPublisher<String, Never>
         let estimatedTime: AnyPublisher<String, Never>
         let camera: AnyPublisher<MKMapCamera?, Never>
+        let isTrackingUser: AnyPublisher<Bool, Never>
         let showArrivalAlert: AnyPublisher<String, Never>
         let showRerouteAlert: AnyPublisher<Void, Never>
     }
@@ -53,6 +57,8 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         let showArrivalAlertSubject = PassthroughSubject<String, Never>()
         let showRerouteAlertSubject = PassthroughSubject<Void, Never>()
         let is3DCameraMode = CurrentValueSubject<Bool, Never>(true)
+        let isTrackingUserSubject = CurrentValueSubject<Bool, Never>(true)
+        let isAtDefaultZoomLevel = CurrentValueSubject<Bool, Never>(true)
 
         input.viewDidLoad
             .sink { [weak self] _ in
@@ -84,6 +90,31 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         input.toggleCameraMode
             .sink { is3D in
                 is3DCameraMode.send(is3D)
+                isTrackingUserSubject.send(true)
+            }
+            .store(in: &cancellables)
+
+        input.userDidDragMap
+            .sink { _ in
+                isTrackingUserSubject.send(false)
+            }
+            .store(in: &cancellables)
+
+        input.relocateButtonTapped
+            .sink { _ in
+                isTrackingUserSubject.send(true)
+                isAtDefaultZoomLevel.send(true)
+            }
+            .store(in: &cancellables)
+
+        input.mapCameraAltitudeChanged
+            .sink { altitude in
+                let is3D = is3DCameraMode.value
+                let defaultAltitude: CLLocationDistance = is3D ? 700 : 1500
+                let tolerance: CLLocationDistance = 200
+
+                let isAtDefault = abs(altitude - defaultAltitude) <= tolerance
+                isAtDefaultZoomLevel.send(isAtDefault)
             }
             .store(in: &cancellables)
 
@@ -100,18 +131,35 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
             }
             .store(in: &cancellables)
 
-        Publishers.CombineLatest3(
-            navigationService.$currentLocation,
-            navigationService.$currentHeading,
-            is3DCameraMode
+        Publishers.CombineLatest(
+            Publishers.CombineLatest4(
+                navigationService.$currentLocation,
+                navigationService.$currentHeading,
+                is3DCameraMode,
+                isTrackingUserSubject
+            ),
+            isAtDefaultZoomLevel
         )
-        .compactMap { [weak self] location, heading, is3D in
-            guard is3D else { return nil }
-            return self?.navigationService.createCameraForCurrentLocation(
-                pitch: 60,
-                heading: heading?.trueHeading,
-                altitude: 500
-            )
+        .compactMap { [weak self] combined, isAtDefaultZoom in
+            let (location, heading, is3D, isTracking) = combined
+            guard isTracking, let location = location else { return nil }
+
+            let shouldApplyHeading = isAtDefaultZoom
+
+            if is3D {
+                return self?.navigationService.createCameraForCurrentLocation(
+                    pitch: 65,
+                    heading: shouldApplyHeading ? heading?.trueHeading : 0,
+                    altitude: 700
+                )
+            } else {
+                return MKMapCamera(
+                    lookingAtCenter: location.coordinate,
+                    fromDistance: 1500,
+                    pitch: 0,
+                    heading: 0
+                )
+            }
         }
         .sink { camera in
             cameraSubject.send(camera)
@@ -150,6 +198,7 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
             distanceToDestination: distanceString,
             estimatedTime: timeString,
             camera: cameraSubject.eraseToAnyPublisher(),
+            isTrackingUser: isTrackingUserSubject.eraseToAnyPublisher(),
             showArrivalAlert: showArrivalAlertSubject.eraseToAnyPublisher(),
             showRerouteAlert: showRerouteAlertSubject.eraseToAnyPublisher()
         )
