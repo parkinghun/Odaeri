@@ -7,18 +7,10 @@
 
 import Foundation
 import MapKit
-import Combine
 
+/// 출발지 / 목적지 좌표를 받아 MKRoute 를 생성하는 비즈니스 로직
 final class RouteManager {
     static let shared = RouteManager()
-
-    // MARK: - Properties
-
-    /// 경로 계산 결과를 방출하는 Subject
-    let routeSubject = PassthroughSubject<MKRoute, Never>()
-
-    /// 경로 에러를 방출하는 Subject
-    let routeErrorSubject = PassthroughSubject<RouteError, Never>()
 
     /// 성인 평균 보폭 (미터)
     private let averageStrideLength: Double = 0.7
@@ -26,59 +18,7 @@ final class RouteManager {
     /// 평균 도보 속도 (km/h)
     private let averageWalkingSpeed: Double = 4.0
 
-    // MARK: - Initialization
-
     private init() {}
-
-    // MARK: - Public Methods
-
-    /// 도보 경로 계산
-    /// - Parameters:
-    ///   - source: 출발지 좌표
-    ///   - destination: 목적지 좌표
-    func calculateWalkingRoute(from source: CLLocationCoordinate2D, to destination: CLLocationCoordinate2D) {
-        // 1. MKPlacemark 생성
-        let sourcePlacemark = MKPlacemark(coordinate: source)
-        let destinationPlacemark = MKPlacemark(coordinate: destination)
-
-        // 2. MKMapItem 생성
-        let sourceMapItem = MKMapItem(placemark: sourcePlacemark)
-        let destinationMapItem = MKMapItem(placemark: destinationPlacemark)
-
-        // 3. MKDirections.Request 설정
-        let request = MKDirections.Request()
-        request.source = sourceMapItem
-        request.destination = destinationMapItem
-        request.transportType = .walking // 도보 경로
-        request.requestsAlternateRoutes = false // 대체 경로 미요청
-
-        // 4. MKDirections 생성 및 경로 계산
-        let directions = MKDirections(request: request)
-        directions.calculate { [weak self] response, error in
-            guard let self = self else { return }
-
-            // 에러 처리
-            if let error = error {
-                self.handleDirectionsError(error)
-                return
-            }
-
-            // 응답 체크
-            guard let response = response else {
-                self.routeErrorSubject.send(.noRouteFound)
-                return
-            }
-
-            // 경로 체크
-            guard let route = response.routes.first else {
-                self.routeErrorSubject.send(.noRouteFound)
-                return
-            }
-
-            // 경로 방출
-            self.routeSubject.send(route)
-        }
-    }
 
     /// 도보 경로 계산 (Async/Await)
     /// - Parameters:
@@ -89,22 +29,18 @@ final class RouteManager {
         from source: CLLocationCoordinate2D,
         to destination: CLLocationCoordinate2D
     ) async throws -> MKRoute {
-        // 1. MKPlacemark 생성
         let sourcePlacemark = MKPlacemark(coordinate: source)
         let destinationPlacemark = MKPlacemark(coordinate: destination)
 
-        // 2. MKMapItem 생성
         let sourceMapItem = MKMapItem(placemark: sourcePlacemark)
         let destinationMapItem = MKMapItem(placemark: destinationPlacemark)
 
-        // 3. MKDirections.Request 설정
         let request = MKDirections.Request()
         request.source = sourceMapItem
         request.destination = destinationMapItem
         request.transportType = .walking
         request.requestsAlternateRoutes = false
 
-        // 4. MKDirections 생성 및 경로 계산
         let directions = MKDirections(request: request)
 
         do {
@@ -131,7 +67,7 @@ final class RouteManager {
         let toLocation = CLLocation(latitude: to.latitude, longitude: to.longitude)
 
         let distanceInMeters = fromLocation.distance(from: toLocation)
-        return distanceInMeters / 1000.0 // km로 변환
+        return distanceInMeters / 1000.0
     }
 
     /// 거리를 기반으로 예상 걸음 수 계산
@@ -169,28 +105,17 @@ final class RouteManager {
         }
     }
 
-    // MARK: - Private Methods
-
-    private func handleDirectionsError(_ error: Error) {
-        let routeError = mapDirectionsError(error)
-        routeErrorSubject.send(routeError)
-    }
-
     private func mapDirectionsError(_ error: Error) -> RouteError {
         if let mkError = error as? MKError {
             switch mkError.code {
             case .placemarkNotFound:
                 return .placemarkNotFound
-
             case .directionsNotFound:
                 return .noRouteFound
-
             case .serverFailure:
                 return .serverError
-
             case .loadingThrottled:
                 return .networkError
-
             default:
                 return .unknown
             }
@@ -205,8 +130,6 @@ final class RouteManager {
     }
 }
 
-// MARK: - RouteError
-
 enum RouteError: LocalizedError {
     case noRouteFound
     case placemarkNotFound
@@ -218,16 +141,12 @@ enum RouteError: LocalizedError {
         switch self {
         case .noRouteFound:
             return "경로를 찾을 수 없습니다."
-
         case .placemarkNotFound:
             return "위치를 찾을 수 없습니다."
-
         case .networkError:
             return "네트워크 오류가 발생했습니다."
-
         case .serverError:
             return "서버 오류가 발생했습니다."
-
         case .unknown:
             return "알 수 없는 오류가 발생했습니다."
         }
