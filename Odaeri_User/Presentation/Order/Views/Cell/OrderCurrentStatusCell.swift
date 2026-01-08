@@ -134,77 +134,18 @@ final class OrderCurrentStatusCell: BaseCollectionViewCell {
         statusContainerView.setContentCompressionResistancePriority(.required, for: .horizontal)
     }
 
-    func configure(with order: OrderListItemEntity) {
-        orderCodeValueLabel.text = order.orderCode
-        storeNameLabel.text = order.store.name
-        orderDateLabel.text = formattedTime(order: order)
-        categoryImageView.image = categoryImage(for: order.store.category)
+    func configure(with display: OrderCurrentStatusDisplay) {
+        orderCodeTitleLabel.text = display.orderCodeTitle
+        orderCodeValueLabel.text = display.orderCodeValue
+        storeNameLabel.text = display.storeName
+        orderDateLabel.text = display.orderDateText
+        categoryImageView.image = display.categoryImage
 
         statusStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
-
-        let statuses: [OrderStatusEntity] = [
-            .pendingApproval, .approved, .inProgress, .readyForPickup, .pickedUp
-        ]
-        for (index, status) in statuses.enumerated() {
-            let isActive = isActiveStatus(status: status, order: order)
-            let timeText = statusTimeText(for: status, order: order)
-            let showsConnector = index < statuses.count - 1
-            let isConnectorActive = isConnectorActive(at: index, order: order, statuses: statuses)
-            let row = OrderStatusStepView(
-                status: status.description,
-                timeText: timeText,
-                isActive: isActive,
-                showsConnector: showsConnector,
-                isConnectorActive: isConnectorActive
-            )
+        for step in display.statusSteps {
+            let row = OrderStatusStepView(display: step)
             statusStackView.addArrangedSubview(row)
         }
-    }
-
-    private func formattedTime(order: OrderListItemEntity) -> String {
-        if let createdAt = order.createdAt {
-            return DateFormatter.fullDisplay.string(from: createdAt)
-        }
-        return "주문 시간 미확인"
-    }
-
-    private func categoryImage(for category: String) -> UIImage? {
-        switch category.lowercased() {
-        case "bakery":
-            return Category.bakery.image
-        case "coffee":
-            return Category.coffee.image
-        case "dessert":
-            return Category.dessert.image
-        case "fastfood":
-            return Category.fastFood.image
-        default:
-            return Category.more.image
-        }
-    }
-
-    private func isActiveStatus(status: OrderStatusEntity, order: OrderListItemEntity) -> Bool {
-        let orderList: [OrderStatusEntity] = [.pendingApproval, .approved, .inProgress, .readyForPickup, .pickedUp]
-        guard let currentIndex = orderList.firstIndex(of: order.currentOrderStatus),
-              let statusIndex = orderList.firstIndex(of: status) else {
-            return false
-        }
-        return statusIndex <= currentIndex
-    }
-
-    private func isConnectorActive(at index: Int, order: OrderListItemEntity, statuses: [OrderStatusEntity]) -> Bool {
-        let orderList: [OrderStatusEntity] = statuses
-        guard let currentIndex = orderList.firstIndex(of: order.currentOrderStatus) else { return false }
-        return index < currentIndex
-    }
-
-    private func statusTimeText(for status: OrderStatusEntity, order: OrderListItemEntity) -> String? {
-        guard let timeline = order.orderStatusTimeline.first(where: { $0.status == status }),
-              timeline.completed,
-              let changedAt = timeline.changedAt else {
-            return nil
-        }
-        return DateFormatter.timeDisplay.string(from: changedAt)
     }
 }
 
@@ -237,22 +178,10 @@ private final class OrderStatusStepView: UIView {
         return view
     }()
 
-    init(
-        status: String,
-        timeText: String?,
-        isActive: Bool,
-        showsConnector: Bool,
-        isConnectorActive: Bool
-    ) {
+    init(display: OrderStatusStepDisplay) {
         super.init(frame: .zero)
         setupUI()
-        configure(
-            status: status,
-            timeText: timeText,
-            isActive: isActive,
-            showsConnector: showsConnector,
-            isConnectorActive: isConnectorActive
-        )
+        configure(display: display)
     }
 
     required init?(coder: NSCoder) {
@@ -291,27 +220,21 @@ private final class OrderStatusStepView: UIView {
         }
     }
 
-    private func configure(
-        status: String,
-        timeText: String?,
-        isActive: Bool,
-        showsConnector: Bool,
-        isConnectorActive: Bool
-    ) {
-        let iconImage = (isActive ? AppImage.progressFinish : AppImage.progressDefault)
+    private func configure(display: OrderStatusStepDisplay) {
+        let iconImage = (display.isActive ? AppImage.progressFinish : AppImage.progressDefault)
             .resize(to: CGSize(width: 16, height: 16))
-            .withTintColor(isActive ? AppColor.blackSprout : AppColor.gray45)
+            .withTintColor(display.isActive ? AppColor.blackSprout : AppColor.gray45)
         iconView.image = iconImage
-        titleLabel.text = status
-        titleLabel.textColor = isActive ? AppColor.gray90 : AppColor.gray45
-        if let timeText {
+        titleLabel.text = display.title
+        titleLabel.textColor = display.isActive ? AppColor.gray90 : AppColor.gray45
+        if let timeText = display.timeText {
             timeLabel.isHidden = false
             timeLabel.text = timeText
         } else {
             timeLabel.isHidden = true
             timeLabel.text = nil
         }
-        connectorView.isHidden = !showsConnector
-        connectorView.backgroundColor = isConnectorActive ? AppColor.blackSprout : AppColor.gray30
+        connectorView.isHidden = !display.showsConnector
+        connectorView.backgroundColor = display.isConnectorActive ? AppColor.blackSprout : AppColor.gray30
     }
 }

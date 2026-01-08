@@ -139,19 +139,19 @@ final class OrderPastCell: BaseCollectionViewCell {
         }
     }
 
-    func configure(with order: OrderListItemEntity) {
-        storeNameLabel.text = order.store.name
-        orderCodeLabel.text = order.orderCode
-        orderDateLabel.text = orderDateText(order: order)
-        menuSummaryLabel.text = menuSummaryText(order: order)
-        priceButton.setTitle(priceText(order: order), for: .normal)
-        storeImageView.setImage(url: order.store.storeImageUrls.first)
-        
-        if let review = order.review {
+    func configure(with display: OrderPastDisplay) {
+        storeNameLabel.text = display.storeName
+        orderCodeLabel.text = display.orderCodeText
+        orderDateLabel.text = display.orderDateText
+        menuSummaryLabel.text = display.menuSummaryText
+        priceButton.setTitle(display.priceText, for: .normal)
+        storeImageView.setImage(url: display.storeImageUrl)
+
+        if let review = display.review {
             let starImage = AppImage.starFill.resize(to: CGSize(width: 20, height: 20))
             reviewButton.setImage(starImage, for: .normal)
             reviewButton.tintColor = AppColor.brightForsythia
-            reviewButton.setTitle("\(review.rating).0", for: .normal)
+            reviewButton.setTitle(review.ratingText, for: .normal)
             reviewButton.setTitleColor(AppColor.gray75, for: .normal)
             reviewButton.titleLabel?.font = AppFont.body1Bold
             reviewButton.titleEdgeInsets = UIEdgeInsets(
@@ -168,30 +168,5 @@ final class OrderPastCell: BaseCollectionViewCell {
             reviewButton.titleLabel?.font = AppFont.body1Bold
             reviewButton.titleEdgeInsets = .zero
         }
-    }
-
-    private func orderDateText(order: OrderListItemEntity) -> String {
-        let dateText: String
-        if let paidAt = order.paidAt {
-            dateText = paidAt.toFullDisplay
-        } else if let createdAt = order.createdAt {
-            dateText = DateFormatter.dotDisplay.string(from: createdAt)
-        } else {
-            dateText = "결제일 미확인"
-        }
-        return dateText
-    }
-
-    private func menuSummaryText(order: OrderListItemEntity) -> String {
-        guard let first = order.orderMenuList.first else { return "메뉴 없음" }
-        if order.orderMenuList.count > 1 {
-            return "\(first.menu.name) 외 \(order.orderMenuList.count - 1)건"
-        }
-        return first.menu.name
-    }
-
-    private func priceText(order: OrderListItemEntity) -> String {
-        let total = order.totalPrice.formatted()
-        return "\(total)원"
     }
 }

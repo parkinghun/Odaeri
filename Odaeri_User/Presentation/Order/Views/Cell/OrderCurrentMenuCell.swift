@@ -97,24 +97,22 @@ final class OrderCurrentMenuCell: BaseCollectionViewCell {
         }
     }
 
-    func configure(with order: OrderListItemEntity) {
+    func configure(with display: OrderCurrentMenuDisplay) {
         menuStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
-        for (index, item) in order.orderMenuList.enumerated() {
+        for (index, item) in display.menuRows.enumerated() {
             let row = OrderMenuRowView()
             row.configure(menu: item)
             menuStackView.addArrangedSubview(row)
 
-            if index < order.orderMenuList.count - 1 {
+            if index < display.menuRows.count - 1 {
                 let divider = Divider(height: 1, color: AppColor.gray30)
                 menuStackView.addArrangedSubview(divider)
             }
         }
 
-        let totalQuantity = order.orderMenuList.reduce(0) { $0 + $1.quantity }
-        let totalPrice = order.totalPrice.formatted()
-        totalQuantityLabel.text = "\(totalQuantity)EA"
-        totalPriceLabel.text = "\(totalPrice)원"
+        totalQuantityLabel.text = display.totalQuantityText
+        totalPriceLabel.text = display.totalPriceText
     }
 }
 
@@ -153,7 +151,8 @@ private final class OrderMenuRowView: UIView {
         let stackView = UIStackView(arrangedSubviews: [priceLabel, quantityLabel])
         stackView.axis = .horizontal
         stackView.spacing = AppSpacing.small
-        stackView.alignment = .center
+        stackView.alignment = .leading
+        stackView.distribution = .fill
         return stackView
     }()
 
@@ -177,6 +176,11 @@ private final class OrderMenuRowView: UIView {
         addSubview(menuImageView)
         addSubview(textStackView)
 
+        priceLabel.setContentHuggingPriority(.required, for: .horizontal)
+        priceLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        quantityLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        quantityLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
         menuImageView.snp.makeConstraints {
             $0.leading.top.bottom.equalToSuperview()
             $0.width.equalTo(84)
@@ -186,15 +190,14 @@ private final class OrderMenuRowView: UIView {
         textStackView.snp.makeConstraints {
             $0.leading.equalTo(menuImageView.snp.trailing).offset(AppSpacing.large)
             $0.centerY.equalToSuperview()
-            $0.trailing.lessThanOrEqualToSuperview()
+            $0.trailing.equalToSuperview()
         }
     }
 
-    func configure(menu: OrderMenuEntity) {
-        menuImageView.setImage(url: menu.menu.menuImageUrl)
-        nameLabel.text = menu.menu.name
-        let priceText = menu.menu.price.formatted()
-        priceLabel.text = "\(priceText)원"
-        quantityLabel.text = "\(menu.quantity)EA"
+    func configure(menu: OrderMenuRowDisplay) {
+        menuImageView.setImage(url: menu.imageUrl)
+        nameLabel.text = menu.name
+        priceLabel.text = menu.priceText
+        quantityLabel.text = menu.quantityText
     }
 }
