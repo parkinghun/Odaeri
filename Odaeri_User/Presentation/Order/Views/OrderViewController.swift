@@ -10,8 +10,6 @@ import Combine
 import SnapKit
 
 final class OrderViewController: BaseViewController<OrderViewModel> {
-    weak var coordinator: OrderCoordinator?
-    
     private enum Section: Int, CaseIterable {
         case current
         case past
@@ -65,6 +63,8 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
     private var currentOrders: [OrderListItemDisplay] = []
     private var pastOrders: [OrderListItemDisplay] = []
     private var lastTabBarInset: CGFloat = 0
+    private let priceTapSubject = PassthroughSubject<String, Never>()
+    private let storeTapSubject = PassthroughSubject<String, Never>()
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -115,7 +115,11 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
         super.bind()
         
         let viewDidLoadSubject = PassthroughSubject<Void, Never>()
-        let input = OrderViewModel.Input(viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher())
+        let input = OrderViewModel.Input(
+            viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
+            priceTapped: priceTapSubject.eraseToAnyPublisher(),
+            storeTapped: storeTapSubject.eraseToAnyPublisher()
+        )
         let output = viewModel.transform(input: input)
         
         output.currentOrders
@@ -148,6 +152,13 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] errorMessage in
                 self?.showAlert(title: "오류", message: errorMessage)
+            }
+            .store(in: &cancellables)
+
+        output.receiptOrder
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] order in
+                self?.presentReceipt(order: order)
             }
             .store(in: &cancellables)
         
@@ -192,12 +203,21 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
             guard let self = self,
                   let display = self.orderCache[orderId] else { return }
             cell.configure(with: display.currentMenu)
+            cell.onCellTapped = { [weak self] in
+                self?.priceTapSubject.send(orderId)
+            }
         }
         
         let pastCellRegistration = UICollectionView.CellRegistration<OrderPastCell, String> { [weak self] cell, _, orderId in
             guard let self = self,
                   let display = self.orderCache[orderId] else { return }
             cell.configure(with: display.past)
+            cell.onPriceTapped = { [weak self] in
+                self?.priceTapSubject.send(orderId)
+            }
+            cell.onStoreTapped = { [weak self] in
+                self?.storeTapSubject.send(display.past.storeId)
+            }
         }
         
         let headerRegistration = UICollectionView.SupplementaryRegistration<OrderSectionHeaderView>(
@@ -324,5 +344,16 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
             }
         }
         return 60 + view.safeAreaInsets.bottom
+    }
+
+    private func presentReceipt(order: OrderListItemEntity) {
+        let viewController = OrderReceiptViewController(order: order)
+        viewController.onStoreTapped = { [weak self] storeId in
+            guard let self else { return }
+            viewController.dismiss(animated: true) { [weak self] in
+                self?.storeTapSubject.send(storeId)
+            }
+        }
+        present(viewController, animated: true)
     }
 }

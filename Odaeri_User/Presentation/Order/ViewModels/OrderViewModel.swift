@@ -10,8 +10,11 @@ import Combine
 import UIKit
 
 final class OrderViewModel: BaseViewModel, ViewModelType {
+    weak var coordinator: OrderCoordinator?
+
     private let orderRepository: OrderRepository
     private let errorSubject = PassthroughSubject<String, Never>()
+    private var orderEntityCache: [String: OrderListItemEntity] = [:]
 
     init(orderRepository: OrderRepository = OrderRepositoryImpl()) {
         self.orderRepository = orderRepository
@@ -19,6 +22,8 @@ final class OrderViewModel: BaseViewModel, ViewModelType {
 
     struct Input {
         let viewDidLoad: AnyPublisher<Void, Never>
+        let priceTapped: AnyPublisher<String, Never>
+        let storeTapped: AnyPublisher<String, Never>
     }
 
     struct Output {
@@ -26,12 +31,14 @@ final class OrderViewModel: BaseViewModel, ViewModelType {
         let pastOrders: AnyPublisher<[OrderListItemDisplay], Never>
         let isEmpty: AnyPublisher<Bool, Never>
         let error: AnyPublisher<String, Never>
+        let receiptOrder: AnyPublisher<OrderListItemEntity, Never>
     }
 
     func transform(input: Input) -> Output {
         let currentOrdersSubject = CurrentValueSubject<[OrderListItemDisplay], Never>([])
         let pastOrdersSubject = CurrentValueSubject<[OrderListItemDisplay], Never>([])
         let isEmptySubject = CurrentValueSubject<Bool, Never>(true)
+        let receiptOrderSubject = PassthroughSubject<OrderListItemEntity, Never>()
 
         input.viewDidLoad
             .flatMap { [weak self] _ -> AnyPublisher<[OrderListItemEntity], Never> in
@@ -44,6 +51,7 @@ final class OrderViewModel: BaseViewModel, ViewModelType {
                     .eraseToAnyPublisher()
             }
             .sink { orders in
+                self.orderEntityCache = Dictionary(uniqueKeysWithValues: orders.map { ($0.orderId, $0) })
                 let current = orders.filter { $0.currentOrderStatus != .pickedUp }
                 let past = orders.filter { $0.currentOrderStatus == .pickedUp }
                 let currentDisplay = current.map { self.makeDisplay(from: $0) }
@@ -54,17 +62,34 @@ final class OrderViewModel: BaseViewModel, ViewModelType {
             }
             .store(in: &cancellables)
 
+        input.priceTapped
+            .compactMap { [weak self] orderId in
+                self?.orderEntityCache[orderId]
+            }
+            .sink { order in
+                receiptOrderSubject.send(order)
+            }
+            .store(in: &cancellables)
+
+        input.storeTapped
+            .sink { [weak self] storeId in
+                self?.coordinator?.showStoreDetail(storeId: storeId)
+            }
+            .store(in: &cancellables)
+
         return Output(
             currentOrders: currentOrdersSubject.eraseToAnyPublisher(),
             pastOrders: pastOrdersSubject.eraseToAnyPublisher(),
             isEmpty: isEmptySubject.eraseToAnyPublisher(),
-            error: errorSubject.eraseToAnyPublisher()
+            error: errorSubject.eraseToAnyPublisher(),
+            receiptOrder: receiptOrderSubject.eraseToAnyPublisher()
         )
     }
 }
 
 struct OrderListItemDisplay {
     let orderId: String
+    let orderEntity: OrderListItemEntity
     let currentStatus: OrderCurrentStatusDisplay
     let currentMenu: OrderCurrentMenuDisplay
     let past: OrderPastDisplay
@@ -93,6 +118,7 @@ struct OrderMenuRowDisplay {
 }
 
 struct OrderPastDisplay {
+    let storeId: String
     let storeName: String
     let orderCodeText: String
     let orderDateText: String
@@ -143,6 +169,7 @@ private extension OrderViewModel {
         )
 
         let pastDisplay = OrderPastDisplay(
+            storeId: order.store.id,
             storeName: order.store.name,
             orderCodeText: order.orderCode,
             orderDateText: pastOrderDateText(for: order),
@@ -154,6 +181,7 @@ private extension OrderViewModel {
 
         return OrderListItemDisplay(
             orderId: order.orderId,
+            orderEntity: order,
             currentStatus: statusDisplay,
             currentMenu: menuDisplay,
             past: pastDisplay

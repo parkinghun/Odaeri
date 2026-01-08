@@ -23,9 +23,14 @@ final class OrderCoordinator: Coordinator {
 
     func start() {
         let orderViewModel = OrderViewModel()
+        orderViewModel.coordinator = self
         let orderViewController = OrderViewController(viewModel: orderViewModel)
-        orderViewController.coordinator = self
         navigationController.setViewControllers([orderViewController], animated: false)
     }
-}
 
+    func showStoreDetail(storeId: String) {
+        let viewModel = ShopDetailViewModel(storeId: storeId)
+        let viewController = ShopDetailViewController(viewModel: viewModel)
+        navigationController.pushViewController(viewController, animated: true)
+    }
+}
