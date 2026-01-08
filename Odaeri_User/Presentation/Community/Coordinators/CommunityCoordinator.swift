@@ -27,4 +27,16 @@ final class CommunityCoordinator: Coordinator {
         communityViewController.coordinator = self
         navigationController.setViewControllers([communityViewController], animated: false)
     }
+
+    func showEventWeb(path: String) {
+        let viewModel = EventWebViewModel(path: path)
+        let viewController = EventWebViewController(viewModel: viewModel)
+        navigationController.pushViewController(viewController, animated: true)
+    }
+
+    func showStoreDetail(storeId: String) {
+        let viewModel = ShopDetailViewModel(storeId: storeId)
+        let viewController = ShopDetailViewController(viewModel: viewModel)
+        navigationController.pushViewController(viewController, animated: true)
+    }
 }

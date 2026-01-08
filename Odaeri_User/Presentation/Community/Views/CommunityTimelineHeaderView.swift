@@ -15,6 +15,9 @@ final class CommunityTimelineHeaderView: UIView {
     var onUserScrolledBanner: ((Int) -> Void)? {
         didSet { bannerView.onUserScrolled = onUserScrolledBanner }
     }
+    var onBannerSelected: ((BannerEntity) -> Void)? {
+        didSet { bannerView.onBannerSelected = onBannerSelected }
+    }
 
     private let titleLabel: UILabel = {
         let label = UILabel()
