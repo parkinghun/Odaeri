@@ -69,6 +69,8 @@ final class OrderPastCell: BaseCollectionViewCell {
         let button = UIButton(configuration: configuration)
         return button
     }()
+
+    var onPriceTapped: (() -> Void)?
     
     private let storeImageView: UIImageView = {
         let view = UIImageView()
@@ -99,6 +101,8 @@ final class OrderPastCell: BaseCollectionViewCell {
         
         return button
     }()
+
+    var onStoreTapped: (() -> Void)?
 
     override func setupUI() {
         super.setupUI()
@@ -155,6 +159,14 @@ final class OrderPastCell: BaseCollectionViewCell {
             $0.horizontalEdges.bottom.equalToSuperview().inset(AppSpacing.large)
             $0.height.equalTo(40)
         }
+
+        storeNameLabel.isUserInteractionEnabled = true
+        storeImageView.isUserInteractionEnabled = true
+        let nameTap = UITapGestureRecognizer(target: self, action: #selector(handleStoreTap))
+        let imageTap = UITapGestureRecognizer(target: self, action: #selector(handleStoreTap))
+        storeNameLabel.addGestureRecognizer(nameTap)
+        storeImageView.addGestureRecognizer(imageTap)
+        priceButton.addTarget(self, action: #selector(handlePriceTap), for: .touchUpInside)
     }
 
     func configure(with display: OrderPastDisplay) {
@@ -193,5 +205,13 @@ final class OrderPastCell: BaseCollectionViewCell {
         }
 
         reviewButton.configuration = config
+    }
+
+    @objc private func handlePriceTap() {
+        onPriceTapped?()
+    }
+
+    @objc private func handleStoreTap() {
+        onStoreTapped?()
     }
 }

@@ -53,6 +53,8 @@ final class OrderCurrentMenuCell: BaseCollectionViewCell {
         return label
     }()
 
+    var onCellTapped: (() -> Void)?
+
     private lazy var totalStackView: UIStackView = {
         let stackView = UIStackView(arrangedSubviews: [totalQuantityLabel, totalPriceLabel])
         stackView.axis = .horizontal
@@ -95,6 +97,9 @@ final class OrderCurrentMenuCell: BaseCollectionViewCell {
             $0.centerY.equalTo(totalTitleLabel)
             $0.trailing.equalToSuperview().inset(AppSpacing.screenMargin)
         }
+
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleCellTap))
+        containerView.addGestureRecognizer(tapGesture)
     }
 
     func configure(with display: OrderCurrentMenuDisplay) {
@@ -113,6 +118,10 @@ final class OrderCurrentMenuCell: BaseCollectionViewCell {
 
         totalQuantityLabel.text = display.totalQuantityText
         totalPriceLabel.text = display.totalPriceText
+    }
+
+    @objc private func handleCellTap() {
+        onCellTapped?()
     }
 }
 
