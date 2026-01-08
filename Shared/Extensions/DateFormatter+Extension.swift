@@ -22,6 +22,13 @@ extension DateFormatter {
         return formatter
     }()
     
+    static let dotDisplay: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.dateFormat = "yyyy.MM.dd HH:mm"
+        return formatter
+    }()
+    
     static let timeDisplay: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ko_KR")
