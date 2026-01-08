@@ -1,0 +1,143 @@
+//
+//  CommunityMediaItemView.swift
+//  Odaeri_User
+//
+//  Created by 박성훈 on 1/9/26.
+//
+
+import UIKit
+import AVFoundation
+import SnapKit
+
+final class CommunityMediaItemView: UIView {
+    var onTap: ((CommunityMediaItemViewModel) -> Void)?
+
+    private let imageView: UIImageView = {
+        let view = UIImageView()
+        view.contentMode = .scaleAspectFill
+        view.clipsToBounds = true
+        view.backgroundColor = AppColor.gray30
+        return view
+    }()
+
+    private let playIconView: UIImageView = {
+        let view = UIImageView(image: UIImage(systemName: "play.fill"))
+        view.tintColor = AppColor.gray0
+        view.contentMode = .scaleAspectFit
+        view.isHidden = true
+        return view
+    }()
+
+    private let overlayView: UIView = {
+        let view = UIView()
+        view.backgroundColor = AppColor.gray100.withAlphaComponent(0.6)
+        view.isHidden = true
+        return view
+    }()
+
+    private let overlayLabel: UILabel = {
+        let label = UILabel()
+        label.font = AppFont.body2Bold
+        label.textColor = AppColor.gray0
+        return label
+    }()
+
+    private var currentItem: CommunityMediaItemViewModel?
+    private var thumbnailToken = UUID()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupUI()
+        setupGesture()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setupUI() {
+        layer.cornerRadius = 12
+        clipsToBounds = true
+
+        addSubview(imageView)
+        addSubview(playIconView)
+        addSubview(overlayView)
+        overlayView.addSubview(overlayLabel)
+
+        imageView.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+        }
+
+        playIconView.snp.makeConstraints {
+            $0.center.equalToSuperview()
+            $0.size.equalTo(28)
+        }
+
+        overlayView.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+        }
+
+        overlayLabel.snp.makeConstraints {
+            $0.center.equalToSuperview()
+        }
+    }
+
+    private func setupGesture() {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        addGestureRecognizer(tap)
+    }
+
+    @objc private func handleTap() {
+        guard let item = currentItem else { return }
+        onTap?(item)
+    }
+
+    func configure(item: CommunityMediaItemViewModel, overlayText: String?) {
+        currentItem = item
+        overlayLabel.text = overlayText
+        overlayView.isHidden = overlayText == nil
+
+        playIconView.isHidden = item.type != .video
+
+        imageView.resetImage()
+        thumbnailToken = UUID()
+
+        if item.type == .image {
+            imageView.setImage(url: item.url)
+            return
+        }
+
+        if let thumbnailUrl = item.thumbnailUrl {
+            imageView.setImage(url: thumbnailUrl)
+            return
+        }
+
+        generateVideoThumbnail(from: item.url, token: thumbnailToken)
+    }
+
+    func reset() {
+        currentItem = nil
+        imageView.resetImage()
+        overlayView.isHidden = true
+        playIconView.isHidden = true
+    }
+
+    private func generateVideoThumbnail(from urlString: String, token: UUID) {
+        guard let url = URL(string: urlString) else { return }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let asset = AVAsset(url: url)
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            let time = CMTime(seconds: 0, preferredTimescale: 600)
+
+            guard let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) else { return }
+            let image = UIImage(cgImage: cgImage)
+
+            DispatchQueue.main.async {
+                guard let self, self.thumbnailToken == token else { return }
+                self.imageView.image = image
+            }
+        }
+    }
+}
