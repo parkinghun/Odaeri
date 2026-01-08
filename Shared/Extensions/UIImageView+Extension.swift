@@ -58,7 +58,7 @@ extension UIImageView {
     ///   - downsample: 다운샘플링 적용 여부 (기본값: true)
     func setImage(
         url: String?,
-        placeholder: UIImage? = UIImage(systemName: "photo"),
+        placeholder: UIImage? = nil,
         animated: Bool = true,
         downsample: Bool = true
     ) {
@@ -168,7 +168,7 @@ extension UIImageView {
     ///
     /// - Parameter placeholder: 초기화 후 표시할 기본 이미지 (옵션)
     /// - Important: UITableViewCell/UICollectionViewCell의 `prepareForReuse()`에서 호출을 권장합니다.
-    func resetImage(placeholder: UIImage? = UIImage(systemName: "photo")) {
+    func resetImage(placeholder: UIImage? = nil) {
         // 1. 취소(Cancel): 진행 중인 네트워크 요청 중단
         cancelImageLoad()
 
