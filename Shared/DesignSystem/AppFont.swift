@@ -21,6 +21,7 @@ enum AppFont {
     static let caption1 = FontFamily.Pretendard.regular.of(size: 12)
     static let caption2 = FontFamily.Pretendard.regular.of(size: 10)
     static let caption2Medium = FontFamily.Pretendard.medium.of(size: 10)
+    static let caption2SemiBold = FontFamily.Pretendard.semiBold.of(size: 10)
     static let caption3 = FontFamily.Pretendard.regular.of(size: 8)
     
     static let brandTitle1 = FontFamily.Jalnan.gothic.of(size: 24)

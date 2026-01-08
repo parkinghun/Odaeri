@@ -34,6 +34,7 @@ enum AppImage {
     static let checkmarkFill = systemImage("checkmark.square.fill")
     static let checkmarkEmpty = systemImage("checkmark.square")
     static let chevron = image("chevron")
+    static let cheveronRight = systemImage("chevron.right")
     static let `default` = image("Default")
     static let detail = image("Detail")
     static let distance = image("Distance")
@@ -50,6 +51,9 @@ enum AppImage {
     static let time = image("Time")
     static let write = image("Write")
     static let bike = image("bike")
+    static let progressFinish = systemImage("checkmark.circle.fill")
+    static let progressDefault = systemImage("record.circle.fill")
+    
     
     // MARK: - TabBar
     static let communityEmpty = UIImage(named: "Community_Empty")
@@ -66,3 +70,4 @@ enum AppImage {
     // MARK: - Ohters
     static let pickchelin = UIImage(named: "PickchelinTag")
 }
+
