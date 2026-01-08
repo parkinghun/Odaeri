@@ -61,9 +61,9 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
     private typealias DataSource = UICollectionViewDiffableDataSource<Section, Item>
     private typealias Snapshot = NSDiffableDataSourceSnapshot<Section, Item>
     private var dataSource: DataSource?
-    private var orderCache: [String: OrderListItemEntity] = [:]
-    private var currentOrders: [OrderListItemEntity] = []
-    private var pastOrders: [OrderListItemEntity] = []
+    private var orderCache: [String: OrderListItemDisplay] = [:]
+    private var currentOrders: [OrderListItemDisplay] = []
+    private var pastOrders: [OrderListItemDisplay] = []
     private var lastTabBarInset: CGFloat = 0
     
     override func viewDidLoad() {
@@ -154,7 +154,7 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
         viewDidLoadSubject.send(())
     }
     
-    private func updateCache(with orders: [OrderListItemEntity]) {
+    private func updateCache(with orders: [OrderListItemDisplay]) {
         for order in orders {
             orderCache[order.orderId] = order
         }
@@ -184,20 +184,20 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
     private func configureDataSource() {
         let statusCellRegistration = UICollectionView.CellRegistration<OrderCurrentStatusCell, String> { [weak self] cell, _, orderId in
             guard let self = self,
-                  let order = self.orderCache[orderId] else { return }
-            cell.configure(with: order)
+                  let display = self.orderCache[orderId] else { return }
+            cell.configure(with: display.currentStatus)
         }
         
         let menuCellRegistration = UICollectionView.CellRegistration<OrderCurrentMenuCell, String> { [weak self] cell, _, orderId in
             guard let self = self,
-                  let order = self.orderCache[orderId] else { return }
-            cell.configure(with: order)
+                  let display = self.orderCache[orderId] else { return }
+            cell.configure(with: display.currentMenu)
         }
         
         let pastCellRegistration = UICollectionView.CellRegistration<OrderPastCell, String> { [weak self] cell, _, orderId in
             guard let self = self,
-                  let order = self.orderCache[orderId] else { return }
-            cell.configure(with: order)
+                  let display = self.orderCache[orderId] else { return }
+            cell.configure(with: display.past)
         }
         
         let headerRegistration = UICollectionView.SupplementaryRegistration<OrderSectionHeaderView>(

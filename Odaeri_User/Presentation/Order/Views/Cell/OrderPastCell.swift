@@ -46,22 +46,30 @@ final class OrderPastCell: BaseCollectionViewCell {
         label.textColor = AppColor.gray60
         return label
     }()
-
+    
     private let priceButton: UIButton = {
-        let button = UIButton()
-        button.setTitleColor(AppColor.blackSprout, for: .normal)
-        button.titleLabel?.font = AppFont.body3Bold
-        
+        var configuration = UIButton.Configuration.plain()
+
         let resizedImage = AppImage.cheveronRight
-            .resize(to: CGSize(width: 16, height: 16))
+            .resize(to: CGSize(width: 12, height: 12))
             .withRenderingMode(.alwaysTemplate)
-        button.setImage(resizedImage, for: .normal)
-        button.tintColor = AppColor.blackSprout
-        button.semanticContentAttribute = .forceRightToLeft
-        button.imageEdgeInsets = UIEdgeInsets(top: 0, left: AppSpacing.tiny, bottom: 0, right: 0)
+        
+        configuration.image = resizedImage
+        configuration.imagePlacement = .trailing
+        configuration.imagePadding = AppSpacing.tiny
+        configuration.baseForegroundColor = AppColor.blackSprout
+        
+        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = AppFont.body3Bold
+            return outgoing
+        }
+        
+        configuration.contentInsets = .zero
+        let button = UIButton(configuration: configuration)
         return button
     }()
-
+    
     private let storeImageView: UIImageView = {
         let view = UIImageView()
         view.contentMode = .scaleAspectFill
@@ -74,11 +82,21 @@ final class OrderPastCell: BaseCollectionViewCell {
     }()
 
     private let reviewButton: UIButton = {
-        let button = UIButton()
+        var configuration = UIButton.Configuration.plain()
+        
+        configuration.contentInsets = NSDirectionalEdgeInsets(
+            top: 6,
+            leading: 8,
+            bottom: 6,
+            trailing: 8
+        )
+        
+        let button = UIButton(configuration: configuration)
+        
         button.layer.cornerRadius = 12
         button.layer.borderWidth = 1
         button.layer.borderColor = AppColor.gray30.cgColor
-        button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 8, bottom: 6, right: 8)
+        
         return button
     }()
 
@@ -147,26 +165,33 @@ final class OrderPastCell: BaseCollectionViewCell {
         priceButton.setTitle(display.priceText, for: .normal)
         storeImageView.setImage(url: display.storeImageUrl)
 
-        if let review = display.review {
-            let starImage = AppImage.starFill.resize(to: CGSize(width: 20, height: 20))
-            reviewButton.setImage(starImage, for: .normal)
-            reviewButton.tintColor = AppColor.brightForsythia
-            reviewButton.setTitle(review.ratingText, for: .normal)
-            reviewButton.setTitleColor(AppColor.gray75, for: .normal)
-            reviewButton.titleLabel?.font = AppFont.body1Bold
-            reviewButton.titleEdgeInsets = UIEdgeInsets(
-                top: 0,
-                left: AppSpacing.smallMedium,
-                bottom: 0,
-                right: 0
-            )
-            reviewButton.imageEdgeInsets = .zero
-        } else {
-            reviewButton.setImage(nil, for: .normal)
-            reviewButton.setTitle("리뷰 작성", for: .normal)
-            reviewButton.setTitleColor(AppColor.gray45, for: .normal)
-            reviewButton.titleLabel?.font = AppFont.body1Bold
-            reviewButton.titleEdgeInsets = .zero
+        var config = reviewButton.configuration ?? UIButton.Configuration.plain()
+        
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = AppFont.body1Bold
+            return outgoing
         }
+
+        if let review = display.review {
+            let starImage = AppImage.starFill
+                .resize(to: CGSize(width: 20, height: 20))
+                .withRenderingMode(.alwaysTemplate)
+            
+            config.image = starImage
+            config.imagePadding = AppSpacing.smallMedium
+            config.imagePlacement = .leading
+            
+            config.title = review.ratingText
+            config.baseForegroundColor = AppColor.gray75
+            reviewButton.tintColor = AppColor.brightForsythia
+            
+        } else {
+            config.image = nil
+            config.title = "리뷰 작성"
+            config.baseForegroundColor = AppColor.gray45
+        }
+
+        reviewButton.configuration = config
     }
 }
