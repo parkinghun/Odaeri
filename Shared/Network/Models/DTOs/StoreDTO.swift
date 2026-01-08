@@ -38,12 +38,38 @@ struct StoreSummary: Decodable {
     let updatedAt: String
 
     enum CodingKeys: String, CodingKey {
-        case storeId = "store_id", category, name, close, distance, createdAt, updatedAt
+        case storeId = "store_id"
+        case id
+        case category, name, close, distance, createdAt, updatedAt
         case storeImageUrls = "store_image_urls"
         case isPicchelin = "is_picchelin"
         case isPick = "is_pick"
         case pickCount = "pick_count"
         case hashTags, totalRating = "total_rating", totalOrderCount = "total_order_count", totalReviewCount = "total_review_count", geolocation
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let storeId = try? container.decode(String.self, forKey: .storeId) {
+            self.storeId = storeId
+        } else {
+            self.storeId = try container.decode(String.self, forKey: .id)
+        }
+        self.category = try container.decode(String.self, forKey: .category)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.close = try container.decode(String.self, forKey: .close)
+        self.storeImageUrls = try container.decode([String].self, forKey: .storeImageUrls)
+        self.isPicchelin = try container.decode(Bool.self, forKey: .isPicchelin)
+        self.isPick = try container.decode(Bool.self, forKey: .isPick)
+        self.pickCount = try container.decode(Int.self, forKey: .pickCount)
+        self.hashTags = try container.decode([String].self, forKey: .hashTags)
+        self.totalRating = try container.decode(Double.self, forKey: .totalRating)
+        self.totalOrderCount = try container.decode(Int.self, forKey: .totalOrderCount)
+        self.totalReviewCount = try container.decode(Int.self, forKey: .totalReviewCount)
+        self.geolocation = try container.decode(Geolocation.self, forKey: .geolocation)
+        self.distance = try container.decodeIfPresent(Double.self, forKey: .distance)
+        self.createdAt = try container.decode(String.self, forKey: .createdAt)
+        self.updatedAt = try container.decode(String.self, forKey: .updatedAt)
     }
 }
 
