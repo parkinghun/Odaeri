@@ -33,9 +33,11 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     private var bannerCount: Int = 0
     private let userScrolledBannerSubject = PassthroughSubject<Int, Never>()
     private let likeTapSubject = PassthroughSubject<LikeButton.TapEvent, Never>()
+    private var bannerCarouselCell: BannerCarouselCell?
 
     private var currentLocation: CLLocation?
     private var storeCache: [String: StoreEntity] = [:]
+    private var lastTabBarInset: CGFloat = 0
     
     override func setupUI() {
         super.setupUI()
@@ -57,8 +59,14 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
         
         collectionView.snp.makeConstraints {
             $0.top.equalTo(locationView.snp.bottom).offset(AppSpacing.small)
-            $0.leading.trailing.bottom.equalToSuperview()
+            $0.leading.trailing.equalToSuperview()
+            $0.bottom.equalTo(view.safeAreaLayoutGuide)
         }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateCollectionViewInsetsIfNeeded()
     }
     
     private let categorySelectedSubject = PassthroughSubject<Category?, Never>()
@@ -172,17 +180,21 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
         guard var snapshot = dataSource?.snapshot() else { return }
         
         snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .banner))
-        let items = banners.map { HomeSectionItem.banner($0) }
-        snapshot.appendItems(items, toSection: .banner)
+        if !banners.isEmpty {
+            snapshot.appendItems([.banner(banners)], toSection: .banner)
+        }
         
         dataSource?.apply(snapshot, animatingDifferences: true)
     }
     
     private func scrollToBanner(at index: Int) {
         guard bannerCount > 0 else { return }
-        
-        let bannerIndexPath = IndexPath(item: index, section: HomeSection.banner.rawValue)
-        collectionView.scrollToItem(at: bannerIndexPath, at: .centeredHorizontally, animated: true)
+        if let cell = bannerCarouselCell {
+            cell.scrollToBanner(at: index)
+        } else if let cell = collectionView.cellForItem(at: IndexPath(item: 0, section: HomeSection.banner.rawValue)) as? BannerCarouselCell {
+            bannerCarouselCell = cell
+            cell.scrollToBanner(at: index)
+        }
     }
     
     private func updatePopularStores(_ stores: [StoreEntity]) {
@@ -405,7 +417,6 @@ private extension HomeViewController {
         let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
         
         let section = NSCollectionLayoutSection(group: group)
-        section.orthogonalScrollingBehavior = .groupPaging
         section.interGroupSpacing = 0
         section.contentInsets = NSDirectionalEdgeInsets(
             top: AppSpacing.medium,
@@ -495,9 +506,20 @@ private extension HomeViewController {
                 .store(in: &cell.cancellables)
         }
         
-        let bannerCellRegistration = UICollectionView.CellRegistration<BannerCell, BannerEntity> { [weak self] cell, indexPath, banner in
+        let bannerCarouselCellRegistration = UICollectionView.CellRegistration<BannerCarouselCell, [BannerEntity]> { [weak self] cell, _, banners in
             guard let self = self else { return }
-            cell.configure(with: banner, currentIndex: indexPath.item, totalCount: self.bannerCount)
+            self.bannerCarouselCell = cell
+            cell.configure(
+                banners: banners,
+                onUserScrolled: { [weak self] index in
+                    self?.userScrolledBannerSubject.send(index)
+                },
+                onBannerSelected: { [weak self] banner in
+                    if banner.action.isWebView, let path = banner.action.webViewPath {
+                        self?.coordinator?.showEventWeb(path: path)
+                    }
+                }
+            )
         }
         
         let shopListCellRegistration = UICollectionView.CellRegistration<ShopListCell, StoreEntity> { [weak self] cell, indexPath, store in
@@ -546,8 +568,8 @@ private extension HomeViewController {
                 return collectionView.dequeueConfiguredReusableCell(using: categoryCellRegistration, for: indexPath, item: item)
             case .popularRestaurants(let store):
                 return collectionView.dequeueConfiguredReusableCell(using: popularShopCellRegistration, for: indexPath, item: store)
-            case .banner(let banner):
-                return collectionView.dequeueConfiguredReusableCell(using: bannerCellRegistration, for: indexPath, item: banner)
+            case .banner(let banners):
+                return collectionView.dequeueConfiguredReusableCell(using: bannerCarouselCellRegistration, for: indexPath, item: banners)
             case .myPickupStore(let store):
                 return collectionView.dequeueConfiguredReusableCell(using: shopListCellRegistration, for: indexPath, item: store)
             }
@@ -588,36 +610,28 @@ extension HomeViewController: UICollectionViewDelegate {
         case .popularRestaurants(let store), .myPickupStore(let store):
             coordinator?.showStoreDetail(storeId: store.storeId)
             
-        case .banner(let banner):
-            if banner.action.isWebView,
-               let path = banner.action.webViewPath {
-                coordinator?.showEventWeb(path: path)
-            }
-            
+        case .banner:
+            break
         case .category:
             break
         }
     }
-    
-    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-        notifyUserScrolledBanner()
+
+    private func updateCollectionViewInsetsIfNeeded() {
+        let tabBarInset = currentTabBarInset()
+        guard tabBarInset != lastTabBarInset else { return }
+        lastTabBarInset = tabBarInset
+        collectionView.contentInset.bottom = tabBarInset
+        collectionView.verticalScrollIndicatorInsets.bottom = tabBarInset
     }
-    
-    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        if !decelerate {
-            notifyUserScrolledBanner()
+
+    private func currentTabBarInset() -> CGFloat {
+        if let tabBarController = tabBarController as? CustomTabBarController {
+            let tabBar = tabBarController.view.subviews.first { $0 is CustomTabBar }
+            if let tabBar {
+                return tabBar.frame.height
+            }
         }
-    }
-    
-    private func notifyUserScrolledBanner() {
-        guard bannerCount > 0 else { return }
-        
-        let visibleIndexPaths = collectionView.indexPathsForVisibleItems
-            .filter { $0.section == HomeSection.banner.rawValue }
-            .sorted()
-        
-        if let firstVisibleBannerIndexPath = visibleIndexPaths.first {
-            userScrolledBannerSubject.send(firstVisibleBannerIndexPath.item)
-        }
+        return 60 + view.safeAreaInsets.bottom
     }
 }

@@ -26,7 +26,6 @@ enum HomeSection: Int, CaseIterable {
 enum HomeSectionItem: Hashable, Equatable {
     case category
     case popularRestaurants(StoreEntity)
-    case banner(BannerEntity)
+    case banner([BannerEntity])
     case myPickupStore(StoreEntity)
 }
-
