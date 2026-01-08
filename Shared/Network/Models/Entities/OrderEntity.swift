@@ -46,12 +46,12 @@ struct OrderListItemEntity {
     let orderId: String
     let orderCode: String
     let totalPrice: Int
-    let review: OrderReviewEntity
+    let review: OrderReviewEntity?
     let store: OrderStoreInfoEntity
     let orderMenuList: [OrderMenuEntity]
     let currentOrderStatus: OrderStatusEntity
     let orderStatusTimeline: [OrderStatusTimelineEntity]
-    let paidAt: String?
+    let paidAt: Date?
     let createdAt: Date?
     let updatedAt: Date?
 
@@ -64,7 +64,7 @@ struct OrderListItemEntity {
         self.orderMenuList = response.orderMenuList.map { OrderMenuEntity(from: $0) }
         self.currentOrderStatus = OrderStatusEntity(rawValue: response.currentOrderStatus) ?? .pendingApproval
         self.orderStatusTimeline = response.orderStatusTimeline.map { OrderStatusTimelineEntity(from: $0) }
-        self.paidAt = response.paidAt
+        self.paidAt = response.paidAt?.toDate()
         self.createdAt = response.createdAt.toDate()
         self.updatedAt = response.updatedAt.toDate()
     }
@@ -74,7 +74,8 @@ struct OrderReviewEntity {
     let id: String
     let rating: Int
 
-    init(from response: OrderReviewItem) {
+    init?(from response: OrderReviewItem?) {
+        guard let response else { return nil }
         self.id = response.id
         self.rating = response.rating
     }
@@ -150,6 +151,6 @@ struct OrderStatusTimelineEntity {
     init(from response: OrderStatusTimelineDTO) {
         self.status = OrderStatusEntity(rawValue: response.status) ?? .pendingApproval
         self.completed = response.completed
-        self.changedAt = response.changedAt.toDate()
+        self.changedAt = response.changedAt?.toDate()
     }
 }

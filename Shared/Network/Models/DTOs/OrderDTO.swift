@@ -62,7 +62,7 @@ struct OrderListItem: Decodable {
     let orderId: String
     let orderCode: String
     let totalPrice: Int
-    let review: OrderReviewItem
+    let review: OrderReviewItem?
     let store: OrderStoreInfo
     let orderMenuList: [OrderMenuDTO]
     let currentOrderStatus: String
@@ -135,5 +135,5 @@ struct OrderMenuDetail: Decodable {
 struct OrderStatusTimelineDTO: Decodable {
     let status: String
     let completed: Bool
-    let changedAt: String
+    let changedAt: String?
 }
