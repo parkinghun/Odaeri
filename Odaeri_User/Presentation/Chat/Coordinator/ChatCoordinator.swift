@@ -22,9 +22,16 @@ final class ChatCoordinator: Coordinator {
     }
 
     func start() {
-        let viewModel = ChatViewModel()
+        let viewModel = ChatRoomViewModel()
         viewModel.coordinator = self
         let viewController = ChatRoomViewController(viewModel: viewModel)
+        navigationController.pushViewController(viewController, animated: true)
+    }
+
+    func showChatRoom(roomId: String, title: String? = nil) {
+        let viewModel = ChatViewModel(roomId: roomId, title: title)
+        viewModel.coordinator = self
+        let viewController = ChatViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
     }
 
