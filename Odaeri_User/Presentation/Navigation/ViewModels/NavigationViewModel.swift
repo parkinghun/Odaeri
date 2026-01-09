@@ -32,6 +32,7 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         let viewDidDisappear: AnyPublisher<Void, Never>
         let cancelButtonTapped: AnyPublisher<Void, Never>
         let rerouteButtonTapped: AnyPublisher<Void, Never>
+        let rerouteConfirmed: AnyPublisher<Void, Never>
         let toggleCameraMode: AnyPublisher<Bool, Never>
         let userDidDragMap: AnyPublisher<Void, Never>
         let relocateButtonTapped: AnyPublisher<Void, Never>
@@ -81,6 +82,13 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
             .store(in: &cancellables)
 
         input.rerouteButtonTapped
+            .sink { [weak self] _ in
+                guard let self = self else { return }
+                self.coordinator?.requestReroute(to: self.destination)
+            }
+            .store(in: &cancellables)
+
+        input.rerouteConfirmed
             .sink { [weak self] _ in
                 guard let self = self else { return }
                 self.coordinator?.requestReroute(to: self.destination)

@@ -23,8 +23,8 @@ final class ProfileCoordinator: Coordinator {
 
     func start() {
         let profileViewModel = ProfileViewModel()
+        profileViewModel.coordinator = self
         let profileViewController = ProfileViewController(viewModel: profileViewModel)
-        profileViewController.coordinator = self
         navigationController.setViewControllers([profileViewController], animated: false)
     }
 

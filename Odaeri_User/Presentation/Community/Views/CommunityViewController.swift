@@ -11,9 +11,16 @@ import AVKit
 import SnapKit
 
 final class CommunityViewController: BaseViewController<CommunityViewModel> {
-    weak var coordinator: CommunityCoordinator?
-
     private let searchBar = SearchBar()
+
+    private let chatButton: UIButton = {
+        let button = UIButton()
+        button.backgroundColor = AppColor.deepSprout
+        button.layer.cornerRadius = 8
+        button.setImage(AppImage.chat, for: .normal)
+        button.tintColor = AppColor.gray0
+        return button
+    }()
 
     private let writeButton: UIButton = {
         let button = UIButton()
@@ -25,7 +32,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
     }()
 
     private lazy var topStackView: UIStackView = {
-        let stackView = UIStackView(arrangedSubviews: [searchBar, writeButton])
+        let stackView = UIStackView(arrangedSubviews: [searchBar, chatButton, writeButton])
         stackView.axis = .horizontal
         stackView.spacing = AppSpacing.small
         stackView.alignment = .center
@@ -54,6 +61,11 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
     private let sortSelectedSubject = PassthroughSubject<CommunitySortType, Never>()
     private let postLikeToggledSubject = PassthroughSubject<CommunityPostLikeEvent, Never>()
     private let bannerSelectedSubject = PassthroughSubject<BannerEntity, Never>()
+    private let storeSelectedSubject = PassthroughSubject<String, Never>()
+
+    private enum Layout {
+        static let actionButtonSize: CGFloat = 40
+    }
     
     override func setupUI() {
         super.setupUI()
@@ -65,7 +77,11 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
         view.addSubview(tableView)
 
         writeButton.snp.makeConstraints {
-            $0.size.equalTo(40)
+            $0.size.equalTo(Layout.actionButtonSize)
+        }
+
+        chatButton.snp.makeConstraints {
+            $0.size.equalTo(Layout.actionButtonSize)
         }
 
         topStackView.snp.makeConstraints {
@@ -117,6 +133,8 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
         let input = CommunityViewModel.Input(
             viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
             writeButtonTapped: writeButton.tapPublisher(),
+            chatButtonTapped: chatButton.tapPublisher(),
+            storeSelected: storeSelectedSubject.eraseToAnyPublisher(),
             distanceIndexSelected: distanceIndexSubject.eraseToAnyPublisher(),
             sortSelected: sortSelectedSubject.eraseToAnyPublisher(),
             userScrolledBanner: userScrolledBannerSubject.eraseToAnyPublisher(),
@@ -150,13 +168,6 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] index in
                 self?.headerView.scrollToBanner(at: index)
-            }
-            .store(in: &cancellables)
-
-        output.bannerWebPath
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] path in
-                self?.coordinator?.showEventWeb(path: path)
             }
             .store(in: &cancellables)
 
@@ -197,7 +208,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
                 self?.presentVideoPlayer(url: url)
             }
             cell.onStoreInfoTapped = { [weak self] storeId in
-                self?.coordinator?.showStoreDetail(storeId: storeId)
+                self?.storeSelectedSubject.send(storeId)
             }
             cell.likeTapPublisher
                 .sink { [weak self] event in

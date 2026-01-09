@@ -10,8 +10,6 @@ import Combine
 import SnapKit
 
 final class ProfileViewController: BaseViewController<ProfileViewModel> {
-    weak var coordinator: ProfileCoordinator?
-    
     private let logoutButton: UIButton = {
         let button = UIButton()
         button.setTitle("로그아웃", for: .normal)
@@ -44,12 +42,6 @@ final class ProfileViewController: BaseViewController<ProfileViewModel> {
         output.logoutError
             .sink { [weak self] errorMessage in
                 self?.showAlert(title: "로그아웃 실패", message: errorMessage)
-            }
-            .store(in: &cancellables)
-
-        output.logoutSuccess
-            .sink { [weak self] _ in
-                self?.coordinator?.didFinishLogout()
             }
             .store(in: &cancellables)
     }

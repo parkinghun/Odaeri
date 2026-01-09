@@ -9,6 +9,7 @@ import Foundation
 import Combine
 
 final class LoginViewModel: BaseViewModel, ViewModelType {
+    weak var coordinator: AuthCoordinator?
 
     private let repository: UserRepository
     private let currentEmail = CurrentValueSubject<String, Never>("")
@@ -34,7 +35,6 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
         let isLoginEnabled: AnyPublisher<Bool, Never>
         let isLoading: AnyPublisher<Bool, Never>
         let loginError: AnyPublisher<String, Never>
-        let loginSuccess: AnyPublisher<Void, Never>
     }
 
     func transform(input: Input) -> Output {
@@ -88,12 +88,10 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
         }
         .eraseToAnyPublisher()
 
-        let loginSuccessSubject = PassthroughSubject<Void, Never>()
-
         input.loginButtonTapped
             .sink { [weak self] _ in
                 self?.performLogin(completion: {
-                    loginSuccessSubject.send(())
+                    self?.coordinator?.didFinishLogin()
                 })
             }
             .store(in: &cancellables)
@@ -105,8 +103,7 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
             passwordValidationMessage: passwordValidation,
             isLoginEnabled: isLoginEnabled,
             isLoading: isLoadingSubject.eraseToAnyPublisher(),
-            loginError: loginErrorSubject.eraseToAnyPublisher(),
-            loginSuccess: loginSuccessSubject.eraseToAnyPublisher()
+            loginError: loginErrorSubject.eraseToAnyPublisher()
         )
     }
 

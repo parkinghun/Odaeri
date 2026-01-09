@@ -53,6 +53,7 @@ enum AppImage {
     static let bike = image("bike")
     static let progressFinish = systemImage("checkmark.circle.fill")
     static let progressDefault = systemImage("record.circle.fill")
+    static let chat = systemImage("bubble.fill")
     
     
     // MARK: - TabBar

@@ -11,8 +11,6 @@ import SnapKit
 import CoreLocation
 
 final class HomeViewController: BaseViewController<HomeViewModel> {
-    weak var coordinator: HomeCoordinator?
-
     private let locationView = LocationView()
 
     private lazy var collectionView: UICollectionView = {
@@ -33,6 +31,8 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     private var bannerCount: Int = 0
     private let userScrolledBannerSubject = PassthroughSubject<Int, Never>()
     private let likeTapSubject = PassthroughSubject<LikeButton.TapEvent, Never>()
+    private let bannerSelectedSubject = PassthroughSubject<BannerEntity, Never>()
+    private let storeSelectedSubject = PassthroughSubject<String, Never>()
     private var bannerCarouselCell: BannerCarouselCell?
 
     private var currentLocation: CLLocation?
@@ -82,7 +82,9 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
             categorySelected: categorySelectedSubject.eraseToAnyPublisher(),
             refreshTriggered: refreshSubject.eraseToAnyPublisher(),
             userScrolledBanner: userScrolledBannerSubject.eraseToAnyPublisher(),
-            storeLikeToggled: likeTapSubject.eraseToAnyPublisher()
+            bannerSelected: bannerSelectedSubject.eraseToAnyPublisher(),
+            storeLikeToggled: likeTapSubject.eraseToAnyPublisher(),
+            storeSelected: storeSelectedSubject.eraseToAnyPublisher()
         )
         
         let output = viewModel.transform(input: input)
@@ -515,9 +517,7 @@ private extension HomeViewController {
                     self?.userScrolledBannerSubject.send(index)
                 },
                 onBannerSelected: { [weak self] banner in
-                    if banner.action.isWebView, let path = banner.action.webViewPath {
-                        self?.coordinator?.showEventWeb(path: path)
-                    }
+                    self?.bannerSelectedSubject.send(banner)
                 }
             )
         }
@@ -608,7 +608,7 @@ extension HomeViewController: UICollectionViewDelegate {
         
         switch item {
         case .popularRestaurants(let store), .myPickupStore(let store):
-            coordinator?.showStoreDetail(storeId: store.storeId)
+            storeSelectedSubject.send(store.storeId)
             
         case .banner:
             break

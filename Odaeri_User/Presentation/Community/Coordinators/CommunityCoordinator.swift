@@ -23,8 +23,8 @@ final class CommunityCoordinator: Coordinator {
 
     func start() {
         let communityViewModel = CommunityViewModel()
+        communityViewModel.coordinator = self
         let communityViewController = CommunityViewController(viewModel: communityViewModel)
-        communityViewController.coordinator = self
         navigationController.setViewControllers([communityViewController], animated: false)
     }
 
@@ -38,5 +38,18 @@ final class CommunityCoordinator: Coordinator {
         let viewModel = ShopDetailViewModel(storeId: storeId)
         let viewController = ShopDetailViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
+    }
+
+    func showChat() {
+        let chatCoordinator = ChatCoordinator(navigationController: navigationController)
+        chatCoordinator.delegate = self
+        addChild(chatCoordinator)
+        chatCoordinator.start()
+    }
+}
+
+extension CommunityCoordinator: ChatCoordinatorDelegate {
+    func chatCoordinatorDidFinish(_ coordinator: ChatCoordinator) {
+        removeChild(coordinator)
     }
 }

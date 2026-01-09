@@ -10,6 +10,8 @@ import Combine
 import CoreLocation
 
 final class CommunityViewModel: BaseViewModel, ViewModelType {
+    weak var coordinator: CommunityCoordinator?
+
     private let postRepository: CommunityPostRepository
     private let bannerRepository: BannerRepository
     private let locationManager: LocationManager
@@ -47,6 +49,8 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
     struct Input {
         let viewDidLoad: AnyPublisher<Void, Never>
         let writeButtonTapped: AnyPublisher<Void, Never>
+        let chatButtonTapped: AnyPublisher<Void, Never>
+        let storeSelected: AnyPublisher<String, Never>
         let distanceIndexSelected: AnyPublisher<Int, Never>
         let sortSelected: AnyPublisher<CommunitySortType, Never>
         let userScrolledBanner: AnyPublisher<Int, Never>
@@ -60,14 +64,12 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
         let banners: AnyPublisher<[BannerEntity], Never>
         let currentBannerIndex: AnyPublisher<Int, Never>
         let posts: AnyPublisher<[CommunityPostItemViewModel], Never>
-        let bannerWebPath: AnyPublisher<String, Never>
         let isLoading: AnyPublisher<Bool, Never>
         let error: AnyPublisher<String, Never>
     }
     
     func transform(input: Input) -> Output {
         let bannersSubject = PassthroughSubject<[BannerEntity], Never>()
-        let bannerWebPathSubject = PassthroughSubject<String, Never>()
 
         locationManager.locationSubject
             .sink { [weak self] location in
@@ -100,6 +102,18 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
             .sink { [weak self] sortType in
                 self?.sortTypeSubject.send(sortType)
                 self?.fetchPosts()
+            }
+            .store(in: &cancellables)
+
+        input.chatButtonTapped
+            .sink { [weak self] _ in
+                self?.coordinator?.showChat()
+            }
+            .store(in: &cancellables)
+
+        input.storeSelected
+            .sink { [weak self] storeId in
+                self?.coordinator?.showStoreDetail(storeId: storeId)
             }
             .store(in: &cancellables)
 
@@ -136,8 +150,8 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
                 guard banner.action.isWebView, let path = banner.action.webViewPath else { return nil }
                 return path
             }
-            .sink { path in
-                bannerWebPathSubject.send(path)
+            .sink { [weak self] path in
+                self?.coordinator?.showEventWeb(path: path)
             }
             .store(in: &cancellables)
 
@@ -147,7 +161,6 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
             banners: bannersSubject.eraseToAnyPublisher(),
             currentBannerIndex: currentBannerIndexSubject.eraseToAnyPublisher(),
             posts: postsSubject.eraseToAnyPublisher(),
-            bannerWebPath: bannerWebPathSubject.eraseToAnyPublisher(),
             isLoading: isLoadingSubject.eraseToAnyPublisher(),
             error: errorSubject.eraseToAnyPublisher()
         )

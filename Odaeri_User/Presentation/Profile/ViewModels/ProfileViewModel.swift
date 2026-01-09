@@ -9,6 +9,7 @@ import Foundation
 import Combine
 
 final class ProfileViewModel: BaseViewModel, ViewModelType {
+    weak var coordinator: ProfileCoordinator?
     
     private let userRepository: UserRepository
     private let logoutErrorSubject = PassthroughSubject<String, Never>()
@@ -24,24 +25,20 @@ final class ProfileViewModel: BaseViewModel, ViewModelType {
     
     struct Output {
         let logoutError: AnyPublisher<String, Never>
-        let logoutSuccess: AnyPublisher<Void, Never>
     }
     
     func transform(input: Input) -> Output {
-        let logoutSuccessSubject = PassthroughSubject<Void, Never>()
-        
         input.logoutButtonTapped
             .sink { [weak self] _ in
                 guard let self else { return }
                 performLogout {
-                    logoutSuccessSubject.send()
+                    self.coordinator?.didFinishLogout()
                 }
             }
             .store(in: &cancellables)
 
         return Output(
-            logoutError: logoutErrorSubject.eraseToAnyPublisher(),
-            logoutSuccess: logoutSuccessSubject.eraseToAnyPublisher()
+            logoutError: logoutErrorSubject.eraseToAnyPublisher()
         )
     }
 

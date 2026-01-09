@@ -18,6 +18,7 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     private let viewDidDisappearSubject = PassthroughSubject<Void, Never>()
     private let userDidDragMapSubject = PassthroughSubject<Void, Never>()
     private let mapCameraAltitudeChangedSubject = PassthroughSubject<CLLocationDistance, Never>()
+    private let rerouteConfirmedSubject = PassthroughSubject<Void, Never>()
     private var is3DCameraMode = true
 
     private lazy var mapView: MKMapView = {
@@ -226,6 +227,7 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
             viewDidDisappear: viewDidDisappearSubject.eraseToAnyPublisher(),
             cancelButtonTapped: cancelButton.tapPublisher(),
             rerouteButtonTapped: rerouteButton.tapPublisher(),
+            rerouteConfirmed: rerouteConfirmedSubject.eraseToAnyPublisher(),
             toggleCameraMode: cameraModeToggled,
             userDidDragMap: userDidDragMapSubject.eraseToAnyPublisher(),
             relocateButtonTapped: relocateButton.tapPublisher(),
@@ -318,8 +320,7 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         )
 
         alert.addAction(UIAlertAction(title: "재탐색", style: .default) { [weak self] _ in
-            guard let self = self else { return }
-            self.viewModel.coordinator?.requestReroute(to: self.viewModel.destination)
+            self?.rerouteConfirmedSubject.send(())
         })
 
         alert.addAction(UIAlertAction(title: "취소", style: .cancel))
