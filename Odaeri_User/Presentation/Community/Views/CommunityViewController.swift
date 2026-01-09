@@ -62,6 +62,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
     private let postLikeToggledSubject = PassthroughSubject<CommunityPostLikeEvent, Never>()
     private let bannerSelectedSubject = PassthroughSubject<BannerEntity, Never>()
     private let storeSelectedSubject = PassthroughSubject<String, Never>()
+    private let creatorSelectedSubject = PassthroughSubject<String, Never>()
 
     private enum Layout {
         static let actionButtonSize: CGFloat = 40
@@ -135,6 +136,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             writeButtonTapped: writeButton.tapPublisher(),
             chatButtonTapped: chatButton.tapPublisher(),
             storeSelected: storeSelectedSubject.eraseToAnyPublisher(),
+            creatorSelected: creatorSelectedSubject.eraseToAnyPublisher(),
             distanceIndexSelected: distanceIndexSubject.eraseToAnyPublisher(),
             sortSelected: sortSelectedSubject.eraseToAnyPublisher(),
             userScrolledBanner: userScrolledBannerSubject.eraseToAnyPublisher(),
@@ -209,6 +211,9 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             }
             cell.onStoreInfoTapped = { [weak self] storeId in
                 self?.storeSelectedSubject.send(storeId)
+            }
+            cell.onCreatorTapped = { [weak self] creatorId in
+                self?.creatorSelectedSubject.send(creatorId)
             }
             cell.likeTapPublisher
                 .sink { [weak self] event in

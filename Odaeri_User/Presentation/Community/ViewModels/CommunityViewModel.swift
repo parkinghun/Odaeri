@@ -51,6 +51,7 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
         let writeButtonTapped: AnyPublisher<Void, Never>
         let chatButtonTapped: AnyPublisher<Void, Never>
         let storeSelected: AnyPublisher<String, Never>
+        let creatorSelected: AnyPublisher<String, Never>
         let distanceIndexSelected: AnyPublisher<Int, Never>
         let sortSelected: AnyPublisher<CommunitySortType, Never>
         let userScrolledBanner: AnyPublisher<Int, Never>
@@ -114,6 +115,12 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
         input.storeSelected
             .sink { [weak self] storeId in
                 self?.coordinator?.showStoreDetail(storeId: storeId)
+            }
+            .store(in: &cancellables)
+
+        input.creatorSelected
+            .sink { [weak self] userId in
+                self?.coordinator?.showUserProfile(userId: userId)
             }
             .store(in: &cancellables)
 
@@ -318,6 +325,7 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
         return CommunityPostItemViewModel(
             postId: post.postId,
             storeId: post.store.storeId,
+            creatorUserId: post.creator.userId,
             creatorName: post.creator.nick,
             creatorProfileImageUrl: post.creator.profileImage,
             createdAtText: createdAtText,
@@ -414,6 +422,7 @@ struct CommunityMediaItemViewModel: Hashable {
 struct CommunityPostItemViewModel: Hashable {
     let postId: String
     let storeId: String
+    let creatorUserId: String
     let creatorName: String
     let creatorProfileImageUrl: String
     let createdAtText: String
@@ -434,6 +443,7 @@ struct CommunityPostItemViewModel: Hashable {
         CommunityPostItemViewModel(
             postId: postId,
             storeId: storeId,
+            creatorUserId: creatorUserId,
             creatorName: creatorName,
             creatorProfileImageUrl: creatorProfileImageUrl,
             createdAtText: createdAtText,
@@ -456,6 +466,7 @@ struct CommunityPostItemViewModel: Hashable {
         CommunityPostItemViewModel(
             postId: postId,
             storeId: storeId,
+            creatorUserId: creatorUserId,
             creatorName: creatorName,
             creatorProfileImageUrl: creatorProfileImageUrl,
             createdAtText: createdAtText,
