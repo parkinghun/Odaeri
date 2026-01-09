@@ -148,13 +148,12 @@ final class PaymentService {
             pg: PG.html5_inicis.makePgRawName(pgId: PaymentConfig.pgId),
             merchant_uid: request.merchantUid,
             amount: request.amount
-        ).then {
-            $0.pay_method = PayMethod.card.rawValue
-            $0.name = request.productName
-            $0.buyer_name = request.buyerName
-            $0.app_scheme = PaymentConfig.appScheme
-        }
-        
+        )
+        payment.pay_method = PayMethod.card.rawValue
+        payment.name = request.productName
+        payment.buyer_name = request.buyerName
+        payment.app_scheme = PaymentConfig.appScheme
+
         return payment
     }
     

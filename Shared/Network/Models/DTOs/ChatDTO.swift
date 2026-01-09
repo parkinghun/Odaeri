@@ -71,7 +71,7 @@ struct ChatFileUploadResponse: Decodable {
 struct ChatParticipant: Decodable {
     let userId: String
     let nick: String
-    let profileImage: String
+    let profileImage: String?
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"

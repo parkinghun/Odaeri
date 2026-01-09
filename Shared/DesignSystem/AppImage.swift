@@ -54,6 +54,9 @@ enum AppImage {
     static let progressFinish = systemImage("checkmark.circle.fill")
     static let progressDefault = systemImage("record.circle.fill")
     static let chat = systemImage("bubble.fill")
+    static let settings = systemImage("gearshape.fill")
+    static let moreHorizontal = systemImage("ellipsis")
+    static let person = systemImage("person.fill")
     
     
     // MARK: - TabBar
@@ -71,4 +74,3 @@ enum AppImage {
     // MARK: - Ohters
     static let pickchelin = UIImage(named: "PickchelinTag")
 }
-

@@ -82,7 +82,7 @@ struct ChatEntity {
 struct ChatParticipantEntity {
     let userId: String
     let nick: String
-    let profileImage: String
+    let profileImage: String?
 
     init(
         userId: String,

@@ -11,6 +11,7 @@ import Moya
 
 final class ChatRepositoryImpl: ChatRepository {
     private let provider = ProviderFactory.makeChatProvider()
+    private let useMockData = false
 
     func createOrGetChatRoom(opponentId: String) -> AnyPublisher<ChatRoomEntity, NetworkError> {
         let request = CreateChatRoomRequest(opponentId: opponentId)
@@ -22,7 +23,11 @@ final class ChatRepositoryImpl: ChatRepository {
     }
 
     func fetchChatRooms() -> AnyPublisher<[ChatRoomEntity], NetworkError> {
-        provider.requestPublisher(.getChatRooms)
+        if useMockData {
+            return loadMockChatRooms()
+        }
+
+        return provider.requestPublisher(.getChatRooms)
             .map { (response: ChatRoomListResponse) in
                 response.data.map { ChatRoomEntity(from: $0) }
             }
@@ -52,5 +57,28 @@ final class ChatRepositoryImpl: ChatRepository {
                 response.files
             }
             .eraseToAnyPublisher()
+    }
+
+    private func loadMockChatRooms() -> AnyPublisher<[ChatRoomEntity], NetworkError> {
+        guard let url = Bundle.main.url(forResource: "ChatRooms", withExtension: "json") else {
+            return Fail(error: NetworkError.decodingFailed(MockDataError.fileNotFound))
+                .eraseToAnyPublisher()
+        }
+
+        do {
+            let data = try Data(contentsOf: url)
+            let response = try JSONDecoder().decode(ChatRoomListResponse.self, from: data)
+            let rooms = response.data.map { ChatRoomEntity(from: $0) }
+            return Just(rooms)
+                .setFailureType(to: NetworkError.self)
+                .eraseToAnyPublisher()
+        } catch {
+            return Fail(error: NetworkError.decodingFailed(error))
+                .eraseToAnyPublisher()
+        }
+    }
+
+    private enum MockDataError: Error {
+        case fileNotFound
     }
 }

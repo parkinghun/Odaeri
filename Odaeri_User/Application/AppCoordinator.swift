@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import Combine
 
 final class AppCoordinator: Coordinator {
     var navigationController: UINavigationController
@@ -13,11 +14,14 @@ final class AppCoordinator: Coordinator {
 
     private let window: UIWindow
     private let tokenManager = TokenManager.shared
+    private let userRepository: UserRepository
+    private var cancellables = Set<AnyCancellable>()
 
     init(window: UIWindow) {
         self.window = window
         self.navigationController = UINavigationController()
         self.navigationController.isNavigationBarHidden = true
+        self.userRepository = UserRepositoryImpl()
     }
 
     deinit {
@@ -90,10 +94,31 @@ final class AppCoordinator: Coordinator {
 
     private func checkAuthenticationStatus() {
         if tokenManager.isLoggedIn {
-            showMainFlow()
+            restoreCurrentUserIfNeeded()
         } else {
             showAuthFlow()
         }
+    }
+
+    private func restoreCurrentUserIfNeeded() {
+        if UserManager.shared.currentUser != nil {
+            showMainFlow()
+            return
+        }
+
+        userRepository.getMyProfile()
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    if case .failure = completion {
+                        self?.showMainFlow()
+                    }
+                },
+                receiveValue: { [weak self] user in
+                    UserManager.shared.saveUser(user)
+                    self?.showMainFlow()
+                }
+            )
+            .store(in: &cancellables)
     }
 
     func showMainFlow() {
