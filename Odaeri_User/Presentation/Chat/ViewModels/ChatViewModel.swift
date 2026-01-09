@@ -10,22 +10,22 @@ import Combine
 
 final class ChatViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: ChatCoordinator?
+    private let roomId: String
+    let title: String?
 
     struct Input {
         let viewDidLoad: AnyPublisher<Void, Never>
-        let didPop: AnyPublisher<Void, Never>
     }
 
     struct Output {
     }
 
-    func transform(input: Input) -> Output {
-        input.didPop
-            .sink { [weak self] _ in
-                self?.coordinator?.finish()
-            }
-            .store(in: &cancellables)
+    init(roomId: String, title: String? = nil) {
+        self.roomId = roomId
+        self.title = title
+    }
 
+    func transform(input: Input) -> Output {
         return Output()
     }
 }
