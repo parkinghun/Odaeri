@@ -1,0 +1,66 @@
+{
+  "data": [
+    {
+      "room_id": "room_1",
+      "createdAt": "2025-01-08T06:20:00.000Z",
+      "updatedAt": "2025-01-09T05:25:00.000Z",
+      "participants": [
+        {
+          "user_id": "current_user",
+          "nick": "나",
+          "profileImage": ""
+        },
+        {
+          "user_id": "user_ara",
+          "nick": "아라",
+          "profileImage": ""
+        }
+      ],
+      "lastChat": {
+        "chat_id": "chat_1",
+        "room_id": "room_1",
+        "content": "",
+        "createdAt": "2025-01-09T05:25:00.000Z",
+        "updatedAt": "2025-01-09T05:25:00.000Z",
+        "sender": {
+          "user_id": "user_ara",
+          "nick": "아라",
+          "profileImage": ""
+        },
+        "files": [
+          "mock_image_1.jpg"
+        ]
+      }
+    },
+    {
+      "room_id": "room_2",
+      "createdAt": "2025-01-07T10:10:00.000Z",
+      "updatedAt": "2025-01-09T02:00:00.000Z",
+      "participants": [
+        {
+          "user_id": "current_user",
+          "nick": "나",
+          "profileImage": ""
+        },
+        {
+          "user_id": "user_min",
+          "nick": "민지",
+          "profileImage": ""
+        }
+      ],
+      "lastChat": {
+        "chat_id": "chat_2",
+        "room_id": "room_2",
+        "content": "안녕하세요!\n커뮤니티 글 보고 연락드렸어요.\n혹시 오늘 시간 괜찮으신가요?",
+        "createdAt": "2025-01-09T02:00:00.000Z",
+        "updatedAt": "2025-01-09T02:00:00.000Z",
+        "sender": {
+          "user_id": "user_min",
+          "nick": "민지",
+          "profileImage": ""
+        },
+        "files": []
+      }
+    }
+  ]
+}
