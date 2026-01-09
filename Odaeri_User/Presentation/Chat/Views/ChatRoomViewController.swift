@@ -8,7 +8,7 @@
 import UIKit
 import Combine
 
-final class ChatViewController: BaseViewController<ChatViewModel> {
+final class ChatRoomViewController: BaseViewController<ChatViewModel> {
     private let didPopSubject = PassthroughSubject<Void, Never>()
 
     override func setupUI() {

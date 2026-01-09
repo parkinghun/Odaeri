@@ -24,7 +24,7 @@ final class ChatCoordinator: Coordinator {
     func start() {
         let viewModel = ChatViewModel()
         viewModel.coordinator = self
-        let viewController = ChatViewController(viewModel: viewModel)
+        let viewController = ChatRoomViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
     }
 
