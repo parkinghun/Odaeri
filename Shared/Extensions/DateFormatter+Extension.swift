@@ -35,4 +35,11 @@ extension DateFormatter {
         formatter.dateFormat = "a h:mm"
         return formatter
     }()
+
+    static let dateSeparator: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.dateFormat = "yyyy년 M월 d일"
+        return formatter
+    }()
 }
