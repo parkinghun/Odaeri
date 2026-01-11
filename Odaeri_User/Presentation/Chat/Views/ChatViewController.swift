@@ -38,6 +38,25 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
         configureDataSource()
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+
+        ChatSocketService.shared.connect(to: viewModel.roomId)
+
+        RealmChatRepository.shared.markAllMessagesAsRead(roomId: viewModel.roomId)
+            .sink { success in
+                if success {
+                    print("채팅방 읽음 처리 완료: \(self.viewModel.roomId)")
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        ChatSocketService.shared.disconnect()
+    }
+
     override func bind() {
         super.bind()
 

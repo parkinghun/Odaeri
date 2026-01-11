@@ -8,14 +8,36 @@
 import UIKit
 import Combine
 import SnapKit
+import RealmSwift
 
 final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
     private let didPopSubject = PassthroughSubject<Void, Never>()
+    private let viewWillAppearSubject = PassthroughSubject<Void, Never>()
     private let emptyView = ChatRoomEmptyView()
-    private let roomSelectedSubject = PassthroughSubject<ChatRoomEntity, Never>()
-    private var chatRooms: [ChatRoomEntity] = []
-    private var displayModels: [ChatRoomDisplayModel] = []
-    private let currentUserId = "current_user"
+    private let roomSelectedSubject = PassthroughSubject<String, Never>()
+    private var realmToken: NotificationToken?
+    private var realmRooms: Results<ChatRoomObject>?
+    private let currentUserId = UserManager.shared.currentUser?.userId ?? "current_user"
+
+    private typealias DataSource = UITableViewDiffableDataSource<Section, ChatRoomDisplayModel>
+    private typealias Snapshot = NSDiffableDataSourceSnapshot<Section, ChatRoomDisplayModel>
+
+    private enum Section {
+        case main
+    }
+
+    private lazy var dataSource: DataSource = {
+        DataSource(tableView: tableView) { tableView, indexPath, model in
+            guard let cell = tableView.dequeueReusableCell(
+                withIdentifier: ChatRoomListCell.reuseIdentifier,
+                for: indexPath
+            ) as? ChatRoomListCell else {
+                return UITableViewCell()
+            }
+            cell.configure(with: model)
+            return cell
+        }
+    }()
 
     private let tableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .plain)
@@ -30,6 +52,10 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
         static let cellHeight: CGFloat = 80
     }
 
+    deinit {
+        realmToken?.invalidate()
+    }
+
     override func setupUI() {
         super.setupUI()
         view.backgroundColor = AppColor.gray0
@@ -42,10 +68,15 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
         }
 
         tableView.register(ChatRoomListCell.self, forCellReuseIdentifier: ChatRoomListCell.reuseIdentifier)
-        tableView.dataSource = self
         tableView.delegate = self
         tableView.backgroundView = emptyView
-        updateEmptyView()
+
+        setupRealmObserver()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        viewWillAppearSubject.send(())
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -58,24 +89,12 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
     override func bind() {
         super.bind()
 
-        let viewDidLoadSubject = PassthroughSubject<Void, Never>()
         let input = ChatRoomViewModel.Input(
-            viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
+            viewWillAppear: viewWillAppearSubject.eraseToAnyPublisher(),
             didPop: didPopSubject.eraseToAnyPublisher(),
             roomSelected: roomSelectedSubject.eraseToAnyPublisher()
         )
         let output = viewModel.transform(input: input)
-
-        output.chatRooms
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] rooms in
-                guard let self = self else { return }
-                self.chatRooms = rooms
-                self.displayModels = ChatRoomMapper.map(rooms, currentUserId: self.currentUserId)
-                self.tableView.reloadData()
-                self.updateEmptyView()
-            }
-            .store(in: &cancellables)
 
         output.isLoading
             .sink { [weak self] isLoading in
@@ -94,40 +113,47 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
                 self?.navigationController?.popViewController(animated: true)
             }
             .store(in: &cancellables)
-
-        viewDidLoadSubject.send(())
     }
 
-    private func updateEmptyView() {
-        emptyView.isHidden = !chatRooms.isEmpty
-        tableView.backgroundView = chatRooms.isEmpty ? emptyView : nil
-    }
-}
+    private func setupRealmObserver() {
+        realmRooms = RealmChatRepository.shared.observeRooms()
 
-extension ChatRoomViewController: UITableViewDataSource {
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        displayModels.count
-    }
+        realmToken = realmRooms?.observe { [weak self] changes in
+            guard let self = self else { return }
 
-    func tableView(
-        _ tableView: UITableView,
-        cellForRowAt indexPath: IndexPath
-    ) -> UITableViewCell {
-        guard let cell = tableView.dequeueReusableCell(
-            withIdentifier: ChatRoomListCell.reuseIdentifier,
-            for: indexPath
-        ) as? ChatRoomListCell else {
-            return UITableViewCell()
+            switch changes {
+            case .initial(let results):
+                self.applySnapshot(from: results)
+            case .update(let results, _, _, _):
+                self.applySnapshot(from: results)
+            case .error(let error):
+                print("Realm 관찰 오류: \(error)")
+            }
         }
+    }
 
-        cell.configure(with: displayModels[indexPath.row])
-        return cell
+    private func applySnapshot(from results: Results<ChatRoomObject>) {
+        let displayModels = ChatRoomMapper.mapFromRealm(results, currentUserId: currentUserId)
+
+        var snapshot = Snapshot()
+        snapshot.appendSections([.main])
+        snapshot.appendItems(displayModels)
+
+        dataSource.apply(snapshot, animatingDifferences: true)
+
+        updateEmptyView(isEmpty: displayModels.isEmpty)
+    }
+
+    private func updateEmptyView(isEmpty: Bool) {
+        emptyView.isHidden = !isEmpty
+        tableView.backgroundView = isEmpty ? emptyView : nil
     }
 }
 
 extension ChatRoomViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        roomSelectedSubject.send(chatRooms[indexPath.row])
+        guard let model = dataSource.itemIdentifier(for: indexPath) else { return }
+        roomSelectedSubject.send(model.roomId)
     }
 }
