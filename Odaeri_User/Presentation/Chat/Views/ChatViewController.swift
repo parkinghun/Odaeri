@@ -195,10 +195,10 @@ extension ChatViewController: ChatMessageCellDelegate {
     }
 
     func chatMessageCell(_ cell: ChatMessageCell, didTapVideo url: String) {
-        print("Video tapped: \(url)")
+        AppMediaService.shared.playVideo(url: url, from: self)
     }
 
     func chatMessageCell(_ cell: ChatMessageCell, didTapFile fileInfo: ChatMessageContent.FileInfo) {
-        print("File tapped: \(fileInfo.fileName)")
+        AppMediaService.shared.previewFile(url: fileInfo.url, fileName: fileInfo.fileName, from: self)
     }
 }

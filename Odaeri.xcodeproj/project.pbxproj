@@ -17,7 +17,23 @@
 		B55135302EF1732600DBEA27 /* Moya in Frameworks */ = {isa = PBXBuildFile; productRef = B551352F2EF1732600DBEA27 /* Moya */; };
 		B55135332EF198E600DBEA27 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = B55135322EF198E600DBEA27 /* SnapKit */; };
 		B58525D12EF25FF10055EBF4 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = B551319F2EE9571900DBEA27 /* .gitignore */; };
+		B59ADD5E2F13E84000174F90 /* RealmSwift in Frameworks */ = {isa = PBXBuildFile; productRef = B59ADD5D2F13E84000174F90 /* RealmSwift */; };
+		B59ADD5F2F13E86B00174F90 /* RealmSwift in Embed Frameworks */ = {isa = PBXBuildFile; productRef = B59ADD5D2F13E84000174F90 /* RealmSwift */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B59ADD602F13E86B00174F90 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				B59ADD5F2F13E86B00174F90 /* RealmSwift in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		B55131872EE9559300DBEA27 /* Odaeri_User.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Odaeri_User.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -117,6 +133,7 @@
 			files = (
 				B55131A72EE96ADF00DBEA27 /* FirebaseMessaging in Frameworks */,
 				B55131A52EE96ADF00DBEA27 /* FirebaseAnalytics in Frameworks */,
+				B59ADD5E2F13E84000174F90 /* RealmSwift in Frameworks */,
 				B55135302EF1732600DBEA27 /* Moya in Frameworks */,
 				B534344D2F0B979E00D8E200 /* iamport-ios in Frameworks */,
 				B551352E2EF1732600DBEA27 /* CombineMoya in Frameworks */,
@@ -175,6 +192,7 @@
 				B55131832EE9559300DBEA27 /* Sources */,
 				B55131842EE9559300DBEA27 /* Frameworks */,
 				B55131852EE9559300DBEA27 /* Resources */,
+				B59ADD602F13E86B00174F90 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -193,6 +211,7 @@
 				B551352F2EF1732600DBEA27 /* Moya */,
 				B55135322EF198E600DBEA27 /* SnapKit */,
 				B534344C2F0B979E00D8E200 /* iamport-ios */,
+				B59ADD5D2F13E84000174F90 /* RealmSwift */,
 			);
 			productName = Odaeri;
 			productReference = B55131872EE9559300DBEA27 /* Odaeri_User.app */;
@@ -254,6 +273,7 @@
 				B551352C2EF1732600DBEA27 /* XCRemoteSwiftPackageReference "Moya" */,
 				B55135312EF198E600DBEA27 /* XCRemoteSwiftPackageReference "SnapKit" */,
 				B534344B2F0B979E00D8E200 /* XCRemoteSwiftPackageReference "iamport-ios" */,
+				B59ADD5C2F13E84000174F90 /* XCRemoteSwiftPackageReference "realm-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B55131882EE9559300DBEA27 /* Products */;
@@ -643,6 +663,14 @@
 				minimumVersion = 5.7.1;
 			};
 		};
+		B59ADD5C2F13E84000174F90 /* XCRemoteSwiftPackageReference "realm-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/realm/realm-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.54.6;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -685,6 +713,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = B55135312EF198E600DBEA27 /* XCRemoteSwiftPackageReference "SnapKit" */;
 			productName = SnapKit;
+		};
+		B59ADD5D2F13E84000174F90 /* RealmSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B59ADD5C2F13E84000174F90 /* XCRemoteSwiftPackageReference "realm-swift" */;
+			productName = RealmSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
