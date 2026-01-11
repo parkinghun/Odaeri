@@ -53,8 +53,10 @@ struct ChatRoomMapper {
             return DateFormatter.timeDisplay.string(from: date)
         } else if calendar.isDateInYesterday(date) {
             return "어제"
+        } else if calendar.component(.year, from: date) == calendar.component(.year, from: now) {
+            return DateFormatter.monthDay.string(from: date)
         } else {
-            return DateFormatter.dotDisplay.string(from: date)
+            return DateFormatter.dotDate.string(from: date)
         }
     }
 }
