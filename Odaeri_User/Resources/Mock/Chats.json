@@ -4,8 +4,8 @@
       "chat_id": "chat_001",
       "room_id": "room_1",
       "content": "어제 메시지입니다",
-      "createdAt": "2025-01-09T06:00:00.000Z",
-      "updatedAt": "2025-01-09T06:00:00.000Z",
+      "createdAt": "2026-01-09T06:00:00.000Z",
+      "updatedAt": "2026-01-09T06:00:00.000Z",
       "sender": {
         "user_id": "user_ara",
         "nick": "아라",
@@ -17,8 +17,8 @@
       "chat_id": "chat_002",
       "room_id": "room_1",
       "content": "안녕하세요!",
-      "createdAt": "2025-01-10T06:00:00.000Z",
-      "updatedAt": "2025-01-10T06:00:00.000Z",
+      "createdAt": "2026-01-10T06:00:00.000Z",
+      "updatedAt": "2026-01-10T06:00:00.000Z",
       "sender": {
         "user_id": "user_ara",
         "nick": "아라",
@@ -30,8 +30,8 @@
       "chat_id": "chat_003",
       "room_id": "room_1",
       "content": "반갑습니다",
-      "createdAt": "2025-01-10T06:00:30.000Z",
-      "updatedAt": "2025-01-10T06:00:30.000Z",
+      "createdAt": "2026-01-10T06:00:30.000Z",
+      "updatedAt": "2026-01-10T06:00:30.000Z",
       "sender": {
         "user_id": "user_ara",
         "nick": "아라",
@@ -43,8 +43,8 @@
       "chat_id": "chat_004",
       "room_id": "room_1",
       "content": "네, 안녕하세요",
-      "createdAt": "2025-01-10T07:00:00.000Z",
-      "updatedAt": "2025-01-10T07:00:00.000Z",
+      "createdAt": "2026-01-10T07:00:00.000Z",
+      "updatedAt": "2026-01-10T07:00:00.000Z",
       "sender": {
         "user_id": "current_user",
         "nick": "나",
@@ -56,8 +56,8 @@
       "chat_id": "chat_005",
       "room_id": "room_1",
       "content": "오늘 날씨 정말 좋네요",
-      "createdAt": "2025-01-10T07:30:00.000Z",
-      "updatedAt": "2025-01-10T07:30:00.000Z",
+      "createdAt": "2026-01-10T07:30:00.000Z",
+      "updatedAt": "2026-01-10T07:30:00.000Z",
       "sender": {
         "user_id": "user_ara",
         "nick": "아라",
@@ -69,8 +69,8 @@
       "chat_id": "chat_006",
       "room_id": "room_1",
       "content": "그러게요",
-      "createdAt": "2025-01-10T07:50:00.000Z",
-      "updatedAt": "2025-01-10T07:50:00.000Z",
+      "createdAt": "2026-01-10T07:50:00.000Z",
+      "updatedAt": "2026-01-10T07:50:00.000Z",
       "sender": {
         "user_id": "current_user",
         "nick": "나",
@@ -82,8 +82,8 @@
       "chat_id": "chat_007",
       "room_id": "room_1",
       "content": "산책하기 좋을 것 같아요",
-      "createdAt": "2025-01-10T07:50:10.000Z",
-      "updatedAt": "2025-01-10T07:50:10.000Z",
+      "createdAt": "2026-01-10T07:50:10.000Z",
+      "updatedAt": "2026-01-10T07:50:10.000Z",
       "sender": {
         "user_id": "current_user",
         "nick": "나",
@@ -95,11 +95,76 @@
       "chat_id": "chat_008",
       "room_id": "room_1",
       "content": "좋은 생각이네요! 저도 나가볼까 합니다",
-      "createdAt": "2025-01-10T07:55:00.000Z",
-      "updatedAt": "2025-01-10T07:55:00.000Z",
+      "createdAt": "2026-01-10T07:55:00.000Z",
+      "updatedAt": "2026-01-10T07:55:00.000Z",
       "sender": {
         "user_id": "user_ara",
         "nick": "아라",
+        "profileImage": ""
+      },
+      "files": []
+    },
+    {
+      "chat_id": "chat_101",
+      "room_id": "room_2",
+      "content": "안녕하세요!",
+      "createdAt": "2025-01-09T02:00:00.000Z",
+      "updatedAt": "2025-01-09T02:00:00.000Z",
+      "sender": {
+        "user_id": "user_min",
+        "nick": "민지",
+        "profileImage": ""
+      },
+      "files": []
+    },
+    {
+      "chat_id": "chat_102",
+      "room_id": "room_2",
+      "content": "커뮤니티 글 보고 연락드렸어요",
+      "createdAt": "2025-01-09T02:00:20.000Z",
+      "updatedAt": "2025-01-09T02:00:20.000Z",
+      "sender": {
+        "user_id": "user_min",
+        "nick": "민지",
+        "profileImage": ""
+      },
+      "files": []
+    },
+    {
+      "chat_id": "chat_103",
+      "room_id": "room_2",
+      "content": "혹시 오늘 시간 괜찮으신가요?",
+      "createdAt": "2025-01-09T02:00:40.000Z",
+      "updatedAt": "2025-01-09T02:00:40.000Z",
+      "sender": {
+        "user_id": "user_min",
+        "nick": "민지",
+        "profileImage": ""
+      },
+      "files": []
+    },
+    {
+      "chat_id": "chat_104",
+      "room_id": "room_2",
+      "content": "안녕하세요, 네 괜찮습니다!",
+      "createdAt": "2025-01-10T08:00:00.000Z",
+      "updatedAt": "2025-01-10T08:00:00.000Z",
+      "sender": {
+        "user_id": "current_user",
+        "nick": "나",
+        "profileImage": ""
+      },
+      "files": []
+    },
+    {
+      "chat_id": "chat_105",
+      "room_id": "room_2",
+      "content": "어떤 글을 보셨나요?",
+      "createdAt": "2025-01-10T08:01:00.000Z",
+      "updatedAt": "2025-01-10T08:01:00.000Z",
+      "sender": {
+        "user_id": "current_user",
+        "nick": "나",
         "profileImage": ""
       },
       "files": []
