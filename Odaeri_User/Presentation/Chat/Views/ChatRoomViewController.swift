@@ -14,7 +14,8 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
     private let emptyView = ChatRoomEmptyView()
     private let roomSelectedSubject = PassthroughSubject<ChatRoomEntity, Never>()
     private var chatRooms: [ChatRoomEntity] = []
-    private let currentUserId = UserManager.shared.currentUser?.userId
+    private var displayModels: [ChatRoomDisplayModel] = []
+    private let currentUserId = "current_user"
 
     private let tableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .plain)
@@ -68,9 +69,11 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
         output.chatRooms
             .receive(on: DispatchQueue.main)
             .sink { [weak self] rooms in
-                self?.chatRooms = rooms
-                self?.tableView.reloadData()
-                self?.updateEmptyView()
+                guard let self = self else { return }
+                self.chatRooms = rooms
+                self.displayModels = ChatRoomMapper.map(rooms, currentUserId: self.currentUserId)
+                self.tableView.reloadData()
+                self.updateEmptyView()
             }
             .store(in: &cancellables)
 
@@ -103,7 +106,7 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
 
 extension ChatRoomViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        chatRooms.count
+        displayModels.count
     }
 
     func tableView(
@@ -117,10 +120,7 @@ extension ChatRoomViewController: UITableViewDataSource {
             return UITableViewCell()
         }
 
-        cell.configure(
-            room: chatRooms[indexPath.row],
-            currentUserId: currentUserId
-        )
+        cell.configure(with: displayModels[indexPath.row])
         return cell
     }
 }
