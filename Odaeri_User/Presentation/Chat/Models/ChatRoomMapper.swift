@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import RealmSwift
 
 struct ChatRoomMapper {
     static func map(_ entities: [ChatRoomEntity], currentUserId: String) -> [ChatRoomDisplayModel] {
@@ -41,6 +42,38 @@ struct ChatRoomMapper {
                 lastChatTimeText: lastChatTimeText,
                 unreadCount: 0,
                 hasUnread: false
+            )
+        }
+    }
+
+    static func mapFromRealm(_ objects: Results<ChatRoomObject>, currentUserId: String) -> [ChatRoomDisplayModel] {
+        return objects.map { object in
+            let participantEntities = Array(object.participants.map { $0.toEntity() })
+            let opponent = participantEntities.first { $0.userId != currentUserId }
+
+            let lastChatText: String
+            if let content = object.lastChatContent, !content.isEmpty {
+                lastChatText = content
+            } else {
+                lastChatText = "대화를 시작해보세요"
+            }
+
+            let lastChatTimeText: String
+            if let lastCreatedAt = object.lastChatCreatedAt,
+               let lastChatDate = DateFormatter.iso8601.date(from: lastCreatedAt) {
+                lastChatTimeText = formatChatRoomTime(lastChatDate)
+            } else {
+                lastChatTimeText = ""
+            }
+
+            return ChatRoomDisplayModel(
+                roomId: object.roomId,
+                opponentName: opponent?.nick ?? "알 수 없음",
+                opponentProfileImageUrl: opponent?.profileImage,
+                lastChatText: lastChatText,
+                lastChatTimeText: lastChatTimeText,
+                unreadCount: object.unreadCount,
+                hasUnread: object.hasUnread
             )
         }
     }
