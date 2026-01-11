@@ -14,6 +14,7 @@ extension UIImageView {
     private struct AssociatedKeys {
         static var imageCancellable: UInt8 = 0
         static var currentImageURL: UInt8 = 0
+        static var currentVideoURL: UInt8 = 0
     }
 
     // MARK: - Private Properties
@@ -39,6 +40,20 @@ extension UIImageView {
             objc_setAssociatedObject(
                 self,
                 &AssociatedKeys.currentImageURL,
+                newValue,
+                .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+            )
+        }
+    }
+
+    private var currentVideoURL: String? {
+        get {
+            return objc_getAssociatedObject(self, &AssociatedKeys.currentVideoURL) as? String
+        }
+        set {
+            objc_setAssociatedObject(
+                self,
+                &AssociatedKeys.currentVideoURL,
                 newValue,
                 .OBJC_ASSOCIATION_RETAIN_NONATOMIC
             )
@@ -171,10 +186,85 @@ extension UIImageView {
     func resetImage(placeholder: UIImage? = nil) {
         // 1. 취소(Cancel): 진행 중인 네트워크 요청 중단
         cancelImageLoad()
+        cancelVideoThumbnail()
 
         // 2. 초기화(Reset): currentImageURL은 cancelImageLoad()에서 처리됨
 
         // 3. 시각적 비움(UI): 이미지를 placeholder로 변경
         self.image = placeholder
+    }
+
+    /// 비디오 썸네일을 비동기로 로드하여 설정합니다.
+    ///
+    /// AppMediaService를 통해 썸네일을 자동으로 생성하고 캐싱합니다.
+    /// [메모리 캐시 → 디스크 캐시 → 로컬 파일 추출 → 원격 추출] 순서로 최적화됩니다.
+    ///
+    /// - Parameters:
+    ///   - url: 비디오 URL (상대 경로도 자동으로 정규화됨)
+    ///   - placeholder: 로딩 중 표시할 기본 이미지 (옵션)
+    ///   - animated: fade-in 애니메이션 적용 여부 (기본값: true)
+    ///
+    /// ### 사용 예시
+    /// ```swift
+    /// // 이미지처럼 간단하게 사용
+    /// imageView.setVideoThumbnail(url: "./data/video.mp4")
+    ///
+    /// // 셀 재사용 시 자동으로 이전 요청 취소
+    /// override func prepareForReuse() {
+    ///     super.prepareForReuse()
+    ///     imageView.resetImage()  // 비디오 썸네일도 함께 취소됨
+    /// }
+    /// ```
+    func setVideoThumbnail(
+        url: String?,
+        placeholder: UIImage? = nil,
+        animated: Bool = true
+    ) {
+        guard let url = url, !url.isEmpty else {
+            self.image = placeholder
+            return
+        }
+
+        if currentVideoURL == url {
+            return
+        }
+
+        if currentVideoURL != url {
+            cancelVideoThumbnail()
+        }
+
+        currentVideoURL = url
+        self.image = placeholder
+
+        AppMediaService.shared.fetchThumbnail(url: url) { [weak self] thumbnail in
+            guard let self = self else { return }
+
+            guard self.currentVideoURL == url else {
+                return
+            }
+
+            DispatchQueue.main.async {
+                if animated {
+                    UIView.transition(
+                        with: self,
+                        duration: 0.3,
+                        options: .transitionCrossDissolve,
+                        animations: {
+                            self.image = thumbnail
+                        }
+                    )
+                } else {
+                    self.image = thumbnail
+                }
+            }
+        }
+    }
+
+    /// 진행 중인 비디오 썸네일 생성 작업을 취소합니다.
+    private func cancelVideoThumbnail() {
+        if let videoURL = currentVideoURL {
+            AppMediaService.shared.cancelThumbnailGeneration(for: videoURL)
+        }
+        currentVideoURL = nil
     }
 }
