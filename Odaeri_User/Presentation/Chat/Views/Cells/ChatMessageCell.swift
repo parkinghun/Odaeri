@@ -8,13 +8,21 @@
 import UIKit
 import SnapKit
 
+protocol ChatMessageCellDelegate: AnyObject {
+    func chatMessageCell(_ cell: ChatMessageCell, didTapImageAt index: Int, in urls: [String])
+    func chatMessageCell(_ cell: ChatMessageCell, didTapVideo url: String)
+    func chatMessageCell(_ cell: ChatMessageCell, didTapFile fileInfo: ChatMessageContent.FileInfo)
+}
+
 final class ChatMessageCell: UITableViewCell {
     static let reuseIdentifier = String(describing: ChatMessageCell.self)
+
+    weak var delegate: ChatMessageCellDelegate?
 
     private let profileImageView = UIImageView()
     private let nameLabel = UILabel()
     private let bubbleView = UIView()
-    private let messageLabel = UILabel()
+    private let bubbleContentStackView = UIStackView()
     private let timeLabel = UILabel()
 
     private let rootStackView = UIStackView()
@@ -30,6 +38,8 @@ final class ChatMessageCell: UITableViewCell {
         static let horizontalSpacing: CGFloat = AppSpacing.small
         static let verticalSpacing: CGFloat = AppSpacing.xSmall
         static let contentInset: CGFloat = AppSpacing.large
+        static let bubbleContentSpacing: CGFloat = 4
+        static let textPadding = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
     }
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -46,8 +56,12 @@ final class ChatMessageCell: UITableViewCell {
         super.prepareForReuse()
         profileImageView.image = nil
         nameLabel.text = nil
-        messageLabel.text = nil
         timeLabel.text = nil
+
+        bubbleContentStackView.arrangedSubviews.forEach {
+            bubbleContentStackView.removeArrangedSubview($0)
+            $0.removeFromSuperview()
+        }
     }
 
     override func layoutSubviews() {
@@ -58,7 +72,6 @@ final class ChatMessageCell: UITableViewCell {
     }
 
     func configure(with model: ChatDisplayModel) {
-        messageLabel.text = model.content
         nameLabel.text = model.senderName
         timeLabel.text = model.timeText
 
@@ -72,8 +85,66 @@ final class ChatMessageCell: UITableViewCell {
             profileImageView.image = AppImage.person
         }
 
+        configureContents(model.contents, senderType: model.senderType)
         applyStyle(for: model.senderType)
         updateLayout(for: model.senderType)
+    }
+
+    private func configureContents(_ contents: [ChatMessageContent], senderType: SenderType) {
+        for content in contents {
+            switch content {
+            case .text(let text):
+                let textLabel = createTextLabel(text: text, senderType: senderType)
+                bubbleContentStackView.addArrangedSubview(textLabel)
+
+            case .imageGroup(let urls):
+                let imageGridView = ChatImageGridView()
+                imageGridView.configure(with: urls)
+                imageGridView.onImageTapped = { [weak self] index in
+                    guard let self = self else { return }
+                    self.delegate?.chatMessageCell(self, didTapImageAt: index, in: urls)
+                }
+                bubbleContentStackView.addArrangedSubview(imageGridView)
+
+            case .video(let url):
+                let videoView = ChatVideoView()
+                videoView.configure(with: url)
+                videoView.onVideoTapped = { [weak self] in
+                    guard let self = self else { return }
+                    self.delegate?.chatMessageCell(self, didTapVideo: url)
+                }
+                bubbleContentStackView.addArrangedSubview(videoView)
+
+            case .file(let fileInfo):
+                let fileView = ChatFileView()
+                fileView.configure(with: fileInfo)
+                fileView.onFileTapped = { [weak self] in
+                    guard let self = self else { return }
+                    self.delegate?.chatMessageCell(self, didTapFile: fileInfo)
+                }
+                bubbleContentStackView.addArrangedSubview(fileView)
+            }
+        }
+    }
+
+    private func createTextLabel(text: String, senderType: SenderType) -> UILabel {
+        let label = UILabel()
+        label.font = AppFont.body2
+        label.textColor = senderType.textColor
+        label.numberOfLines = 0
+        label.text = text
+
+        switch senderType.alignment {
+        case .leading:
+            label.textAlignment = .left
+        case .trailing:
+            label.textAlignment = .right
+        }
+
+        label.setContentHuggingPriority(.required, for: .horizontal)
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
+
+        return label
     }
 
     private func setupUI() {
@@ -91,10 +162,10 @@ final class ChatMessageCell: UITableViewCell {
         bubbleView.layer.cornerCurve = .continuous
         bubbleView.clipsToBounds = true
 
-        messageLabel.font = AppFont.body2
-        messageLabel.numberOfLines = 0
-        messageLabel.setContentHuggingPriority(.required, for: .horizontal)
-        messageLabel.setContentCompressionResistancePriority(.required, for: .vertical)
+        bubbleContentStackView.axis = .vertical
+        bubbleContentStackView.spacing = Layout.bubbleContentSpacing
+        bubbleContentStackView.alignment = .leading
+        bubbleContentStackView.distribution = .fill
 
         timeLabel.font = AppFont.caption2
         timeLabel.textColor = AppColor.gray60
@@ -123,7 +194,7 @@ final class ChatMessageCell: UITableViewCell {
         bubbleRowStackView.addArrangedSubview(timeLabel)
         bubbleRowStackView.addArrangedSubview(bubbleView)
 
-        bubbleView.addSubview(messageLabel)
+        bubbleView.addSubview(bubbleContentStackView)
     }
 
     private func setupConstraints() {
@@ -153,14 +224,20 @@ final class ChatMessageCell: UITableViewCell {
             $0.width.lessThanOrEqualToSuperview().multipliedBy(0.75)
         }
 
-        messageLabel.snp.makeConstraints {
-            $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12))
+        bubbleContentStackView.snp.makeConstraints {
+            $0.edges.equalToSuperview().inset(Layout.textPadding)
         }
     }
 
     private func applyStyle(for senderType: SenderType) {
         bubbleView.backgroundColor = senderType.bubbleBackgroundColor
-        messageLabel.textColor = senderType.textColor
+
+        switch senderType.alignment {
+        case .leading:
+            bubbleContentStackView.alignment = .leading
+        case .trailing:
+            bubbleContentStackView.alignment = .trailing
+        }
     }
 
     private func updateLayout(for senderType: SenderType) {

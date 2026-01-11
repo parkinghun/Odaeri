@@ -39,6 +39,12 @@ struct ChatMapper {
                 nextDate: nextDate
             )
 
+            let contents = ChatMessageContent.parse(
+                chatId: entity.chatId,
+                content: entity.content,
+                files: entity.files
+            )
+
             let displayModel = ChatDisplayModel(
                 id: entity.chatId,
                 content: entity.content,
@@ -48,6 +54,7 @@ struct ChatMapper {
                 senderProfileImageUrl: entity.sender.profileImage,
                 hasFiles: entity.hasFiles,
                 files: entity.files,
+                contents: contents,
                 senderType: senderType,
                 groupPosition: groupPosition
             )

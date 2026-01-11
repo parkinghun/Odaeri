@@ -16,6 +16,7 @@ struct ChatDisplayModel: Hashable {
     let senderProfileImageUrl: String?
     let hasFiles: Bool
     let files: [String]
+    let contents: [ChatMessageContent]
 
     let senderType: SenderType
     let groupPosition: MessageGroupPosition

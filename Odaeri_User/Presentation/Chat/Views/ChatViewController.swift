@@ -100,7 +100,7 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
     private func configureDataSource() {
         dataSource = UITableViewDiffableDataSource<Section, ChatItem>(
             tableView: tableView
-        ) { tableView, indexPath, item in
+        ) { [weak self] tableView, indexPath, item in
             switch item {
             case .message(let model):
                 guard let cell = tableView.dequeueReusableCell(
@@ -109,6 +109,7 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
                 ) as? ChatMessageCell else {
                     return UITableViewCell()
                 }
+                cell.delegate = self
                 cell.configure(with: model)
                 return cell
 
@@ -185,5 +186,19 @@ extension ChatViewController: UITableViewDelegate {
 
         let height = cell.frame.size.height
         heightCache.setHeight(height, for: item.id)
+    }
+}
+
+extension ChatViewController: ChatMessageCellDelegate {
+    func chatMessageCell(_ cell: ChatMessageCell, didTapImageAt index: Int, in urls: [String]) {
+        print("Image tapped at index: \(index), urls: \(urls)")
+    }
+
+    func chatMessageCell(_ cell: ChatMessageCell, didTapVideo url: String) {
+        print("Video tapped: \(url)")
+    }
+
+    func chatMessageCell(_ cell: ChatMessageCell, didTapFile fileInfo: ChatMessageContent.FileInfo) {
+        print("File tapped: \(fileInfo.fileName)")
     }
 }
