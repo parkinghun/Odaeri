@@ -7,7 +7,6 @@
 
 import UIKit
 import Combine
-import AVKit
 import SnapKit
 
 final class CommunityViewController: BaseViewController<CommunityViewModel> {
@@ -207,7 +206,8 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             cell.cancellables.removeAll()
             cell.configure(with: item)
             cell.onVideoSelected = { [weak self] url in
-                self?.presentVideoPlayer(url: url)
+                guard let self = self else { return }
+                AppMediaService.shared.playVideo(url: url.absoluteString, from: self)
             }
             cell.onStoreInfoTapped = { [weak self] storeId in
                 self?.storeSelectedSubject.send(storeId)
@@ -245,14 +245,6 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
         guard headerView.frame.height != height else { return }
         headerView.frame.size.height = height
         tableView.tableHeaderView = headerView
-    }
-
-    private func presentVideoPlayer(url: URL) {
-        let playerViewController = AVPlayerViewController()
-        playerViewController.player = AVPlayer(url: url)
-        present(playerViewController, animated: true) {
-            playerViewController.player?.play()
-        }
     }
 }
 
