@@ -14,7 +14,7 @@ final class ImageCacheManager {
 
     private let memoryCache = NSCache<NSString, UIImage>()
     private let diskCache = DiskCacheManager.shared
-    private let provider = MoyaProvider<ImageAPI>()
+    private let provider = MoyaProvider<MediaAPI>()
 
     // 중복 요청 방지를 위한 진행 중인 요청 추적
     private var inFlightRequests: [String: AnyPublisher<UIImage, Error>] = [:]
@@ -207,6 +207,17 @@ final class ImageCacheManager {
         requestQueue.async(flags: .barrier) { [weak self] in
             self?.inFlightRequests.removeValue(forKey: url)
         }
+    }
+
+    func cacheImage(_ image: UIImage, forKey key: String) {
+        let cacheKey = NSString(string: key)
+        let cost = Int(image.jpegData(compressionQuality: 1.0)?.count ?? 0)
+        memoryCache.setObject(image, forKey: cacheKey, cost: cost)
+    }
+
+    func getCachedImage(forKey key: String) -> UIImage? {
+        let cacheKey = NSString(string: key)
+        return memoryCache.object(forKey: cacheKey)
     }
 }
 
