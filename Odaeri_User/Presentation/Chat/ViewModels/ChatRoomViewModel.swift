@@ -78,20 +78,12 @@ final class ChatRoomViewModel: BaseViewModel, ViewModelType {
     }
 
     private func openChatRoom(from room: ChatRoomEntity) {
-        guard let currentUserId = UserManager.shared.currentUser?.userId else { return }
-        guard let opponent = room.participants.first(where: { $0.userId != currentUserId }) else { return }
+        let currentUserId = UserManager.shared.currentUser?.userId ?? "current_user"
+        guard let opponent = room.participants.first(where: { $0.userId != currentUserId }) else {
+            coordinator?.showChatRoom(roomId: room.roomId, title: "알 수 없음")
+            return
+        }
 
-        chatRepository.createOrGetChatRoom(opponentId: opponent.userId)
-            .sink(
-                receiveCompletion: { [weak self] completion in
-                    if case .failure(let error) = completion {
-                        self?.errorSubject.send(error.errorDescription)
-                    }
-                },
-                receiveValue: { [weak self] room in
-                    self?.coordinator?.showChatRoom(roomId: room.roomId, title: opponent.nick)
-                }
-            )
-            .store(in: &cancellables)
+        coordinator?.showChatRoom(roomId: room.roomId, title: opponent.nick)
     }
 }
