@@ -9,32 +9,56 @@ import UIKit
 import FirebaseCore
 import FirebaseMessaging
 import iamport_ios
+import RealmSwift
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
-    
+
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
         Iamport.shared.receivedURL(url)
         return true
     }
-    
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        configureRealm()
+
         FirebaseApp.configure()
-        
-        // 권한에 대한 세팅
+
         UNUserNotificationCenter.current().delegate = self
-        
+
         let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
         UNUserNotificationCenter.current().requestAuthorization(
             options: authOptions,
             completionHandler: { _, _ in }
         )
-        
+
         application.registerForRemoteNotifications()
 
         Messaging.messaging().delegate = self
 
         return true
+    }
+
+    private func configureRealm() {
+        let config = Realm.Configuration(
+            schemaVersion: 1,
+            migrationBlock: { migration, oldSchemaVersion in
+                if oldSchemaVersion < 1 {
+                    migration.enumerateObjects(ofType: ChatRoomObject.className()) { oldObject, newObject in
+                        newObject?["hasUnread"] = false
+                    }
+                }
+            }
+        )
+
+        Realm.Configuration.defaultConfiguration = config
+
+        do {
+            _ = try Realm()
+            print("Realm 초기화 성공 (버전: \(config.schemaVersion))")
+        } catch {
+            print("Realm 초기화 실패: \(error)")
+        }
     }
     
     // MARK: UISceneSession Lifecycle
