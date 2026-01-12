@@ -17,6 +17,7 @@ enum ChatMessageContent: Hashable {
         let url: String
         let fileName: String
         let fileSize: String?
+        let fileType: ChatInputAttachmentItem.FileType
     }
 }
 
@@ -61,15 +62,23 @@ extension ChatMessageContent {
                     result.append(.video(file))
                     i += 1
 
-                } else if ext == "pdf" {
+                } else {
                     let fileName = URL(string: file)?
                         .lastPathComponent
-                        .removingPercentEncoding ?? "document.pdf"
-                    let fileInfo = FileInfo(url: file, fileName: fileName, fileSize: nil)
+                        .removingPercentEncoding ?? "document"
+                    let fileType: ChatInputAttachmentItem.FileType
+                    if let fileURL = URL(string: file) {
+                        fileType = ChatInputAttachmentItem.FileType.from(url: fileURL)
+                    } else {
+                        fileType = .other
+                    }
+                    let fileInfo = FileInfo(
+                        url: file,
+                        fileName: fileName,
+                        fileSize: nil,
+                        fileType: fileType
+                    )
                     result.append(.file(fileInfo))
-                    i += 1
-
-                } else {
                     i += 1
                 }
             }

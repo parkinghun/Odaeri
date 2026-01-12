@@ -14,7 +14,7 @@ enum ChatInputAttachmentItem: Hashable {
     case video(URL, thumbnail: UIImage?, id: String)
     case file(URL, fileName: String, fileType: FileType, id: String)
 
-    enum FileType {
+    enum FileType: Hashable {
         case pdf
         case zip
         case other
@@ -35,10 +35,13 @@ enum ChatInputAttachmentItem: Hashable {
             switch self {
             case .pdf:
                 return AppImage.pdf
+                    .withRenderingMode(.alwaysOriginal)
             case .zip:
                 return AppImage.zip
+                    .withRenderingMode(.alwaysOriginal)
             case .other:
-                return AppImage.detail
+                return AppImage.document
+                    .withRenderingMode(.alwaysOriginal)
             }
         }
     }
@@ -129,6 +132,14 @@ enum ChatInputAttachmentItem: Hashable {
 
     private func mimeType(for url: URL) -> String {
         let ext = url.pathExtension.lowercased()
+        switch ext {
+        case "mp4":
+            return "video/mp4"
+        case "mov":
+            return "video/quicktime"
+        default:
+            break
+        }
         if let type = UTType(filenameExtension: ext) {
             return type.preferredMIMEType ?? "application/octet-stream"
         }

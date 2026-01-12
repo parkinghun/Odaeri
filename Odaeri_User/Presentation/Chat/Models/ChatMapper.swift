@@ -11,12 +11,12 @@ struct ChatMapper {
     static func map(_ entities: [ChatEntity], currentUserId: String) -> [ChatItem] {
         guard !entities.isEmpty else { return [] }
 
-        let dates = entities.compactMap { DateFormatter.iso8601.date(from: $0.createdAt) }
-        guard dates.count == entities.count else { return [] }
+        let sorted = sortForDisplay(entities)
+        let dates = sorted.map { DateFormatter.iso8601.date(from: $0.createdAt) ?? .distantPast }
 
         var result: [ChatItem] = []
 
-        for (index, entity) in entities.enumerated() {
+        for (index, entity) in sorted.enumerated() {
             let createdAt = dates[index]
             let previousDate = index > 0 ? dates[index - 1] : nil
             let nextDate = index < dates.count - 1 ? dates[index + 1] : nil
@@ -26,10 +26,11 @@ struct ChatMapper {
                 result.append(.dateSeparator(dateText))
             }
 
-            let previous = index > 0 ? entities[index - 1] : nil
-            let next = index < entities.count - 1 ? entities[index + 1] : nil
+            let previous = index > 0 ? sorted[index - 1] : nil
+            let next = index < sorted.count - 1 ? sorted[index + 1] : nil
 
             let senderType: SenderType = entity.sender.userId == currentUserId ? .me : .other
+
             let groupPosition = determineGroupPosition(
                 current: entity,
                 currentDate: createdAt,
@@ -45,6 +46,12 @@ struct ChatMapper {
                 files: entity.files
             )
 
+            if index == 0 {
+                print("🔍 ChatMapper - contents: \(contents)")
+                print("🔍 content: '\(entity.content)'")
+                print("🔍 files: \(entity.files)")
+            }
+
             let displayModel = ChatDisplayModel(
                 id: entity.chatId,
                 content: entity.content,
@@ -55,14 +62,39 @@ struct ChatMapper {
                 hasFiles: entity.hasFiles,
                 files: entity.files,
                 contents: contents,
+                status: entity.status,
+                uploadProgress: entity.uploadProgress,
                 senderType: senderType,
                 groupPosition: groupPosition
             )
+
+            if index == 0 {
+                print("🔍 ChatDisplayModel:")
+                print("  - showProfile: \(displayModel.showProfile)")
+                print("  - showName: \(displayModel.showName)")
+                print("  - showTime: \(displayModel.showTime)")
+                print("  - contents.count: \(displayModel.contents.count)")
+            }
 
             result.append(.message(displayModel))
         }
 
         return result
+    }
+
+    private static func sortForDisplay(_ entities: [ChatEntity]) -> [ChatEntity] {
+        return entities.sorted { lhs, rhs in
+            let leftFailed = lhs.status == .failed
+            let rightFailed = rhs.status == .failed
+
+            if leftFailed != rightFailed {
+                return !leftFailed
+            }
+
+            let leftDate = DateFormatter.iso8601.date(from: lhs.createdAt) ?? .distantPast
+            let rightDate = DateFormatter.iso8601.date(from: rhs.createdAt) ?? .distantPast
+            return leftDate < rightDate
+        }
     }
 
     private static func shouldInsertDateSeparator(current: Date, previous: Date?) -> Bool {

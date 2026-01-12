@@ -17,6 +17,8 @@ struct ChatDisplayModel: Hashable {
     let hasFiles: Bool
     let files: [String]
     let contents: [ChatMessageContent]
+    let status: ChatMessageStatus
+    let uploadProgress: Float?
 
     let senderType: SenderType
     let groupPosition: MessageGroupPosition
@@ -35,9 +37,13 @@ struct ChatDisplayModel: Hashable {
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+        hasher.combine(status.rawValue)
+        hasher.combine(uploadProgress)
     }
 
     static func == (lhs: ChatDisplayModel, rhs: ChatDisplayModel) -> Bool {
-        return lhs.id == rhs.id
+        return lhs.id == rhs.id &&
+            lhs.status == rhs.status &&
+            lhs.uploadProgress == rhs.uploadProgress
     }
 }

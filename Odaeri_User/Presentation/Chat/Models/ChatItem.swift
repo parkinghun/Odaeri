@@ -21,10 +21,23 @@ enum ChatItem: Hashable {
     }
 
     func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
+        switch self {
+        case .message(let model):
+            hasher.combine(model)
+        case .dateSeparator(let dateText):
+            hasher.combine("separator")
+            hasher.combine(dateText)
+        }
     }
 
     static func == (lhs: ChatItem, rhs: ChatItem) -> Bool {
-        return lhs.id == rhs.id
+        switch (lhs, rhs) {
+        case (.message(let left), .message(let right)):
+            return left == right
+        case (.dateSeparator(let left), .dateSeparator(let right)):
+            return left == right
+        default:
+            return false
+        }
     }
 }
