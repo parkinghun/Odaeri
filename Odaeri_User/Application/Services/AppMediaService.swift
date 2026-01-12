@@ -45,6 +45,7 @@ final class AppMediaService: NSObject {
     
     private func normalize(_ path: String) -> String {
         if path.hasPrefix("http") { return path }
+        if path.hasPrefix("file://") { return path }
         
         let base = APIEnvironment.current.baseURL.absoluteString.hasSuffix("/")
         ? String(APIEnvironment.current.baseURL.absoluteString.dropLast())
@@ -99,6 +100,20 @@ final class AppMediaService: NSObject {
     private func cachedFileURL(for url: String, in directory: URL) -> URL {
         let key = cacheKey(for: url)
         return directory.appendingPathComponent(key)
+    }
+
+    func resolvePlayableURL(for url: String) -> URL? {
+        if let fileURL = URL(string: url), fileURL.isFileURL {
+            return fileManager.fileExists(atPath: fileURL.path) ? fileURL : nil
+        }
+
+        let localURL = cachedFileURL(for: url, in: videoCacheDirectory)
+        if fileManager.fileExists(atPath: localURL.path) {
+            return localURL
+        }
+
+        let normalizedURL = normalize(url)
+        return URL(string: normalizedURL)
     }
     
     func fetchThumbnail(url: String, completion: @escaping (UIImage?) -> Void) {

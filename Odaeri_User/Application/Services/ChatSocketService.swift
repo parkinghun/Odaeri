@@ -44,12 +44,17 @@ final class ChatSocketService {
     private var socket: SocketIOClient?
     private var connectedRoomId: String?
     let connectionStatus = CurrentValueSubject<SocketIOStatus, Never>(.disconnected)
+    let messagesPublisher = PassthroughSubject<ChatEntity, Never>()
+    let reconnectionPublisher = PassthroughSubject<String, Never>()
     private let hapticGenerator = UIImpactFeedbackGenerator(style: .light)
 
     /// 재연결 스로틀링
     private var lastConnectAttempt: Date?
     private let minimumConnectInterval: TimeInterval = 2.0
     private var isNetworkAvailable: Bool = true
+
+    /// 최초 연결 여부 (방별로 추적)
+    private var isFirstConnection: [String: Bool] = [:]
 
     private init() {
         hapticGenerator.prepare()
@@ -80,10 +85,18 @@ final class ChatSocketService {
     }
 
     private func setupSocket(for roomId: String) {
-        let baseURLString = APIEnvironment.current.baseURL.absoluteString
+        let baseURL = APIEnvironment.current.baseURL
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            print("Socket URL 생성 실패: \(baseURL.absoluteString)")
+            connectionStatus.send(.error("잘못된 서버 주소"))
+            return
+        }
+        components.path = ""
+        components.query = nil
+        components.fragment = nil
 
-        guard let socketURL = URL(string: "\(baseURLString)/chats-\(roomId)") else {
-            print("Socket URL 생성 실패: \(baseURLString)/chats-\(roomId)")
+        guard let socketURL = components.url else {
+            print("Socket URL 생성 실패: \(baseURL.absoluteString)")
             connectionStatus.send(.error("잘못된 서버 주소"))
             return
         }
@@ -100,7 +113,8 @@ final class ChatSocketService {
             existingSocket.removeAllHandlers()
         }
 
-        print("Socket 생성: \(socketURL.absoluteString)")
+        let namespace = "/chats-\(roomId)"
+        print("Socket 생성: \(socketURL.absoluteString)\(namespace)")
 
         manager = SocketManager(
             socketURL: socketURL,
@@ -111,11 +125,14 @@ final class ChatSocketService {
                 .reconnectAttempts(5),
                 .reconnectWait(1),
                 .reconnectWaitMax(5),
-                .extraHeaders(["Authorization": "\(accessToken)"])
+                .extraHeaders([
+                    "Authorization": "\(accessToken)",
+                    "SeSACKey": APIEnvironment.current.apiKey
+                ])
             ]
         )
 
-        socket = manager?.defaultSocket
+        socket = manager?.socket(forNamespace: namespace)
         setupSocketListeners(for: roomId)
     }
 
@@ -188,6 +205,8 @@ final class ChatSocketService {
         socket = nil
         manager = nil
 
+        // 방을 완전히 나가므로 최초 연결 플래그 초기화
+        isFirstConnection.removeValue(forKey: roomId)
         connectedRoomId = nil
         connectionStatus.send(.disconnected)
     }
@@ -200,7 +219,7 @@ final class ChatSocketService {
     ) {
         guard socket?.status == .connected else {
             print("Socket 연결 안 됨: 메시지 전송 실패")
-            realmRepo.updateMessageStatus(chatId: tempId, status: .error)
+            realmRepo.updateMessageStatus(chatId: tempId, status: .failed)
             return
         }
 
@@ -218,9 +237,21 @@ final class ChatSocketService {
     private func setupSocketListeners(for roomId: String) {
         socket?.on(clientEvent: .connect) { [weak self] data, ack in
             guard let self = self else { return }
-            print("Socket 연결됨")
+            print("✅ Socket 연결 성공! roomId: \(roomId)")
+            print("✅ Socket 상태: \(self.socket?.status.description ?? "unknown")")
             self.connectionStatus.send(.connected)
             self.onSocketConnected(roomId: roomId)
+
+            // 최초 연결인지 확인
+            if self.isFirstConnection[roomId] == true {
+                // 최초 연결이 아니면 (재연결) 동기화 이벤트 발행
+                print("재연결 감지 (.connect): \(roomId) 동기화 필요")
+                self.reconnectionPublisher.send(roomId)
+            } else {
+                // 최초 연결
+                print("최초 연결: \(roomId) 동기화 스킵 (viewDidLoad에서 처리)")
+                self.isFirstConnection[roomId] = true
+            }
         }
 
         socket?.on(clientEvent: .disconnect) { [weak self] data, ack in
@@ -229,9 +260,13 @@ final class ChatSocketService {
         }
 
         socket?.on(clientEvent: .reconnect) { [weak self] data, ack in
-            print("Socket 재연결됨")
-            self?.connectionStatus.send(.connected)
-            self?.onSocketConnected(roomId: roomId)
+            guard let self = self else { return }
+            print("Socket 재연결됨: \(roomId)")
+            self.connectionStatus.send(.connected)
+            self.onSocketConnected(roomId: roomId)
+
+            // 재연결 성공 시 동기화 이벤트 발행
+            self.reconnectionPublisher.send(roomId)
         }
 
         socket?.on(clientEvent: .reconnectAttempt) { [weak self] data, ack in
@@ -243,16 +278,7 @@ final class ChatSocketService {
 
         socket?.on(clientEvent: .error) { [weak self] data, ack in
             guard let self = self else { return }
-            print("Socket 에러: \(data)")
-
-            if let errorDict = data.first as? [String: Any],
-               let type = errorDict["type"] as? String,
-               type == "UnauthorizedError" {
-                print("토큰 만료 감지: Socket 재생성 필요")
-                self.connectionStatus.send(.error("인증 만료"))
-            } else {
-                self.connectionStatus.send(.error("연결 오류"))
-            }
+            self.handleSocketError(data)
         }
 
         socket?.on("chat") { [weak self] data, ack in
@@ -283,19 +309,23 @@ final class ChatSocketService {
     }
 
     private func handleChatMessage(data: [Any]) {
+        print("🔔 Socket 'chat' 이벤트 수신!")
+        print("🔔 data: \(data)")
+
         guard let dict = data.first as? [String: Any],
               let response = try? parseChatResponse(from: dict) else {
-            print("메시지 파싱 실패: \(data)")
+            print("❌ 메시지 파싱 실패: \(data)")
             return
         }
 
         let entity = ChatEntity(from: response)
+        print("🔔 파싱된 메시지: chatId=\(entity.chatId), roomId=\(entity.roomId), sender=\(entity.sender.userId)")
 
         guard entity.roomId == connectedRoomId else {
-            print("다른 방의 메시지 수신 무시: \(entity.roomId)")
+            print("⚠️ 다른 방의 메시지 수신 무시: \(entity.roomId) (현재: \(connectedRoomId ?? "nil"))")
             return
         }
-        print("메시지 수신: \(entity.chatId)")
+        print("✅ 메시지 수신 확인: \(entity.chatId)")
 
         provideHapticFeedback()
 
@@ -304,14 +334,83 @@ final class ChatSocketService {
             isRead: true,
             shouldIncrementUnread: false
         )
-        .sink(receiveValue: { success in
+        .sink { success in
             if success {
-                print("메시지 저장 + 방 업데이트 완료")
+                print("소켓 수신 메시지 저장 완료: \(entity.chatId)")
             } else {
-                print("메시지 처리 실패")
+                print("소켓 수신 메시지 저장 실패: \(entity.chatId)")
             }
-        })
+        }
         .store(in: &cancellables)
+
+        messagesPublisher.send(entity)
+    }
+
+    private func handleSocketError(_ data: [Any]) {
+        let message = parseSocketErrorMessage(from: data)
+        print("Socket 에러: \(message ?? "unknown")")
+
+        if let message = message, isAuthenticationError(message) {
+            connectionStatus.send(.error("인증 오류"))
+            NotificationCenter.default.post(name: .unauthorizedAccess, object: nil)
+            return
+        }
+
+        if let message = message, isNamespaceError(message) {
+            connectionStatus.send(.error("네임스페이스 오류"))
+            return
+        }
+
+        if let message = message, isChatRoomError(message) {
+            connectionStatus.send(.error("채팅방 오류"))
+            return
+        }
+
+        if let message = message, isServiceKeyError(message) {
+            connectionStatus.send(.error("서비스 키 오류"))
+            return
+        }
+
+        connectionStatus.send(.error("연결 오류"))
+    }
+
+    private func parseSocketErrorMessage(from data: [Any]) -> String? {
+        if let dict = data.first as? [String: Any] {
+            if let message = dict["message"] as? String {
+                return message
+            }
+            if let description = dict["error"] as? String {
+                return description
+            }
+        }
+
+        if let message = data.first as? String {
+            return message
+        }
+
+        return nil
+    }
+
+    private func isAuthenticationError(_ message: String) -> Bool {
+        let lowercased = message.lowercased()
+        return lowercased.contains("access token") ||
+            lowercased.contains("accesstoken") ||
+            lowercased.contains("user_id") ||
+            lowercased.contains("unauthorized")
+    }
+
+    private func isServiceKeyError(_ message: String) -> Bool {
+        let lowercased = message.lowercased()
+        return lowercased.contains("sesac") || lowercased.contains("productid")
+    }
+
+    private func isNamespaceError(_ message: String) -> Bool {
+        return message.localizedCaseInsensitiveContains("invalid namespace")
+    }
+
+    private func isChatRoomError(_ message: String) -> Bool {
+        return message.contains("채팅방을 찾을 수 없습니다") ||
+            message.contains("채팅방 참여자가 아닙니다")
     }
     
     private func handleReadReceipt(data: [Any]) {
