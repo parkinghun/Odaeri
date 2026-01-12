@@ -41,12 +41,17 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
 
+        print("viewWillAppear - 소켓 연결 시도: \(viewModel.roomId)")
         ChatSocketService.shared.connect(to: viewModel.roomId)
+        ChatRoomContextManager.shared.enter(roomId: viewModel.roomId)
 
+        print("읽음 처리 시작: \(viewModel.roomId)")
         RealmChatRepository.shared.markAllMessagesAsRead(roomId: viewModel.roomId)
             .sink { success in
                 if success {
                     print("채팅방 읽음 처리 완료: \(self.viewModel.roomId)")
+                } else {
+                    print("채팅방 읽음 처리 실패: \(self.viewModel.roomId)")
                 }
             }
             .store(in: &cancellables)
@@ -54,14 +59,16 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        print("viewWillDisappear - 소켓 연결 해제")
         ChatSocketService.shared.disconnect()
+        ChatRoomContextManager.shared.leave(roomId: viewModel.roomId)
     }
 
     override func bind() {
         super.bind()
 
         let viewDidLoadSubject = PassthroughSubject<Void, Never>()
-        let sendMessageSubject = PassthroughSubject<String, Never>()
+        let sendMessageSubject = PassthroughSubject<ChatViewModel.SendMessagePayload, Never>()
 
         let input = ChatViewModel.Input(
             viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
@@ -76,8 +83,9 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
             }
             .store(in: &cancellables)
 
-        chatInputView.onSendMessage = { [weak sendMessageSubject] message in
-            sendMessageSubject?.send(message)
+        chatInputView.onSendMessage = { [weak sendMessageSubject] message, attachments in
+            let payload = ChatViewModel.SendMessagePayload(content: message, attachments: attachments)
+            sendMessageSubject?.send(payload)
         }
 
         viewDidLoadSubject.send(())
@@ -102,6 +110,7 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
     }
 
     private func setupInputView() {
+        chatInputView.parentViewController = self
     }
 
     private func setupConstraints() {
@@ -156,9 +165,10 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
         snapshot.appendSections([.main])
         snapshot.appendItems(items)
 
-        dataSource.apply(snapshot, animatingDifferences: animatingDifferences) { [weak self] in
+        let shouldAnimate = animatingDifferences && !shouldScrollToBottom
+        dataSource.apply(snapshot, animatingDifferences: shouldAnimate) { [weak self] in
             if shouldScrollToBottom || isAtBottom {
-                self?.scrollToBottom(animated: animatingDifferences)
+                self?.scrollToBottom(animated: false)
             }
         }
     }
@@ -219,5 +229,13 @@ extension ChatViewController: ChatMessageCellDelegate {
 
     func chatMessageCell(_ cell: ChatMessageCell, didTapFile fileInfo: ChatMessageContent.FileInfo) {
         AppMediaService.shared.previewFile(url: fileInfo.url, fileName: fileInfo.fileName, from: self)
+    }
+
+    func chatMessageCellDidTapRetry(_ cell: ChatMessageCell, messageId: String) {
+        viewModel.retryMessage(messageId: messageId)
+    }
+
+    func chatMessageCellDidTapDelete(_ cell: ChatMessageCell, messageId: String) {
+        viewModel.deleteMessage(messageId: messageId)
     }
 }

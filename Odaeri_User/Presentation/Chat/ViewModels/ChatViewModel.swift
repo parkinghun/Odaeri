@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import RealmSwift
+import UniformTypeIdentifiers
 
 final class ChatViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: ChatCoordinator?
@@ -16,17 +17,25 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     private let currentUserId: String
     private let currentUserName: String
     let title: String?
+    private let networkMonitor = NetworkMonitor.shared
 
     private var realmToken: NotificationToken?
     private let chatItemsSubject = CurrentValueSubject<[ChatItem], Never>([])
+    private var sendTimeouts: [String: DispatchWorkItem] = [:]
+    private var uploadCancellables: [String: AnyCancellable] = [:]
 
     struct Input {
         let viewDidLoad: AnyPublisher<Void, Never>
-        let sendMessage: AnyPublisher<String, Never>
+        let sendMessage: AnyPublisher<SendMessagePayload, Never>
     }
 
     struct Output {
         let chatItems: AnyPublisher<[ChatItem], Never>
+    }
+
+    struct SendMessagePayload {
+        let content: String
+        let attachments: [ChatInputAttachmentItem]
     }
 
     init(
@@ -52,13 +61,13 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             .sink { [weak self] in
                 self?.setupRealmObserver()
                 self?.syncMessagesFromServer()
-                self?.setupSocketObserver()
+                self?.setupNetworkObserver()
             }
             .store(in: &cancellables)
 
         input.sendMessage
-            .sink { [weak self] message in
-                self?.sendMessage(message)
+            .sink { [weak self] payload in
+                self?.sendMessage(payload)
             }
             .store(in: &cancellables)
 
@@ -76,7 +85,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             switch changes {
             case .initial(let results):
                 self.updateChatItems(from: results)
-            case .update(let results, _, _, _):
+            case .update(let results, let deletions, let insertions, let modifications):
                 self.updateChatItems(from: results)
             case .error(let error):
                 print("Realm 메시지 관찰 오류: \(error)")
@@ -91,7 +100,9 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     }
 
     private func syncMessagesFromServer() {
-        chatRepository.fetchChatHistory(roomId: roomId, next: nil)
+        let latestCreatedAt = RealmChatRepository.shared.latestMessageCreatedAt(roomId: roomId)
+        let latestCreatedAtDate = latestCreatedAt.flatMap { DateFormatter.iso8601.date(from: $0) }
+        chatRepository.fetchChatHistory(roomId: roomId, next: latestCreatedAt)
             .sink(
                 receiveCompletion: { completion in
                     if case .failure(let error) = completion {
@@ -99,7 +110,8 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
                     }
                 },
                 receiveValue: { [weak self] entities in
-                    self?.saveMessagesToRealm(entities)
+                    let filtered = self?.filterNewMessages(entities, after: latestCreatedAtDate) ?? entities
+                    self?.saveMessagesToRealm(filtered)
                 }
             )
             .store(in: &cancellables)
@@ -115,32 +127,39 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             .store(in: &cancellables)
     }
 
-    private func setupSocketObserver() {
-        ChatSocketService.shared.messagesPublisher
-            .sink { [weak self] newMessage in
-                guard let self = self else { return }
-                self.handleSocketMessage(newMessage)
+    private func setupNetworkObserver() {
+        networkMonitor.isConnectedPublisher
+            .removeDuplicates()
+            .sink { [weak self] isConnected in
+                guard let self = self, !isConnected else { return }
+                RealmChatRepository.shared.markSendingMessagesFailed(roomId: self.roomId)
+                    .sink { _ in }
+                    .store(in: &self.cancellables)
             }
             .store(in: &cancellables)
     }
 
-    private func handleSocketMessage(_ message: ChatEntity) {
-        let isMyMessage = message.sender.userId == currentUserId
-
-        RealmChatRepository.shared.saveMessageWithRoomUpdate(
-            message,
-            isRead: true,
-            shouldIncrementUnread: !isMyMessage
-        )
-        .sink { success in
-            if success {
-                print("소켓 메시지 저장 완료: \(message.chatId)")
-            }
+    private func filterNewMessages(
+        _ entities: [ChatEntity],
+        after latestCreatedAtDate: Date?
+    ) -> [ChatEntity] {
+        guard let latestCreatedAtDate = latestCreatedAtDate else {
+            return entities
         }
-        .store(in: &cancellables)
+
+        return entities.filter { entity in
+            guard let createdAtDate = DateFormatter.iso8601.date(from: entity.createdAt) else {
+                return true
+            }
+            return createdAtDate > latestCreatedAtDate
+        }
     }
 
-    private func sendMessage(_ content: String) {
+    private func sendMessage(_ payload: SendMessagePayload) {
+        let content = payload.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let attachments = payload.attachments
+        guard !content.isEmpty || !attachments.isEmpty else { return }
+
         let tempId = "temp_\(UUID().uuidString)"
         let sender = ChatParticipantEntity(
             userId: currentUserId,
@@ -153,24 +172,18 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             roomId: roomId,
             content: content,
             sender: sender,
-            files: []
+            files: attachments.compactMap { $0.localURLString }
         )
-        .sink { _ in }
+        .sink { success in
+            print("임시 메시지 저장 \(success ? "성공" : "실패")")
+        }
         .store(in: &cancellables)
 
-        chatRepository.sendChat(roomId: roomId, content: content, files: [])
-            .sink(
-                receiveCompletion: { [weak self] completion in
-                    if case .failure(let error) = completion {
-                        print("메시지 전송 실패: \(error)")
-                        self?.updateMessageStatus(tempId: tempId, status: .error)
-                    }
-                },
-                receiveValue: { [weak self] realMessage in
-                    self?.updateTempMessageToReal(tempId: tempId, realMessage: realMessage)
-                }
-            )
-            .store(in: &cancellables)
+        sendMessageFromStored(
+            tempId: tempId,
+            content: content,
+            files: attachments.compactMap { $0.localURLString }
+        )
     }
 
     private func updateMessageStatus(tempId: String, status: ChatMessageStatus) {
@@ -179,7 +192,14 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             .store(in: &cancellables)
     }
 
+    private func updateUploadProgress(tempId: String, progress: Float) {
+        RealmChatRepository.shared.updateUploadProgress(chatId: tempId, progress: progress)
+            .sink { _ in }
+            .store(in: &cancellables)
+    }
+
     private func updateTempMessageToReal(tempId: String, realMessage: ChatEntity) {
+        cancelTimeout(for: tempId)
         RealmChatRepository.shared.updateMessageId(from: tempId, to: realMessage)
             .sink { success in
                 if success {
@@ -187,5 +207,154 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
                 }
             }
             .store(in: &cancellables)
+    }
+
+    func retryMessage(messageId: String) {
+        RealmChatRepository.shared.fetchMessage(chatId: messageId)
+            .sink { [weak self] entity in
+                guard let self = self, let entity = entity else { return }
+                self.updateMessageStatus(tempId: messageId, status: .sending)
+                self.updateUploadProgress(tempId: messageId, progress: 0)
+                self.sendMessageFromStored(
+                    tempId: messageId,
+                    content: entity.content,
+                    files: entity.files
+                )
+            }
+            .store(in: &cancellables)
+    }
+
+    func deleteMessage(messageId: String) {
+        cancelTimeout(for: messageId)
+        uploadCancellables[messageId]?.cancel()
+        uploadCancellables.removeValue(forKey: messageId)
+
+        RealmChatRepository.shared.fetchMessage(chatId: messageId)
+            .sink { [weak self] entity in
+                guard let self = self else { return }
+                if let entity = entity {
+                    self.removeLocalFiles(from: entity.files)
+                }
+                RealmChatRepository.shared.deleteMessage(chatId: messageId)
+                    .sink { _ in }
+                    .store(in: &self.cancellables)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func sendMessageFromStored(
+        tempId: String,
+        content: String,
+        files: [String]
+    ) {
+        scheduleTimeout(for: tempId)
+
+        let uploadFiles = buildUploadFiles(from: files)
+        if !files.isEmpty && uploadFiles.count != files.count {
+            updateMessageStatus(tempId: tempId, status: .failed)
+            cancelTimeout(for: tempId)
+            return
+        }
+
+        if uploadFiles.isEmpty {
+            chatRepository.sendChat(roomId: roomId, content: content, files: [])
+                .sink(
+                    receiveCompletion: { [weak self] completion in
+                        if case .failure(let error) = completion {
+                            print("메시지 전송 실패: \(error)")
+                            self?.updateMessageStatus(tempId: tempId, status: .failed)
+                            self?.cancelTimeout(for: tempId)
+                        }
+                    },
+                    receiveValue: { [weak self] realMessage in
+                        self?.updateTempMessageToReal(tempId: tempId, realMessage: realMessage)
+                    }
+                )
+                .store(in: &cancellables)
+            return
+        }
+
+        let uploadCancellable = chatRepository.uploadChatFiles(
+            roomId: roomId,
+            files: uploadFiles,
+            progress: { [weak self] progress in
+                self?.updateUploadProgress(tempId: tempId, progress: Float(progress))
+            }
+        )
+        .flatMap { [weak self] urls -> AnyPublisher<ChatEntity, NetworkError> in
+            guard let self = self else {
+                return Empty(completeImmediately: true)
+                    .setFailureType(to: NetworkError.self)
+                    .eraseToAnyPublisher()
+            }
+            return self.chatRepository.sendChat(roomId: self.roomId, content: content, files: urls)
+        }
+        .sink(
+            receiveCompletion: { [weak self] completion in
+                if case .failure(let error) = completion {
+                    print("메시지 전송 실패: \(error)")
+                    self?.updateMessageStatus(tempId: tempId, status: .failed)
+                    self?.cancelTimeout(for: tempId)
+                }
+                self?.uploadCancellables.removeValue(forKey: tempId)
+            },
+            receiveValue: { [weak self] realMessage in
+                self?.updateTempMessageToReal(tempId: tempId, realMessage: realMessage)
+                self?.uploadCancellables.removeValue(forKey: tempId)
+            }
+        )
+        uploadCancellables[tempId] = uploadCancellable
+    }
+
+    private func scheduleTimeout(for tempId: String) {
+        cancelTimeout(for: tempId)
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            self.updateMessageStatus(tempId: tempId, status: .failed)
+            self.uploadCancellables[tempId]?.cancel()
+            self.uploadCancellables.removeValue(forKey: tempId)
+        }
+        sendTimeouts[tempId] = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: workItem)
+    }
+
+    private func cancelTimeout(for tempId: String) {
+        if let workItem = sendTimeouts[tempId] {
+            workItem.cancel()
+            sendTimeouts.removeValue(forKey: tempId)
+        }
+    }
+
+    private func removeLocalFiles(from fileStrings: [String]) {
+        fileStrings.forEach { fileString in
+            guard let url = URL(string: fileString), url.isFileURL else { return }
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
+    private func buildUploadFiles(from fileStrings: [String]) -> [ChatUploadFile] {
+        return fileStrings.compactMap { fileString in
+            guard let url = URL(string: fileString) else { return nil }
+            let fileName = url.lastPathComponent.isEmpty ? "chat_file" : url.lastPathComponent
+            let mimeType = mimeType(for: url)
+            return ChatUploadFile(source: .file(url), fileName: fileName, mimeType: mimeType)
+        }
+    }
+
+    private func mimeType(for url: URL) -> String {
+        let ext = url.pathExtension.lowercased()
+        switch ext {
+        case "mp4":
+            return "video/mp4"
+        case "mov":
+            return "video/quicktime"
+        default:
+            break
+        }
+        if let type = UTType(filenameExtension: ext) {
+            return type.preferredMIMEType ?? "application/octet-stream"
+        }
+        return "application/octet-stream"
     }
 }
