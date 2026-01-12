@@ -48,7 +48,7 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
         view.addSubview(collectionView)
         
         collectionView.delegate = self
-        
+        setKeyboardDismissMode(.onDrag, for: collectionView)
         configureDataSource()
         
         locationView.snp.makeConstraints {

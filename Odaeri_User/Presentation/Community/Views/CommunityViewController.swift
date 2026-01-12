@@ -21,6 +21,14 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
         return button
     }()
 
+    private let chatBadgeView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .systemRed
+        view.layer.cornerRadius = 5
+        view.isHidden = true
+        return view
+    }()
+
     private let writeButton: UIButton = {
         let button = UIButton()
         button.backgroundColor = AppColor.deepSprout
@@ -65,10 +73,12 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
 
     private enum Layout {
         static let actionButtonSize: CGFloat = 40
+        static let badgeSize: CGFloat = 10
     }
     
     override func setupUI() {
         super.setupUI()
+        setKeyboardDismissMode(.onDrag, for: tableView)
 
         view.backgroundColor = AppColor.gray15
 
@@ -82,6 +92,13 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
 
         chatButton.snp.makeConstraints {
             $0.size.equalTo(Layout.actionButtonSize)
+        }
+
+        chatButton.addSubview(chatBadgeView)
+        chatBadgeView.snp.makeConstraints {
+            $0.size.equalTo(Layout.badgeSize)
+            $0.top.equalToSuperview().offset(4)
+            $0.trailing.equalToSuperview().offset(-4)
         }
 
         topStackView.snp.makeConstraints {
@@ -188,6 +205,13 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
         output.error
             .sink { [weak self] message in
                 self?.showAlert(title: "오류", message: message)
+            }
+            .store(in: &cancellables)
+
+        RealmChatRepository.shared.hasAnyUnreadRoom()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] hasUnread in
+                self?.chatBadgeView.isHidden = !hasUnread
             }
             .store(in: &cancellables)
 
