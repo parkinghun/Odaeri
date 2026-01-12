@@ -30,11 +30,12 @@ final class ChatCoordinator: Coordinator {
 
     func showChatRoom(roomId: String, title: String? = nil) {
         let chatRepository = ChatRepositoryImpl()
+        let currentUser = UserManager.shared.currentUser
         let viewModel = ChatViewModel(
             chatRepository: chatRepository,
             roomId: roomId,
-            currentUserId: "current_user",
-            currentUserName: "나",
+            currentUserId: currentUser?.userId ?? "",
+            currentUserName: currentUser?.nick ?? "나",
             title: title
         )
         viewModel.coordinator = self
