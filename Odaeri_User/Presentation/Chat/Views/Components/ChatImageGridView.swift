@@ -28,7 +28,7 @@ final class ChatImageGridView: UIView {
         static let viewCornerRadius: CGFloat = 12
         static let borderWidth: CGFloat = 0.5
         static let spacing: CGFloat = AppSpacing.tiny
-        static let singleImageMaxHeight: CGFloat = 300
+        static let singleImageMaxHeight: CGFloat = 200
         static let singleImageMinHeight: CGFloat = 150
         static let defaultAspectRatio: CGFloat = 4.0 / 3.0
         static let maxContentWidth: CGFloat = UIScreen.main.bounds.width * 0.7
@@ -155,8 +155,11 @@ final class ChatImageGridView: UIView {
     private func setupCase1Constraints() {
         let imageView = imageViews[0]
 
+        let calculatedHeight = Layout.maxContentWidth / Layout.defaultAspectRatio
+        let height = min(calculatedHeight, Layout.singleImageMaxHeight)
+
         let widthConstraint = imageView.widthAnchor.constraint(equalToConstant: Layout.maxContentWidth)
-        let heightConstraint = imageView.heightAnchor.constraint(equalToConstant: Layout.maxContentWidth / Layout.defaultAspectRatio)
+        let heightConstraint = imageView.heightAnchor.constraint(equalToConstant: height)
         let topConstraint = imageView.topAnchor.constraint(equalTo: topAnchor)
         let leadingConstraint = imageView.leadingAnchor.constraint(equalTo: leadingAnchor)
         let bottomConstraint = imageView.bottomAnchor.constraint(equalTo: bottomAnchor)

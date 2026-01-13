@@ -40,6 +40,7 @@ final class ChatFileView: UIView {
 
     func configure(with fileInfo: ChatMessageContent.FileInfo) {
         fileNameLabel.text = fileInfo.fileName
+        fileIconImageView.image = fileInfo.fileType.icon
 
         if let fileSize = fileInfo.fileSize {
             fileSizeLabel.text = formatFileSize(fileSize)

@@ -10,19 +10,23 @@ import SnapKit
 
 final class ChatVideoView: UIView {
     var onVideoTapped: (() -> Void)?
+    var onRetryTapped: (() -> Void)?
 
     private let thumbnailImageView = UIImageView()
     private let overlayView = UIView()
     private let centerStackView = UIStackView()
     private let playIconImageView = UIImageView()
     private let durationLabel = UILabel()
+    private let progressOverlayView = UIView()
+    private let progressView = CircularProgressView()
+    private let retryButton = UIButton(type: .system)
 
     private enum Layout {
         static let viewCornerRadius: CGFloat = 12
         static let borderWidth: CGFloat = 0.5
         static let minHeight: CGFloat = 120
         static let maxHeight: CGFloat = 400
-        static let maxContentWidth: CGFloat = UIScreen.main.bounds.width * 0.75
+        static let maxContentWidth: CGFloat = UIScreen.main.bounds.width * 0.7
         static let playIconSize: CGFloat = 60
         static let overlayAlpha: CGFloat = 0.25
         static let stackSpacing: CGFloat = 8
@@ -38,18 +42,24 @@ final class ChatVideoView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func configure(with url: String, duration: String? = nil, aspectRatio: CGFloat? = nil) {
-        thumbnailImageView.setImage(
+    func configure(
+        with url: String,
+        duration: String? = nil,
+        aspectRatio: CGFloat? = nil,
+        status: ChatMessageStatus = .sent,
+        progress: Float? = nil
+    ) {
+        thumbnailImageView.setVideoThumbnail(
             url: url,
             placeholder: AppImage.default,
-            animated: true,
-            downsample: true
+            animated: true
         )
 
         durationLabel.text = duration
         durationLabel.isHidden = duration == nil
 
         updateLayout(aspectRatio: aspectRatio)
+        updateOverlay(status: status, progress: progress)
     }
 
     private func setupUI() {
@@ -91,6 +101,7 @@ final class ChatVideoView: UIView {
         addSubview(thumbnailImageView)
         addSubview(overlayView)
         addSubview(centerStackView)
+        addSubview(progressOverlayView)
 
         centerStackView.addArrangedSubview(playIconImageView)
         centerStackView.addArrangedSubview(durationLabel)
@@ -111,6 +122,31 @@ final class ChatVideoView: UIView {
             $0.size.equalTo(Layout.playIconSize)
         }
 
+        progressOverlayView.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+        }
+
+        progressOverlayView.backgroundColor = AppColor.gray100.withAlphaComponent(0.35)
+        progressOverlayView.isHidden = true
+
+        progressOverlayView.addSubview(progressView)
+        progressOverlayView.addSubview(retryButton)
+
+        progressView.snp.makeConstraints {
+            $0.center.equalToSuperview()
+            $0.size.equalTo(44)
+        }
+
+        retryButton.snp.makeConstraints {
+            $0.center.equalToSuperview()
+            $0.size.equalTo(36)
+        }
+
+        retryButton.setImage(UIImage(systemName: "arrow.clockwise"), for: .normal)
+        retryButton.tintColor = AppColor.errorRed
+        retryButton.isHidden = true
+        retryButton.addTarget(self, action: #selector(handleRetryTap), for: .touchUpInside)
+
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap))
         addGestureRecognizer(tapGesture)
     }
@@ -129,6 +165,27 @@ final class ChatVideoView: UIView {
 
     @objc private func handleTap() {
         onVideoTapped?()
+    }
+
+    private func updateOverlay(status: ChatMessageStatus, progress: Float?) {
+        switch status {
+        case .sending:
+            progressOverlayView.isHidden = false
+            retryButton.isHidden = true
+            progressView.isHidden = false
+            progressView.setLineColor(AppColor.brightForsythia)
+            progressView.setProgress(progress ?? 0)
+        case .failed:
+            progressOverlayView.isHidden = false
+            retryButton.isHidden = false
+            progressView.isHidden = true
+        case .sent:
+            progressOverlayView.isHidden = true
+        }
+    }
+
+    @objc private func handleRetryTap() {
+        onRetryTapped?()
     }
 
     static func calculateHeight(aspectRatio: CGFloat? = nil) -> CGFloat {

@@ -21,6 +21,7 @@ final class ChatDateSeparatorCell: UITableViewCell {
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
+        contentView.transform = CGAffineTransform(scaleX: 1, y: -1)
         setupUI()
     }
 

@@ -11,7 +11,7 @@ import Moya
 
 final class ChatRepositoryImpl: ChatRepository {
     private let provider = ProviderFactory.makeChatProvider()
-    private let useMockData = true
+    private let useMockData = false
 
     func createOrGetChatRoom(opponentId: String) -> AnyPublisher<ChatRoomEntity, NetworkError> {
         let request = CreateChatRoomRequest(opponentId: opponentId)
@@ -59,12 +59,19 @@ final class ChatRepositoryImpl: ChatRepository {
             .eraseToAnyPublisher()
     }
 
-    func uploadChatFiles(roomId: String, files: [Data]) -> AnyPublisher<[String], NetworkError> {
-        provider.requestPublisher(.uploadChatFiles(roomId: roomId, files: files))
-            .map { (response: ChatFileUploadResponse) in
-                response.files
-            }
-            .eraseToAnyPublisher()
+    func uploadChatFiles(
+        roomId: String,
+        files: [ChatUploadFile],
+        progress: @escaping (Double) -> Void
+    ) -> AnyPublisher<[String], NetworkError> {
+        provider.requestPublisherWithProgress(
+            .uploadChatFiles(roomId: roomId, files: files),
+            progress: progress
+        )
+        .map { (response: ChatFileUploadResponse) in
+            response.files
+        }
+        .eraseToAnyPublisher()
     }
 
     private func loadMockChatRooms() -> AnyPublisher<[ChatRoomEntity], NetworkError> {
