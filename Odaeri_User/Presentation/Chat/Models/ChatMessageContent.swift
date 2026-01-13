@@ -33,54 +33,62 @@ extension ChatMessageContent {
             result.append(.text(content))
         }
 
-        if !files.isEmpty {
-            var i = 0
-            while i < files.count {
-                let file = files[i]
-                let ext = URL(string: file)?.pathExtension.lowercased() ?? ""
+        return result
+    }
 
-                if isImageExtension(ext) {
-                    var imageUrls: [String] = []
-                    var j = i
+    static func parseFiles(files: [String]) -> [ChatMessageContent] {
+        var result: [ChatMessageContent] = []
 
-                    while j < files.count && imageUrls.count < 5 {
-                        let currentFile = files[j]
-                        let currentExt = URL(string: currentFile)?.pathExtension.lowercased() ?? ""
+        guard !files.isEmpty else {
+            return result
+        }
 
-                        if isImageExtension(currentExt) {
-                            imageUrls.append(currentFile)
-                            j += 1
-                        } else {
-                            break
-                        }
-                    }
+        var i = 0
+        while i < files.count {
+            let file = files[i]
+            let ext = URL(string: file)?.pathExtension.lowercased() ?? ""
 
-                    result.append(.imageGroup(imageUrls))
-                    i = j
+            if isImageExtension(ext) {
+                var imageUrls: [String] = []
+                var j = i
 
-                } else if isVideoExtension(ext) {
-                    result.append(.video(file))
-                    i += 1
+                while j < files.count && imageUrls.count < 5 {
+                    let currentFile = files[j]
+                    let currentExt = URL(string: currentFile)?.pathExtension.lowercased() ?? ""
 
-                } else {
-                    let fileName = URL(string: file)?
-                        .lastPathComponent
-                        .removingPercentEncoding ?? "document"
-                    let fileType: ChatInputAttachmentItem.FileType
-                    if let fileURL = URL(string: file) {
-                        fileType = ChatInputAttachmentItem.FileType.from(url: fileURL)
+                    if isImageExtension(currentExt) {
+                        imageUrls.append(currentFile)
+                        j += 1
                     } else {
-                        fileType = .other
+                        break
                     }
-                    let fileInfo = FileInfo(
-                        url: file,
-                        fileName: fileName,
-                        fileSize: nil,
-                        fileType: fileType
-                    )
-                    result.append(.file(fileInfo))
-                    i += 1
                 }
+
+                result.append(.imageGroup(imageUrls))
+                i = j
+
+            } else if isVideoExtension(ext) {
+                result.append(.video(file))
+                i += 1
+
+            } else {
+                let fileName = URL(string: file)?
+                    .lastPathComponent
+                    .removingPercentEncoding ?? "document"
+                let fileType: ChatInputAttachmentItem.FileType
+                if let fileURL = URL(string: file) {
+                    fileType = ChatInputAttachmentItem.FileType.from(url: fileURL)
+                } else {
+                    fileType = .other
+                }
+                let fileInfo = FileInfo(
+                    url: file,
+                    fileName: fileName,
+                    fileSize: nil,
+                    fileType: fileType
+                )
+                result.append(.file(fileInfo))
+                i += 1
             }
         }
 

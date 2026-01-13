@@ -21,11 +21,6 @@ struct ChatMapper {
             let previousDate = index > 0 ? dates[index - 1] : nil
             let nextDate = index < dates.count - 1 ? dates[index + 1] : nil
 
-            if shouldInsertDateSeparator(current: createdAt, previous: previousDate) {
-                let dateText = formatDateSeparator(createdAt)
-                result.append(.dateSeparator(dateText))
-            }
-
             let previous = index > 0 ? sorted[index - 1] : nil
             let next = index < sorted.count - 1 ? sorted[index + 1] : nil
 
@@ -77,6 +72,11 @@ struct ChatMapper {
             }
 
             result.append(.message(displayModel))
+
+            if shouldInsertDateSeparator(current: createdAt, next: nextDate) {
+                let dateText = formatDateSeparator(createdAt)
+                result.append(.dateSeparator(dateText))
+            }
         }
 
         return result
@@ -93,17 +93,17 @@ struct ChatMapper {
 
             let leftDate = DateFormatter.iso8601.date(from: lhs.createdAt) ?? .distantPast
             let rightDate = DateFormatter.iso8601.date(from: rhs.createdAt) ?? .distantPast
-            return leftDate < rightDate
+            return leftDate > rightDate
         }
     }
 
-    private static func shouldInsertDateSeparator(current: Date, previous: Date?) -> Bool {
-        guard let previous = previous else {
+    private static func shouldInsertDateSeparator(current: Date, next: Date?) -> Bool {
+        guard let next = next else {
             return true
         }
 
         let calendar = Calendar.current
-        return !calendar.isDate(current, inSameDayAs: previous)
+        return !calendar.isDate(current, inSameDayAs: next)
     }
 
     private static func formatDateSeparator(_ date: Date) -> String {
@@ -129,15 +129,15 @@ struct ChatMapper {
         let isFirstInGroup = isFirstMessage(
             current: current,
             currentDate: currentDate,
-            previous: previous,
-            previousDate: previousDate
+            next: next,
+            nextDate: nextDate
         )
 
         let isLastInGroup = isLastMessage(
             current: current,
             currentDate: currentDate,
-            next: next,
-            nextDate: nextDate
+            previous: previous,
+            previousDate: previousDate
         )
 
         switch (isFirstInGroup, isLastInGroup) {
@@ -153,33 +153,6 @@ struct ChatMapper {
     }
 
     private static func isFirstMessage(
-        current: ChatEntity,
-        currentDate: Date,
-        previous: ChatEntity?,
-        previousDate: Date?
-    ) -> Bool {
-        guard let previous = previous, let previousDate = previousDate else {
-            return true
-        }
-
-        if current.sender.userId != previous.sender.userId {
-            return true
-        }
-
-        let calendar = Calendar.current
-        if !calendar.isDate(currentDate, inSameDayAs: previousDate) {
-            return true
-        }
-
-        let timeDifference = currentDate.timeIntervalSince(previousDate)
-        if timeDifference >= 60 {
-            return true
-        }
-
-        return false
-    }
-
-    private static func isLastMessage(
         current: ChatEntity,
         currentDate: Date,
         next: ChatEntity?,
@@ -198,7 +171,34 @@ struct ChatMapper {
             return true
         }
 
-        let timeDifference = nextDate.timeIntervalSince(currentDate)
+        let timeDifference = abs(currentDate.timeIntervalSince(nextDate))
+        if timeDifference >= 60 {
+            return true
+        }
+
+        return false
+    }
+
+    private static func isLastMessage(
+        current: ChatEntity,
+        currentDate: Date,
+        previous: ChatEntity?,
+        previousDate: Date?
+    ) -> Bool {
+        guard let previous = previous, let previousDate = previousDate else {
+            return true
+        }
+
+        if current.sender.userId != previous.sender.userId {
+            return true
+        }
+
+        let calendar = Calendar.current
+        if !calendar.isDate(currentDate, inSameDayAs: previousDate) {
+            return true
+        }
+
+        let timeDifference = abs(currentDate.timeIntervalSince(previousDate))
         if timeDifference >= 60 {
             return true
         }
