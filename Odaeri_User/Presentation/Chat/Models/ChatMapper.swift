@@ -53,6 +53,7 @@ struct ChatMapper {
                 createdAt: createdAt,
                 timeText: DateFormatter.timeDisplay.string(from: createdAt),
                 senderName: entity.sender.nick,
+                senderUserId: entity.sender.userId,
                 senderProfileImageUrl: entity.sender.profileImage,
                 hasFiles: entity.hasFiles,
                 files: entity.files,
@@ -75,7 +76,9 @@ struct ChatMapper {
 
             if shouldInsertDateSeparator(current: createdAt, next: nextDate) {
                 let dateText = formatDateSeparator(createdAt)
-                result.append(.dateSeparator(dateText))
+                let separatorId = "separator_\(createdAt.timeIntervalSince1970)"
+                let separator = ChatItem.DateSeparator(id: separatorId, text: dateText)
+                result.append(.dateSeparator(separator))
             }
         }
 
@@ -88,7 +91,7 @@ struct ChatMapper {
             let rightFailed = rhs.status == .failed
 
             if leftFailed != rightFailed {
-                return !leftFailed
+                return leftFailed
             }
 
             let leftDate = DateFormatter.iso8601.date(from: lhs.createdAt) ?? .distantPast

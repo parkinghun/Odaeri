@@ -13,10 +13,15 @@ final class RealmChatRepository {
     static let shared = RealmChatRepository()
 
     private let realmQueue = DispatchQueue(label: "com.odaeri.realm", qos: .userInitiated)
+    private var processingMessageIds: Set<String> = []
 
     private init() {}
 
     private func getRealm() throws -> Realm {
+        // Realm 파일의 물리적 위치 출력
+        if let url = Realm.Configuration.defaultConfiguration.fileURL {
+            print("✅ Realm Path: \(url.path)")
+        }
         return try Realm()
     }
 
@@ -61,7 +66,6 @@ final class RealmChatRepository {
 
                     promise(.success(true))
                 } catch {
-                    print("메시지 일괄 저장 실패: \(error)")
                     promise(.success(false))
                 }
             }
@@ -73,22 +77,57 @@ final class RealmChatRepository {
     func saveMessageWithRoomUpdate(
         _ entity: ChatEntity,
         isRead: Bool,
-        shouldIncrementUnread: Bool
+        shouldIncrementUnread: Bool,
+        currentUserId: String
     ) -> AnyPublisher<Bool, Never> {
         return Future<Bool, Never> { [weak self] promise in
             self?.realmQueue.async {
+                guard let self = self else { return }
+                if self.processingMessageIds.contains(entity.chatId) {
+                    promise(.success(true))
+                    return
+                }
+                self.processingMessageIds.insert(entity.chatId)
+                defer { self.processingMessageIds.remove(entity.chatId) }
+
                 do {
-                    let realm = try self?.getRealm()
+                    let realm = try self.getRealm()
 
                     guard let messageObject = ChatMessageObject.from(entity: entity, isRead: isRead) else {
                         promise(.success(false))
                         return
                     }
 
-                    try realm?.write {
-                        realm?.add(messageObject, update: .all)
+                    try realm.write {
+                        if entity.sender.userId == currentUserId {
+                            let sendingMessages = realm.objects(ChatMessageObject.self)
+                                .filter("roomId == %@ AND statusRaw == %@", entity.roomId, ChatMessageStatus.sending.rawValue)
 
-                        if let room = realm?.object(
+                            for msg in sendingMessages {
+                                var shouldDelete = false
+
+                                if !entity.content.isEmpty && msg.content == entity.content {
+                                    shouldDelete = true
+                                } else if !entity.files.isEmpty && !msg.files.isEmpty {
+                                    let msgFiles = Set(msg.files.map { $0 })
+                                    let entityFiles = Set(entity.files)
+                                    if msgFiles == entityFiles {
+                                        shouldDelete = true
+                                    }
+                                }
+
+                                if shouldDelete {
+                                    realm.delete(msg)
+                                    break
+                                }
+                            }
+                        }
+
+                        if realm.object(ofType: ChatMessageObject.self, forPrimaryKey: entity.chatId) == nil {
+                            realm.add(messageObject, update: .all)
+                        }
+
+                        if let room = realm.object(
                             ofType: ChatRoomObject.self,
                             forPrimaryKey: entity.roomId
                         ) {
@@ -109,7 +148,6 @@ final class RealmChatRepository {
 
                     promise(.success(true))
                 } catch {
-                    print("메시지 + 방 메타데이터 업데이트 실패: \(error)")
                     promise(.success(false))
                 }
             }
@@ -123,7 +161,8 @@ final class RealmChatRepository {
         roomId: String,
         content: String,
         sender: ChatParticipantEntity,
-        files: [String] = []
+        files: [String] = [],
+        uploadProgress: Float = 0
     ) -> AnyPublisher<Bool, Never> {
         return Future<Bool, Never> { [weak self] promise in
             self?.realmQueue.async {
@@ -143,6 +182,7 @@ final class RealmChatRepository {
                     object.sender = ChatParticipantObject.from(entity: sender)
                     object.files.append(objectsIn: files)
                     object.status = .sending
+                    object.uploadProgress = uploadProgress
                     object.isRead = true
 
                     try realm?.write {
@@ -151,7 +191,6 @@ final class RealmChatRepository {
 
                     promise(.success(true))
                 } catch {
-                    print("임시 메시지 저장 실패: \(error)")
                     promise(.success(false))
                 }
             }
@@ -170,27 +209,81 @@ final class RealmChatRepository {
                     let realm = try self?.getRealm()
 
                     try realm?.write {
-                        if let tempMessage = realm?.object(
+                        let tempMessage = realm?.object(
                             ofType: ChatMessageObject.self,
                             forPrimaryKey: tempId
-                        ) {
-                            realm?.delete(tempMessage)
+                        )
+
+                        let existingReal = realm?.object(
+                            ofType: ChatMessageObject.self,
+                            forPrimaryKey: realEntity.chatId
+                        )
+
+                        if let existingReal = existingReal {
+                            existingReal.status = .sent
+                            existingReal.uploadProgress = 1
+                            if let tempMessage = tempMessage {
+                                realm?.delete(tempMessage)
+                            }
+                            promise(.success(true))
+                            return
                         }
 
-                        guard let newObject = ChatMessageObject.from(entity: realEntity) else {
+                        let mergedContent = realEntity.content.isEmpty
+                            ? (tempMessage?.content ?? "")
+                            : realEntity.content
+
+                        let mergedFiles = realEntity.files.isEmpty
+                            ? (tempMessage?.files.map { $0 } ?? [])
+                            : realEntity.files
+
+                        if let tempMessage = tempMessage {
+                            realm?.delete(tempMessage)
+                        } else if let realm = realm {
+                            let sendingMessages = realm.objects(ChatMessageObject.self)
+                                .filter("roomId == %@ AND statusRaw == %@", realEntity.roomId, ChatMessageStatus.sending.rawValue)
+
+                            for msg in sendingMessages {
+                                if !msg.content.isEmpty && msg.content == realEntity.content {
+                                    realm.delete(msg)
+                                    break
+                                } else if !msg.files.isEmpty && !mergedFiles.isEmpty {
+                                    let msgFiles = Set(msg.files.map { $0 })
+                                    let realFiles = Set(mergedFiles)
+                                    if msgFiles == realFiles {
+                                        realm.delete(msg)
+                                        break
+                                    }
+                                }
+                            }
+                        }
+
+                        let mergedEntity = ChatEntity(
+                            chatId: realEntity.chatId,
+                            roomId: realEntity.roomId,
+                            content: mergedContent,
+                            createdAt: realEntity.createdAt,
+                            updatedAt: realEntity.updatedAt,
+                            sender: realEntity.sender,
+                            files: mergedFiles,
+                            status: .sent,
+                            uploadProgress: 1
+                        )
+
+                        guard let newObject = ChatMessageObject.from(entity: mergedEntity) else {
                             promise(.success(false))
                             return
                         }
 
                         newObject.status = .sent
                         newObject.isRead = true
+                        newObject.uploadProgress = 1
 
                         realm?.add(newObject, update: .all)
                     }
 
                     promise(.success(true))
                 } catch {
-                    print("메시지 ID 교체 실패: \(error)")
                     promise(.success(false))
                 }
             }
@@ -219,8 +312,97 @@ final class RealmChatRepository {
 
                     promise(.success(true))
                 } catch {
-                    print("메시지 상태 업데이트 실패: \(error)")
                     promise(.success(false))
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+
+    @discardableResult
+    func markSendingMessagesFailed(roomId: String) -> AnyPublisher<Bool, Never> {
+        return Future<Bool, Never> { [weak self] promise in
+            self?.realmQueue.async {
+                do {
+                    let realm = try self?.getRealm()
+                    try realm?.write {
+                        let messages = realm?.objects(ChatMessageObject.self)
+                            .filter("roomId == %@ AND statusRaw == %@", roomId, ChatMessageStatus.sending.rawValue)
+                        messages?.forEach { $0.status = .failed }
+                    }
+                    promise(.success(true))
+                } catch {
+                    promise(.success(false))
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+
+    @discardableResult
+    func updateUploadProgress(
+        chatId: String,
+        progress: Float
+    ) -> AnyPublisher<Bool, Never> {
+        return Future<Bool, Never> { [weak self] promise in
+            self?.realmQueue.async {
+                do {
+                    let realm = try self?.getRealm()
+
+                    try realm?.write {
+                        if let message = realm?.object(
+                            ofType: ChatMessageObject.self,
+                            forPrimaryKey: chatId
+                        ) {
+                            message.uploadProgress = progress
+                        }
+                    }
+
+                    promise(.success(true))
+                } catch {
+                    print("업로드 진행률 업데이트 실패: \(error)")
+                    promise(.success(false))
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+
+    @discardableResult
+    func deleteMessage(chatId: String) -> AnyPublisher<Bool, Never> {
+        return Future<Bool, Never> { [weak self] promise in
+            self?.realmQueue.async {
+                do {
+                    let realm = try self?.getRealm()
+                    try realm?.write {
+                        if let message = realm?.object(
+                            ofType: ChatMessageObject.self,
+                            forPrimaryKey: chatId
+                        ) {
+                            realm?.delete(message)
+                        }
+                    }
+                    promise(.success(true))
+                } catch {
+                    promise(.success(false))
+                }
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+
+    func fetchMessage(chatId: String) -> AnyPublisher<ChatEntity?, Never> {
+        return Future<ChatEntity?, Never> { [weak self] promise in
+            self?.realmQueue.async {
+                do {
+                    let realm = try self?.getRealm()
+                    let message = realm?.object(
+                        ofType: ChatMessageObject.self,
+                        forPrimaryKey: chatId
+                    )
+                    promise(.success(message?.toEntity()))
+                } catch {
+                    promise(.success(nil))
                 }
             }
         }
@@ -255,7 +437,6 @@ final class RealmChatRepository {
 
                     promise(.success(entities))
                 } catch {
-                    print("메시지 조회 실패: \(error)")
                     promise(.success([]))
                 }
             }
@@ -275,7 +456,56 @@ final class RealmChatRepository {
                 .filter("roomId == %@", roomId)
                 .sorted(byKeyPath: "createdAtDate", ascending: true)
         } catch {
-            print("메시지 관찰 실패: \(error)")
+            return nil
+        }
+    }
+
+    func observeMessagesDescending(roomId: String) -> Results<ChatMessageObject>? {
+        guard Thread.isMainThread else {
+            return nil
+        }
+
+        do {
+            let realm = try getRealm()
+            return realm.objects(ChatMessageObject.self)
+                .filter("roomId == %@", roomId)
+                .sorted(byKeyPath: "createdAtDate", ascending: false)
+        } catch {
+            return nil
+        }
+    }
+
+    func latestMessageCreatedAt(roomId: String) -> String? {
+        guard Thread.isMainThread else {
+            print("latestMessageCreatedAt는 메인 스레드에서만 호출 가능")
+            return nil
+        }
+
+        do {
+            let realm = try getRealm()
+            let latestMessage = realm.objects(ChatMessageObject.self)
+                .filter("roomId == %@", roomId)
+                .sorted(byKeyPath: "createdAtDate", ascending: false)
+                .first
+            return latestMessage?.createdAt
+        } catch {
+            return nil
+        }
+    }
+
+    func oldestMessageCreatedAt(roomId: String) -> String? {
+        guard Thread.isMainThread else {
+            return nil
+        }
+
+        do {
+            let realm = try getRealm()
+            let oldestMessage = realm.objects(ChatMessageObject.self)
+                .filter("roomId == %@", roomId)
+                .sorted(byKeyPath: "createdAtDate", ascending: true)
+                .first
+            return oldestMessage?.createdAt
+        } catch {
             return nil
         }
     }
@@ -370,7 +600,6 @@ final class RealmChatRepository {
 
                     promise(.success(true))
                 } catch {
-                    print("채팅방 마지막 메시지 업데이트 실패: \(error)")
                     promise(.success(false))
                 }
             }
@@ -399,7 +628,6 @@ final class RealmChatRepository {
 
                     promise(.success(true))
                 } catch {
-                    print("읽지 않은 메시지 수 증가 실패: \(error)")
                     promise(.success(false))
                 }
             }
@@ -433,7 +661,6 @@ final class RealmChatRepository {
 
                     promise(.success(true))
                 } catch {
-                    print("메시지 읽음 처리 실패: \(error)")
                     promise(.success(false))
                 }
             }
@@ -513,7 +740,7 @@ final class RealmChatRepository {
                     let unreadRooms = realm?.objects(ChatRoomObject.self)
                         .filter("hasUnread == true")
 
-                    let hasUnread = (unreadRooms?.isEmpty ?? true)
+                    let hasUnread = !(unreadRooms?.isEmpty ?? true)
 
                     promise(.success(hasUnread))
                 } catch {

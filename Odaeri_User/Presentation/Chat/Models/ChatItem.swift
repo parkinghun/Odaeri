@@ -9,14 +9,19 @@ import Foundation
 
 enum ChatItem: Hashable {
     case message(ChatDisplayModel)
-    case dateSeparator(String)
+    case dateSeparator(DateSeparator)
+
+    struct DateSeparator: Hashable {
+        let id: String
+        let text: String
+    }
 
     var id: String {
         switch self {
         case .message(let model):
             return model.id
-        case .dateSeparator(let dateText):
-            return "separator_\(dateText)"
+        case .dateSeparator(let separator):
+            return separator.id
         }
     }
 
@@ -24,9 +29,8 @@ enum ChatItem: Hashable {
         switch self {
         case .message(let model):
             hasher.combine(model)
-        case .dateSeparator(let dateText):
-            hasher.combine("separator")
-            hasher.combine(dateText)
+        case .dateSeparator(let separator):
+            hasher.combine(separator)
         }
     }
 

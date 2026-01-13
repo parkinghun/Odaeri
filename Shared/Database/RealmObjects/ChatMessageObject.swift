@@ -11,7 +11,7 @@ import RealmSwift
 enum ChatMessageStatus: String {
     case sending
     case sent
-    case error
+    case failed
 }
 
 final class ChatMessageObject: Object {
@@ -24,6 +24,7 @@ final class ChatMessageObject: Object {
     @Persisted var sender: ChatParticipantObject?
     @Persisted var files: List<String>
     @Persisted private var statusRaw: String
+    @Persisted var uploadProgress: Float
     @Persisted var isRead: Bool
 
     var status: ChatMessageStatus {
@@ -45,6 +46,7 @@ final class ChatMessageObject: Object {
         sender: ChatParticipantObject?,
         files: [String],
         status: ChatMessageStatus = .sent,
+        uploadProgress: Float = 0,
         isRead: Bool = false
     ) {
         self.init()
@@ -57,6 +59,7 @@ final class ChatMessageObject: Object {
         self.sender = sender
         self.files.append(objectsIn: files)
         self.statusRaw = status.rawValue
+        self.uploadProgress = uploadProgress
         self.isRead = isRead
     }
 }
@@ -78,7 +81,8 @@ extension ChatMessageObject {
         object.updatedAt = entity.updatedAt
         object.sender = ChatParticipantObject.from(entity: entity.sender)
         object.files.append(objectsIn: entity.files)
-        object.statusRaw = ChatMessageStatus.sent.rawValue
+        object.statusRaw = entity.status.rawValue
+        object.uploadProgress = entity.uploadProgress ?? 0
         object.isRead = isRead
 
         return object
@@ -96,7 +100,9 @@ extension ChatMessageObject {
                 nick: "알 수 없음",
                 profileImage: ""
             ),
-            files: Array(files)
+            files: Array(files),
+            status: status,
+            uploadProgress: uploadProgress
         )
     }
 }

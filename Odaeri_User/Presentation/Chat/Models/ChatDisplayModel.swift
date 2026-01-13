@@ -13,6 +13,7 @@ struct ChatDisplayModel: Hashable {
     let createdAt: Date
     let timeText: String
     let senderName: String
+    let senderUserId: String
     let senderProfileImageUrl: String?
     let hasFiles: Bool
     let files: [String]
