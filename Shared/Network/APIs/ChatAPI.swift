@@ -13,7 +13,7 @@ enum ChatAPI {
     case getChatRooms
     case sendChat(roomId: String, request: SendChatRequest)
     case getChatHistory(roomId: String, next: String?)
-    case uploadChatFiles(roomId: String, files: [Data])
+    case uploadChatFiles(roomId: String, files: [ChatUploadFile])
 }
 
 extension ChatAPI: BaseAPI {
@@ -64,17 +64,40 @@ extension ChatAPI: BaseAPI {
 
         case .uploadChatFiles(_, let files):
             var formData = [MultipartFormData]()
-            for (index, fileData) in files.enumerated() {
-                formData.append(
-                    MultipartFormData(
-                        provider: .data(fileData),
-                        name: "files",
-                        fileName: "chat_file_\(index).jpg",
-                        mimeType: "image/jpeg"
+            for (index, file) in files.enumerated() {
+                let fileName = file.fileName.isEmpty ? "chat_file_\(index)" : file.fileName
+                let mimeType = file.mimeType.isEmpty ? "application/octet-stream" : file.mimeType
+
+                switch file.source {
+                case .data(let data):
+                    formData.append(
+                        MultipartFormData(
+                            provider: .data(data),
+                            name: "files",
+                            fileName: fileName,
+                            mimeType: mimeType
+                        )
                     )
-                )
+                case .file(let url):
+                    formData.append(
+                        MultipartFormData(
+                            provider: .file(url),
+                            name: "files",
+                            fileName: fileName,
+                            mimeType: mimeType
+                        )
+                    )
+                }
             }
             return .uploadMultipart(formData)
+        }
+    }
+    
+    var headerSet: HeaderSet {
+        switch self {
+        case .uploadChatFiles:
+            return .fileUpload
+        default: return .authenticated
         }
     }
 }
