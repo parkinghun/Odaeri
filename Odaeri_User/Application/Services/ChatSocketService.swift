@@ -218,7 +218,6 @@ final class ChatSocketService {
         files: [String] = []
     ) {
         guard socket?.status == .connected else {
-            print("Socket 연결 안 됨: 메시지 전송 실패")
             realmRepo.updateMessageStatus(chatId: tempId, status: .failed)
             return
         }
@@ -231,7 +230,6 @@ final class ChatSocketService {
         ]
 
         socket?.emit("chat", payload)
-        print("메시지 전송: \(tempId)")
     }
 
     private func setupSocketListeners(for roomId: String) {
@@ -309,30 +307,19 @@ final class ChatSocketService {
     }
 
     private func handleChatMessage(data: [Any]) {
-        print("🔔 Socket 'chat' 이벤트 수신!")
-        print("🔔 data: \(data)")
-
         guard let dict = data.first as? [String: Any],
               let response = try? parseChatResponse(from: dict) else {
-            print("❌ 메시지 파싱 실패: \(data)")
             return
         }
 
         let entity = ChatEntity(from: response)
-        print("🔔 파싱된 메시지: chatId=\(entity.chatId), roomId=\(entity.roomId), sender=\(entity.sender.userId)")
-
-        guard entity.roomId == connectedRoomId else {
-            print("⚠️ 다른 방의 메시지 수신 무시: \(entity.roomId) (현재: \(connectedRoomId ?? "nil"))")
-            return
-        }
-        print("✅ 메시지 수신 확인: \(entity.chatId)")
-
         provideHapticFeedback()
 
         realmRepo.saveMessageWithRoomUpdate(
             entity,
             isRead: true,
-            shouldIncrementUnread: false
+            shouldIncrementUnread: false,
+            currentUserId: UserManager.shared.currentUser?.userId ?? ""
         )
         .sink { success in
             if success {
@@ -348,7 +335,6 @@ final class ChatSocketService {
 
     private func handleSocketError(_ data: [Any]) {
         let message = parseSocketErrorMessage(from: data)
-        print("Socket 에러: \(message ?? "unknown")")
 
         if let message = message, isAuthenticationError(message) {
             connectionStatus.send(.error("인증 오류"))
