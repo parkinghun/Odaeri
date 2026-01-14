@@ -1,0 +1,41 @@
+//
+//  MediaUploadAPI.swift
+//  Odaeri
+//
+//  Created by 박성훈 on 1/14/26.
+//
+
+import Foundation
+import Moya
+
+enum MediaUploadAPI {
+    case chatUpload(roomId: String, files: [MultipartFormData])
+    case communityUpload(files: [MultipartFormData])
+}
+
+extension MediaUploadAPI: BaseAPI {
+    var endpoint: String {
+        switch self {
+        case let .chatUpload(roomId, _):
+            return "/chats/\(roomId)/files"
+        case .communityUpload:
+            return "/posts/files"
+        }
+    }
+
+    var method: Moya.Method {
+        return .post
+    }
+
+    var task: Task {
+        switch self {
+        case .chatUpload(_, let files),
+             .communityUpload(let files):
+            return .uploadMultipart(files)
+        }
+    }
+
+    var headerSet: HeaderSet {
+        return .fileUpload
+    }
+}
