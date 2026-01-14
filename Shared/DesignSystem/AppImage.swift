@@ -59,6 +59,7 @@ enum AppImage {
     static let person = systemImage("person.fill")
     static let pdf = image("pdf")
     static let zip = image("zip")
+    static let document = image("document")
     
     // MARK: - TabBar
     static let communityEmpty = UIImage(named: "Community_Empty")

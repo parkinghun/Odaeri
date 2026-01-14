@@ -83,6 +83,11 @@ extension UIImageView {
             return
         }
 
+        if let fileURL = URL(string: url), fileURL.isFileURL {
+            self.image = UIImage(contentsOfFile: fileURL.path) ?? placeholder
+            return
+        }
+
         // 2. 같은 URL이면 재요청하지 않음 (최적화)
         if currentImageURL == url {
             return
