@@ -52,6 +52,7 @@ struct UploadConfig {
 enum MediaError: LocalizedError {
     case compressionFailed
     case fileSizeExceeded(limit: Int64)
+    case networkTimeout
     case insufficientStorage
     case invalidURL
     case unknown
@@ -62,6 +63,8 @@ enum MediaError: LocalizedError {
             return "동영상 압축에 실패했습니다."
         case .fileSizeExceeded(let limit):
             return "파일 용량이 제한(\(limit.toMBString()))을 초과했습니다."
+        case .networkTimeout:
+            return "네트워크 요청 시간이 초과되었습니다."
         case .insufficientStorage:
             return "기기의 저장 공간이 부족합니다."
         case .invalidURL:
