@@ -46,7 +46,7 @@ extension ChatMessageContent {
         var i = 0
         while i < files.count {
             let file = files[i]
-            let ext = URL(string: file)?.pathExtension.lowercased() ?? ""
+            let ext = fileExtension(from: file)
 
             if isImageExtension(ext) {
                 var imageUrls: [String] = []
@@ -54,7 +54,7 @@ extension ChatMessageContent {
 
                 while j < files.count && imageUrls.count < 5 {
                     let currentFile = files[j]
-                    let currentExt = URL(string: currentFile)?.pathExtension.lowercased() ?? ""
+                    let currentExt = fileExtension(from: currentFile)
 
                     if isImageExtension(currentExt) {
                         imageUrls.append(currentFile)
@@ -72,15 +72,8 @@ extension ChatMessageContent {
                 i += 1
 
             } else {
-                let fileName = URL(string: file)?
-                    .lastPathComponent
-                    .removingPercentEncoding ?? "document"
-                let fileType: ChatInputAttachmentItem.FileType
-                if let fileURL = URL(string: file) {
-                    fileType = ChatInputAttachmentItem.FileType.from(url: fileURL)
-                } else {
-                    fileType = .other
-                }
+                let fileName = fileName(from: file)
+                let fileType = ChatInputAttachmentItem.FileType.from(fileExtension: ext)
                 let fileInfo = FileInfo(
                     url: file,
                     fileName: fileName,
@@ -93,6 +86,52 @@ extension ChatMessageContent {
         }
 
         return result
+    }
+
+    private static func resolveFileURL(from fileString: String) -> URL? {
+        guard !fileString.isEmpty else {
+            print("[ChatMessageContent] 빈 파일 문자열")
+            return nil
+        }
+
+        if fileString.hasPrefix("http://") || fileString.hasPrefix("https://") {
+            return URL(string: fileString)
+        }
+
+        if fileString.hasPrefix("file://") {
+            if let url = URL(string: fileString) {
+                let fileExists = FileManager.default.fileExists(atPath: url.path)
+                print("[ChatMessageContent] 절대 경로 처리: \(url.path), 존재: \(fileExists)")
+
+                if fileExists {
+                    return url
+                } else {
+                    let fileName = url.lastPathComponent
+                    print("[ChatMessageContent] 절대 경로 실패, 파일명으로 재시도: \(fileName)")
+                    return FilePathManager.getFileURL(from: fileName)
+                }
+            }
+        }
+
+        print("[ChatMessageContent] 파일명으로 처리: \(fileString)")
+        return FilePathManager.getFileURL(from: fileString)
+    }
+
+    private static func fileExtension(from fileString: String) -> String {
+        let sanitized = fileString.split(separator: "?").first.map(String.init) ?? fileString
+        if let url = URL(string: sanitized), !sanitized.hasPrefix("/") {
+            return url.pathExtension.lowercased()
+        }
+        return (sanitized as NSString).pathExtension.lowercased()
+    }
+
+    private static func fileName(from fileString: String) -> String {
+        let sanitized = fileString.split(separator: "?").first.map(String.init) ?? fileString
+        if let url = URL(string: sanitized), !sanitized.hasPrefix("/") {
+            return url.lastPathComponent.removingPercentEncoding ?? "document"
+        }
+        let name = (sanitized as NSString).lastPathComponent
+        return name.removingPercentEncoding ?? "document"
     }
 
     private static func isImageExtension(_ ext: String) -> Bool {

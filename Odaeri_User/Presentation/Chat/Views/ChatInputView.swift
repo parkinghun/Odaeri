@@ -7,7 +7,6 @@
 
 import UIKit
 import SnapKit
-import Combine
 import PhotosUI
 import UniformTypeIdentifiers
 import AVFoundation
@@ -321,75 +320,28 @@ final class ChatInputView: UIView {
     private func handleAttachmentTap(_ item: ChatInputAttachmentItem) {
         guard let parentViewController = parentViewController else { return }
         switch item {
-        case .video(let url, _, _):
-            AppMediaService.shared.playVideo(url: url.absoluteString, from: parentViewController)
-        case .file(let url, let fileName, _, _):
-            AppMediaService.shared.previewFile(url: url.absoluteString, fileName: fileName, from: parentViewController)
+        case .video(let fileName, _, _):
+            if let url = FilePathManager.getFileURL(from: fileName) {
+                AppMediaService.shared.playVideo(url: url.absoluteString, from: parentViewController)
+            }
+        case .file(let fileName, let displayName, _, _):
+            if let url = FilePathManager.getFileURL(from: fileName) {
+                AppMediaService.shared.previewFile(url: url.absoluteString, fileName: displayName, from: parentViewController)
+            }
         case .image:
             onAttachmentTapped?(item)
         }
     }
 
-    private func presentVideoTranscodeFailureAlert() {
+    private func presentVideoTranscodeFailureAlert(_ message: String = "영상 처리에 실패했습니다. 다시 선택해주세요.") {
         guard let parentViewController = parentViewController else { return }
         let alert = UIAlertController(
             title: "영상 처리 실패",
-            message: "영상 처리에 실패했습니다. 다시 선택해주세요.",
+            message: message,
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "확인", style: .default))
         parentViewController.present(alert, animated: true)
-    }
-
-    private func copyToTemporaryDirectory(from url: URL, fileName: String? = nil) -> URL? {
-        let tempDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("ChatUploads", isDirectory: true)
-        if !FileManager.default.fileExists(atPath: tempDirectory.path) {
-            try? FileManager.default.createDirectory(
-                at: tempDirectory,
-                withIntermediateDirectories: true,
-                attributes: nil
-            )
-        }
-
-        let originalFileName = fileName ?? url.lastPathComponent
-        let safeFileName = originalFileName.isEmpty ? "\(UUID().uuidString)" : originalFileName
-        var destinationURL = tempDirectory.appendingPathComponent(safeFileName)
-
-        if FileManager.default.fileExists(atPath: destinationURL.path) {
-            destinationURL = tempDirectory.appendingPathComponent("\(UUID().uuidString)_\(safeFileName)")
-        }
-
-        do {
-            try FileManager.default.copyItem(at: url, to: destinationURL)
-            return destinationURL
-        } catch {
-            return nil
-        }
-    }
-
-    private func writeImageToTemporaryDirectory(_ image: UIImage) -> URL? {
-        let tempDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("ChatUploads", isDirectory: true)
-        if !FileManager.default.fileExists(atPath: tempDirectory.path) {
-            try? FileManager.default.createDirectory(
-                at: tempDirectory,
-                withIntermediateDirectories: true,
-                attributes: nil
-            )
-        }
-
-        let fileName = "image_\(UUID().uuidString).jpg"
-        let destinationURL = tempDirectory.appendingPathComponent(fileName)
-
-        guard let data = image.jpegData(compressionQuality: 0.85) else {
-            return nil
-        }
-
-        do {
-            try data.write(to: destinationURL)
-            return destinationURL
-        } catch {
-            return nil
-        }
     }
 
     private func generateVideoThumbnail(url: URL) -> UIImage? {
@@ -406,53 +358,6 @@ final class ChatInputView: UIView {
         return UIImage(cgImage: cgImage)
     }
 
-    private func transcodeVideo(
-        at url: URL,
-        completion: @escaping (URL?) -> Void
-    ) {
-        let asset = AVAsset(url: url)
-        guard let exportSession = AVAssetExportSession(
-            asset: asset,
-            presetName: AVAssetExportPreset1280x720
-        ) else {
-            completion(nil)
-            return
-        }
-
-        let tempDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("ChatUploads", isDirectory: true)
-        if !FileManager.default.fileExists(atPath: tempDirectory.path) {
-            try? FileManager.default.createDirectory(
-                at: tempDirectory,
-                withIntermediateDirectories: true,
-                attributes: nil
-            )
-        }
-
-        let outputURL = tempDirectory.appendingPathComponent("video_\(UUID().uuidString).mp4")
-        if FileManager.default.fileExists(atPath: outputURL.path) {
-            try? FileManager.default.removeItem(at: outputURL)
-        }
-
-        exportSession.outputURL = outputURL
-        if exportSession.supportedFileTypes.contains(.mp4) {
-            exportSession.outputFileType = .mp4
-        } else {
-            completion(nil)
-            return
-        }
-        exportSession.shouldOptimizeForNetworkUse = true
-
-        exportSession.exportAsynchronously {
-            DispatchQueue.main.async {
-                switch exportSession.status {
-                case .completed:
-                    completion(outputURL)
-                default:
-                    completion(nil)
-                }
-            }
-        }
-    }
 }
 
 extension ChatInputView: UITextViewDelegate {
@@ -493,35 +398,27 @@ extension ChatInputView: PHPickerViewControllerDelegate {
                         group.leave()
                         return
                     }
-                    guard let localURL = self.copyToTemporaryDirectory(from: url) else {
+
+                    guard let savedFileName = FilePathManager.saveFile(at: url) else {
                         group.leave()
                         return
                     }
 
-                    self.transcodeVideo(at: localURL) { [weak self] transcodedURL in
-                        guard let self = self else {
-                            group.leave()
-                            return
-                        }
-                        guard let transcodedURL = transcodedURL else {
-                            DispatchQueue.main.async {
-                                self.presentVideoTranscodeFailureAlert()
-                                group.leave()
-                            }
-                            return
-                        }
+                    guard let localURL = FilePathManager.getFileURL(from: savedFileName) else {
+                        group.leave()
+                        return
+                    }
 
-                        let thumbnail = self.generateVideoThumbnail(url: transcodedURL)
-                        let item = ChatInputAttachmentItem.video(
-                            transcodedURL,
-                            thumbnail: thumbnail,
-                            id: UUID().uuidString
-                        )
+                    let thumbnail = self.generateVideoThumbnail(url: localURL)
+                    let item = ChatInputAttachmentItem.video(
+                        fileName: savedFileName,
+                        thumbnail: thumbnail,
+                        id: UUID().uuidString
+                    )
 
-                        DispatchQueue.main.async {
-                            newItems.append((index, item))
-                            group.leave()
-                        }
+                    DispatchQueue.main.async {
+                        newItems.append((index, item))
+                        group.leave()
                     }
                 }
                 continue
@@ -535,10 +432,12 @@ extension ChatInputView: PHPickerViewControllerDelegate {
                         return
                     }
 
-                    let fileURL = self.writeImageToTemporaryDirectory(image)
+                    let data = image.jpegData(compressionQuality: 0.85)
+                    let fileName = data.flatMap { FilePathManager.saveImageData($0) }
+
                     let item = ChatInputAttachmentItem.image(
                         image,
-                        fileURL: fileURL,
+                        fileName: fileName,
                         id: UUID().uuidString
                     )
                     DispatchQueue.main.async {
@@ -577,13 +476,19 @@ extension ChatInputView: UIDocumentPickerDelegate {
             }
 
             let originalFileName = url.lastPathComponent
-            guard let localURL = copyToTemporaryDirectory(from: url, fileName: originalFileName) else { continue }
+            guard let savedFileName = FilePathManager.saveFile(at: url, fileName: originalFileName) else {
+                continue
+            }
 
-            let fileName = originalFileName.isEmpty ? localURL.lastPathComponent : originalFileName
+            guard let localURL = FilePathManager.getFileURL(from: savedFileName) else {
+                continue
+            }
+
+            let displayName = originalFileName.isEmpty ? savedFileName : originalFileName
             let fileType = ChatInputAttachmentItem.FileType.from(url: localURL)
             let item = ChatInputAttachmentItem.file(
-                localURL,
-                fileName: fileName,
+                fileName: savedFileName,
+                displayName: displayName,
                 fileType: fileType,
                 id: UUID().uuidString
             )

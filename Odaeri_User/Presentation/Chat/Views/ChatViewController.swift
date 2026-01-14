@@ -230,17 +230,15 @@ extension ChatViewController: UITableViewDelegate {
         let height = cell.frame.size.height
         heightCache.setHeight(height, for: item.id)
 
-        if indexPath.row >= (dataSource.snapshot().numberOfItems - 5) {
+        if indexPath.row <= 4 {
             checkAndLoadMore()
         }
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         let offsetY = scrollView.contentOffset.y
-        let contentHeight = scrollView.contentSize.height
-        let frameHeight = scrollView.frame.size.height
 
-        if offsetY > contentHeight - frameHeight - Layout.paginationThreshold {
+        if offsetY < Layout.paginationThreshold {
             checkAndLoadMore()
         }
     }

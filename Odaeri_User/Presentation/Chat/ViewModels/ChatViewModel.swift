@@ -8,11 +8,11 @@
 import Foundation
 import Combine
 import RealmSwift
-import UniformTypeIdentifiers
 
 final class ChatViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: ChatCoordinator?
     private let chatRepository: ChatRepository
+    private let mediaUploadManager: MediaUploadManager
     let roomId: String
     private let currentUserId: String
     private let currentUserName: String
@@ -33,6 +33,13 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     private let pageSize = 30
     private var detectedGaps: Set<String> = []
 
+    private enum MessageSendingState {
+        case idle
+        case uploading
+        case sending
+    }
+
+    private var sendingStates: [String: MessageSendingState] = [:]
     struct Input {
         let viewDidLoad: AnyPublisher<Void, Never>
         let sendMessage: AnyPublisher<SendMessagePayload, Never>
@@ -54,12 +61,14 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         chatRepository: ChatRepository,
         roomId: String,
         currentUserId: String,
+        mediaUploadManager: MediaUploadManager = .shared,
         currentUserName: String = "나",
         title: String? = nil
     ) {
         self.chatRepository = chatRepository
         self.roomId = roomId
         self.currentUserId = currentUserId
+        self.mediaUploadManager = mediaUploadManager
         self.currentUserName = currentUserName
         self.title = title
     }
@@ -401,61 +410,150 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         content: String,
         files: [String]
     ) {
+        guard sendingStates[tempId] == nil || sendingStates[tempId] == .idle else {
+            print("[ChatViewModel] 중복 전송 방지: \(tempId), 현재 상태: \(String(describing: sendingStates[tempId]))")
+            return
+        }
+
         scheduleTimeout(for: tempId)
 
-        let uploadFiles = buildUploadFiles(from: files)
-        if !files.isEmpty && uploadFiles.count != files.count {
+        if files.isEmpty {
+            sendChatWithoutFiles(tempId: tempId, content: content)
+        } else {
+            startTwoStepPipeline(tempId: tempId, content: content, localFiles: files)
+        }
+    }
+
+    private func sendChatWithoutFiles(tempId: String, content: String) {
+        print("[ChatViewModel] 순수 텍스트 메시지 전송 (Early Exit)")
+        sendingStates[tempId] = .sending
+
+        chatRepository.sendChat(roomId: roomId, content: content, files: [])
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    guard let self = self else { return }
+
+                    if case .failure(let error) = completion {
+                        print("[ChatViewModel] 메시지 전송 실패: \(error)")
+                        self.updateMessageStatus(tempId: tempId, status: .failed)
+                        self.cancelTimeout(for: tempId)
+                    }
+
+                    self.cleanupSendingState(for: tempId)
+                },
+                receiveValue: { [weak self] realMessage in
+                    guard let self = self else { return }
+                    print("[ChatViewModel] 메시지 전송 성공")
+                    self.updateTempMessageToReal(tempId: tempId, realMessage: realMessage)
+                    self.cleanupSendingState(for: tempId)
+                }
+            )
+            .store(in: &cancellables)
+    }
+
+    private func startTwoStepPipeline(
+        tempId: String,
+        content: String,
+        localFiles: [String]
+    ) {
+        print("[ChatViewModel] 2단계 파이프라인 시작")
+        sendingStates[tempId] = .uploading
+        let uploadURLs: [URL]
+        do {
+            uploadURLs = try resolveUploadURLs(from: localFiles)
+        } catch {
             updateMessageStatus(tempId: tempId, status: .failed)
             cancelTimeout(for: tempId)
+            cleanupSendingState(for: tempId)
+            print("[ChatViewModel] 파일 준비 실패: \(error)")
             return
         }
 
-        if uploadFiles.isEmpty {
-            chatRepository.sendChat(roomId: roomId, content: content, files: [])
-                .sink(
-                    receiveCompletion: { [weak self] completion in
-                        if case .failure(let error) = completion {
-                            self?.updateMessageStatus(tempId: tempId, status: .failed)
-                            self?.cancelTimeout(for: tempId)
-                        }
-                    },
-                    receiveValue: { [weak self] realMessage in
-                        self?.updateTempMessageToReal(tempId: tempId, realMessage: realMessage)
-                    }
-                )
-                .store(in: &cancellables)
-            return
-        }
-
-        let uploadCancellable = chatRepository.uploadChatFiles(
+        print("[ChatViewModel] Step 1: 파일 업로드 (\(uploadURLs.count)개)")
+        let uploadCancellable = mediaUploadManager.uploadFiles(
+            sourceURLs: uploadURLs,
+            config: .chatDefault,
             roomId: roomId,
-            files: uploadFiles,
             progress: { [weak self] progress in
                 self?.updateUploadProgress(tempId: tempId, progress: Float(progress))
             }
         )
-        .flatMap { [weak self] urls -> AnyPublisher<ChatEntity, NetworkError> in
-            guard let self = self else {
-                return Empty(completeImmediately: true)
-                    .setFailureType(to: NetworkError.self)
-                    .eraseToAnyPublisher()
-            }
-            return self.chatRepository.sendChat(roomId: self.roomId, content: content, files: urls)
-        }
         .sink(
             receiveCompletion: { [weak self] completion in
+                guard let self = self else { return }
+
                 if case .failure(let error) = completion {
-                    self?.updateMessageStatus(tempId: tempId, status: .failed)
-                    self?.cancelTimeout(for: tempId)
+                    print("[ChatViewModel] Step 1 실패: 파일 업로드 에러 - \(error)")
+                    self.updateMessageStatus(tempId: tempId, status: .failed)
+                    self.cancelTimeout(for: tempId)
+                    self.cleanupSendingState(for: tempId)
+                    self.uploadCancellables.removeValue(forKey: tempId)
                 }
-                self?.uploadCancellables.removeValue(forKey: tempId)
             },
-            receiveValue: { [weak self] realMessage in
-                self?.updateTempMessageToReal(tempId: tempId, realMessage: realMessage)
-                self?.uploadCancellables.removeValue(forKey: tempId)
+            receiveValue: { [weak self] uploadedURLs in
+                guard let self = self else { return }
+
+                print("[ChatViewModel] Step 1 성공: 파일 업로드 완료")
+                print("  - 서버 URL: \(uploadedURLs)")
+
+                print("  - Step 2: 메시지 전송")
+                self.sendChatWithUploadedFiles(
+                    tempId: tempId,
+                    content: content,
+                    uploadedURLs: uploadedURLs,
+                    localFiles: localFiles
+                )
             }
         )
         uploadCancellables[tempId] = uploadCancellable
+    }
+
+    private func sendChatWithUploadedFiles(
+        tempId: String,
+        content: String,
+        uploadedURLs: [String],
+        localFiles: [String]
+    ) {
+        sendingStates[tempId] = .sending
+
+        chatRepository.sendChat(roomId: roomId, content: content, files: uploadedURLs)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    guard let self = self else { return }
+
+                    if case .failure(let error) = completion {
+                        print("[ChatViewModel] Step 2 실패: 메시지 전송 에러 - \(error)")
+                        print("  - 업로드된 URL은 유효함, 재시도 가능")
+                        self.updateMessageStatus(tempId: tempId, status: .failed)
+                        self.cancelTimeout(for: tempId)
+                    }
+
+                    self.cleanupSendingState(for: tempId)
+                    self.uploadCancellables.removeValue(forKey: tempId)
+                },
+                receiveValue: { [weak self] realMessage in
+                    guard let self = self else { return }
+
+                    print("[ChatViewModel] Step 2 성공: 메시지 전송 완료")
+                    self.updateTempMessageToReal(tempId: tempId, realMessage: realMessage)
+                    self.cleanupLocalFiles(tempId: tempId, files: localFiles)
+                    self.cleanupSendingState(for: tempId)
+                    self.uploadCancellables.removeValue(forKey: tempId)
+                }
+            )
+            .store(in: &cancellables)
+    }
+
+    private func cleanupSendingState(for tempId: String) {
+        sendingStates.removeValue(forKey: tempId)
+    }
+
+    private func cleanupLocalFiles(tempId: String, files: [String]) {
+        print("[ChatViewModel] 로컬 파일 클린업 시작: \(files.count)개")
+        files.forEach { fileName in
+            FilePathManager.removeFile(fileName: fileName)
+        }
+        print("[ChatViewModel] 로컬 파일 클린업 완료")
     }
 
     private func scheduleTimeout(for tempId: String) {
@@ -479,34 +577,38 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     }
 
     private func removeLocalFiles(from fileStrings: [String]) {
-        fileStrings.forEach { fileString in
-            guard let url = URL(string: fileString), url.isFileURL else { return }
-            try? FileManager.default.removeItem(at: url)
+        fileStrings.forEach { fileName in
+            FilePathManager.removeFile(fileName: fileName)
         }
     }
 
-    private func buildUploadFiles(from fileStrings: [String]) -> [ChatUploadFile] {
-        return fileStrings.compactMap { fileString in
-            guard let url = URL(string: fileString) else { return nil }
-            let fileName = url.lastPathComponent.isEmpty ? "chat_file" : url.lastPathComponent
-            let mimeType = mimeType(for: url)
-            return ChatUploadFile(source: .file(url), fileName: fileName, mimeType: mimeType)
+    private func resolveUploadURLs(from fileStrings: [String]) throws -> [URL] {
+        return try fileStrings.map { fileString in
+            let normalizedFileName = normalizeFileName(fileString)
+
+            guard let url = FilePathManager.getFileURL(from: normalizedFileName) else {
+                print("[ChatViewModel] 파일을 찾을 수 없음")
+                print("  - 입력: \(fileString)")
+                print("  - 정규화: \(normalizedFileName)")
+                throw MediaError.invalidURL
+            }
+
+            return url
         }
     }
 
-    private func mimeType(for url: URL) -> String {
-        let ext = url.pathExtension.lowercased()
-        switch ext {
-        case "mp4":
-            return "video/mp4"
-        case "mov":
-            return "video/quicktime"
-        default:
-            break
+    private func normalizeFileName(_ input: String) -> String {
+        if input.hasPrefix("file://") {
+            if let url = URL(string: input) {
+                return url.lastPathComponent
+            }
         }
-        if let type = UTType(filenameExtension: ext) {
-            return type.preferredMIMEType ?? "application/octet-stream"
+
+        if input.contains("/") {
+            return input.lastPathComponent
         }
-        return "application/octet-stream"
+
+        return input
     }
+
 }

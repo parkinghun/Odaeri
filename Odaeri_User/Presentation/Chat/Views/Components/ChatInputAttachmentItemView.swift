@@ -38,10 +38,8 @@ final class ChatInputAttachmentItemView: UIView {
         imageView.image = item.displayImage
         playIconView.isHidden = !item.isVideo
 
-        if case .file = item {
-            fileNameLabel.isHidden = true
-        } else if let fileName = item.fileName {
-            fileNameLabel.text = fileName
+        if let displayFileName = item.displayFileName {
+            fileNameLabel.text = displayFileName
             fileNameLabel.isHidden = false
         } else {
             fileNameLabel.isHidden = true

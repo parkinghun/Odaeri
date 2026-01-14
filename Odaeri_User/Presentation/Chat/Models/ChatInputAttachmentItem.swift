@@ -6,13 +6,11 @@
 //
 
 import UIKit
-import AVFoundation
-import UniformTypeIdentifiers
 
 enum ChatInputAttachmentItem: Hashable {
-    case image(UIImage, fileURL: URL?, id: String)
-    case video(URL, thumbnail: UIImage?, id: String)
-    case file(URL, fileName: String, fileType: FileType, id: String)
+    case image(UIImage, fileName: String?, id: String)
+    case video(fileName: String, thumbnail: UIImage?, id: String)
+    case file(fileName: String, displayName: String, fileType: FileType, id: String)
 
     enum FileType: Hashable {
         case pdf
@@ -22,6 +20,17 @@ enum ChatInputAttachmentItem: Hashable {
         static func from(url: URL) -> FileType {
             let ext = url.pathExtension.lowercased()
             switch ext {
+            case "pdf":
+                return .pdf
+            case "zip":
+                return .zip
+            default:
+                return .other
+            }
+        }
+
+        static func from(fileExtension: String) -> FileType {
+            switch fileExtension.lowercased() {
             case "pdf":
                 return .pdf
             case "zip":
@@ -73,77 +82,24 @@ enum ChatInputAttachmentItem: Hashable {
         return false
     }
 
-    var fileName: String? {
+    var displayFileName: String? {
         switch self {
-        case .file(_, let fileName, _, _):
-            return fileName
+        case .file(_, let displayName, _, _):
+            return displayName
         default:
             return nil
         }
     }
 
-    var uploadFile: ChatUploadFile? {
-        switch self {
-        case .image(let image, let fileURL, let id):
-            if let fileURL = fileURL {
-                return ChatUploadFile(
-                    source: .file(fileURL),
-                    fileName: fileURL.lastPathComponent,
-                    mimeType: mimeType(for: fileURL)
-                )
-            }
-
-            guard let data = image.jpegData(compressionQuality: 0.8) else {
-                return nil
-            }
-
-            return ChatUploadFile(
-                source: .data(data),
-                fileName: "chat_image_\(id).jpg",
-                mimeType: "image/jpeg"
-            )
-
-        case .video(let url, _, _):
-            return ChatUploadFile(
-                source: .file(url),
-                fileName: url.lastPathComponent,
-                mimeType: mimeType(for: url)
-            )
-
-        case .file(let url, let fileName, _, _):
-            return ChatUploadFile(
-                source: .file(url),
-                fileName: fileName,
-                mimeType: mimeType(for: url)
-            )
-        }
-    }
-
     var localURLString: String? {
         switch self {
-        case .image(_, let fileURL, _):
-            return fileURL?.absoluteString
-        case .video(let url, _, _):
-            return url.absoluteString
-        case .file(let url, _, _, _):
-            return url.absoluteString
+        case .image(_, let fileName, _):
+            return fileName
+        case .video(let fileName, _, _):
+            return fileName
+        case .file(let fileName, _, _, _):
+            return fileName
         }
-    }
-
-    private func mimeType(for url: URL) -> String {
-        let ext = url.pathExtension.lowercased()
-        switch ext {
-        case "mp4":
-            return "video/mp4"
-        case "mov":
-            return "video/quicktime"
-        default:
-            break
-        }
-        if let type = UTType(filenameExtension: ext) {
-            return type.preferredMIMEType ?? "application/octet-stream"
-        }
-        return "application/octet-stream"
     }
 
     func hash(into hasher: inout Hasher) {
