@@ -18,6 +18,7 @@ final class MainCoordinator: Coordinator {
     weak var delegate: MainCoordinatorDelegate?
 
     private let tabBarController = CustomTabBarController()
+    private var communityCoordinator: CommunityCoordinator?
 
     init(navigationController: UINavigationController) {
         self.navigationController = navigationController
@@ -51,11 +52,17 @@ private extension MainCoordinator {
             addChild(orderCoordinator)
             orderCoordinator.start()
             
+        case .streaming:
+            let streamingCoordinator = StreamingCoordinator(navigationController: tabNavigationController)
+            addChild(streamingCoordinator)
+            streamingCoordinator.start()
+            
         case .community:
             let communityCoordinator = CommunityCoordinator(navigationController: tabNavigationController)
             communityCoordinator.delegate = self
             addChild(communityCoordinator)
             communityCoordinator.start()
+            self.communityCoordinator = communityCoordinator
             
         case .profile:
             let profileCoordinator = ProfileCoordinator(navigationController: tabNavigationController)
@@ -96,6 +103,15 @@ private extension MainCoordinator {
         navigationController.navigationBar.scrollEdgeAppearance = appearance
         navigationController.navigationBar.compactAppearance = appearance
         navigationController.navigationBar.tintColor = AppColor.gray100
+    }
+}
+
+// MARK: - Deep Link
+extension MainCoordinator {
+    func showChatRoom(roomId: String) {
+        let targetIndex = TabBarItem.allCases.firstIndex(of: .community) ?? 0
+        tabBarController.selectedIndex = targetIndex
+        communityCoordinator?.showChatRoom(roomId: roomId, title: nil)
     }
 }
 

@@ -410,7 +410,7 @@ extension NavigationViewController: MKMapViewDelegate {
     }
 }
 
-extension NavigationViewController: UIGestureRecognizerDelegate {
+extension NavigationViewController {
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true
     }
