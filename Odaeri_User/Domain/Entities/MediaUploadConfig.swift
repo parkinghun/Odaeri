@@ -44,8 +44,8 @@ struct UploadConfig {
 
     static let communityDefault = UploadConfig(
         context: .community,
-        resolution: .medium,
-        maxFileSize: 5 * 1024 * 1024
+        resolution: .high,
+        maxFileSize: 20 * 1024 * 1024
     )
 }
 

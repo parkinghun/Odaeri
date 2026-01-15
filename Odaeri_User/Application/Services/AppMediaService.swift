@@ -44,20 +44,37 @@ final class AppMediaService: NSObject {
     }
     
     private func normalize(_ path: String) -> String {
-        if path.hasPrefix("http") { return path }
-        if path.hasPrefix("file://") { return path }
-        
+        print("[AppMediaService] 경로 정규화 시작: \(path)")
+
+        if path.hasPrefix("http") {
+            print("[AppMediaService] HTTP URL 그대로 사용")
+            return path
+        }
+
+        if path.hasPrefix("file://") {
+            print("[AppMediaService] 절대 경로 그대로 사용")
+            return path
+        }
+
+        if let localFileURL = FilePathManager.getFileURL(from: path) {
+            let normalizedPath = localFileURL.absoluteString
+            print("[AppMediaService] 로컬 파일 경로로 변환: \(normalizedPath)")
+            return normalizedPath
+        }
+
         let base = APIEnvironment.current.baseURL.absoluteString.hasSuffix("/")
         ? String(APIEnvironment.current.baseURL.absoluteString.dropLast())
         : APIEnvironment.current.baseURL.absoluteString
-        
-        let version = APIEnvironment.current.version // "v1"
-        
+
+        let version = APIEnvironment.current.version
+
         var cleanPath = path
         if cleanPath.hasPrefix("./") { cleanPath.removeFirst(2) }
         if cleanPath.hasPrefix("/") { cleanPath.removeFirst() }
-        
-        return "\(base)/\(version)/\(cleanPath)"
+
+        let serverPath = "\(base)/\(version)/\(cleanPath)"
+        print("[AppMediaService] 서버 경로로 변환: \(serverPath)")
+        return serverPath
     }
     
     private func createDirectoriesIfNeeded() {
