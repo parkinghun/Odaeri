@@ -60,6 +60,14 @@ final class UserRepositoryImpl: UserRepository {
         return provider.requestPublisher(UserAPI.logout)
     }
 
+    func getMyProfile() -> AnyPublisher<UserEntity, NetworkError> {
+        provider.requestPublisher(UserAPI.getMyProfile)
+            .map { (response: ProfileResponse) in
+                UserEntity(from: response)
+            }
+            .eraseToAnyPublisher()
+    }
+
     func validateEmail(email: String) -> AnyPublisher<Void, NetworkError> {
         let request = EmailValidationRequest(email: email)
         return provider.requestPublisher(UserAPI.validateEmail(request: request))

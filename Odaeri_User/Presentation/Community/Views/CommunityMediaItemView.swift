@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import AVFoundation
 import SnapKit
 
 final class CommunityMediaItemView: UIView {
@@ -43,7 +42,6 @@ final class CommunityMediaItemView: UIView {
     }()
 
     private var currentItem: CommunityMediaItemViewModel?
-    private var thumbnailToken = UUID()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -100,19 +98,16 @@ final class CommunityMediaItemView: UIView {
         playIconView.isHidden = item.type != .video
 
         imageView.resetImage()
-        thumbnailToken = UUID()
 
         if item.type == .image {
             imageView.setImage(url: item.url)
-            return
+        } else if item.type == .video {
+            if let thumbnailUrl = item.thumbnailUrl {
+                imageView.setImage(url: thumbnailUrl)
+            } else {
+                imageView.setVideoThumbnail(url: item.url)
+            }
         }
-
-        if let thumbnailUrl = item.thumbnailUrl {
-            imageView.setImage(url: thumbnailUrl)
-            return
-        }
-
-        generateVideoThumbnail(from: item.url, token: thumbnailToken)
     }
 
     func reset() {
@@ -120,24 +115,5 @@ final class CommunityMediaItemView: UIView {
         imageView.resetImage()
         overlayView.isHidden = true
         playIconView.isHidden = true
-    }
-
-    private func generateVideoThumbnail(from urlString: String, token: UUID) {
-        guard let url = URL(string: urlString) else { return }
-
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let asset = AVAsset(url: url)
-            let generator = AVAssetImageGenerator(asset: asset)
-            generator.appliesPreferredTrackTransform = true
-            let time = CMTime(seconds: 0, preferredTimescale: 600)
-
-            guard let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) else { return }
-            let image = UIImage(cgImage: cgImage)
-
-            DispatchQueue.main.async {
-                guard let self, self.thumbnailToken == token else { return }
-                self.imageView.image = image
-            }
-        }
     }
 }

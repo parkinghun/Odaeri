@@ -21,7 +21,7 @@ struct HeaderSet: OptionSet {
     // 자주 사용하는 조합 프리셋
     static let standard: HeaderSet = [.contentType, .accept, .sesacKey]
     static let authenticated: HeaderSet = [.standard, .authorization]
-    static let readImage: HeaderSet = [.accept, .sesacKey, .authorization]
+    static let mediaRead: HeaderSet = [.accept, .sesacKey, .authorization]
     static let fileUpload: HeaderSet = [.accept, .authorization, .sesacKey, .multipart]
     static let refresh: HeaderSet = [.accept, .sesacKey, .authorization, .refreshToken]
 }

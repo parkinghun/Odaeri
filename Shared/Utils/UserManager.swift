@@ -53,6 +53,9 @@ final class UserManager {
             profileImage: profileImage,
             phoneNum: ""
         )
+        
+        print("👏 currentUser: ")
+        dump(currentUser)
     }
 
     func clearUser() {

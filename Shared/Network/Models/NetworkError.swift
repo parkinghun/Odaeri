@@ -19,7 +19,8 @@ enum NetworkError: Error {
     case accessTokenExpired
     case invalidRefreshToken
     case refreshTokenExpired
-
+    
+    case invalidRequest(String)
     case unknown(Error?)
 
     var errorDescription: String {
@@ -40,6 +41,8 @@ enum NetworkError: Error {
             return "인증 정보가 유효하지 않습니다. 다시 로그인해주세요."
         case .refreshTokenExpired:
             return "로그인 세션이 만료되었습니다. 다시 로그인해주세요."
+        case .invalidRequest(let message):
+            return "유효하지 않은 요청입니다. \(message)"
         case .unknown(let error):
             if let error = error {
                 return "알 수 없는 오류: \(error.localizedDescription)"
@@ -84,7 +87,7 @@ enum NetworkError: Error {
             return statusCode == 503 || statusCode >= 500
         case .accessTokenExpired, .invalidRefreshToken, .refreshTokenExpired, .unauthorized:
             return false
-        case .decodingFailed, .unknown:
+        case .decodingFailed, .unknown, .invalidRequest:
             return false
         }
     }

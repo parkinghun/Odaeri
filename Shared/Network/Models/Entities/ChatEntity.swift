@@ -45,6 +45,8 @@ struct ChatEntity {
     let updatedAt: String
     let sender: ChatParticipantEntity
     let files: [String]
+    let status: ChatMessageStatus
+    let uploadProgress: Float?
 
     init(
         chatId: String,
@@ -53,7 +55,9 @@ struct ChatEntity {
         createdAt: String,
         updatedAt: String,
         sender: ChatParticipantEntity,
-        files: [String]
+        files: [String],
+        status: ChatMessageStatus = .sent,
+        uploadProgress: Float? = nil
     ) {
         self.chatId = chatId
         self.roomId = roomId
@@ -62,6 +66,8 @@ struct ChatEntity {
         self.updatedAt = updatedAt
         self.sender = sender
         self.files = files
+        self.status = status
+        self.uploadProgress = uploadProgress
     }
 
     init(from response: ChatResponse) {
@@ -72,6 +78,8 @@ struct ChatEntity {
         self.updatedAt = response.updatedAt
         self.sender = ChatParticipantEntity(from: response.sender)
         self.files = response.files
+        self.status = .sent
+        self.uploadProgress = nil
     }
 
     var hasFiles: Bool {
@@ -82,7 +90,7 @@ struct ChatEntity {
 struct ChatParticipantEntity {
     let userId: String
     let nick: String
-    let profileImage: String
+    let profileImage: String?
 
     init(
         userId: String,

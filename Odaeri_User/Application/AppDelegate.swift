@@ -6,35 +6,63 @@
 //
 
 import UIKit
+import UserNotifications
 import FirebaseCore
 import FirebaseMessaging
 import iamport_ios
+import RealmSwift
+import Combine
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
-    
+    private let pushService = PushNotificationService()
+    private var cancellables = Set<AnyCancellable>()
+
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
         Iamport.shared.receivedURL(url)
         return true
     }
-    
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        configureRealm()
+
         FirebaseApp.configure()
-        
-        // 권한에 대한 세팅
+
         UNUserNotificationCenter.current().delegate = self
-        
+
         let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
         UNUserNotificationCenter.current().requestAuthorization(
             options: authOptions,
             completionHandler: { _, _ in }
         )
-        
+
         application.registerForRemoteNotifications()
 
         Messaging.messaging().delegate = self
 
         return true
+    }
+
+    private func configureRealm() {
+        let config = Realm.Configuration(
+            schemaVersion: 1,
+            migrationBlock: { migration, oldSchemaVersion in
+                if oldSchemaVersion < 1 {
+                    migration.enumerateObjects(ofType: ChatRoomObject.className()) { oldObject, newObject in
+                        newObject?["hasUnread"] = false
+                    }
+                }
+            }
+        )
+
+        Realm.Configuration.defaultConfiguration = config
+
+        do {
+            _ = try Realm()
+            print("Realm 초기화 성공 (버전: \(config.schemaVersion))")
+        } catch {
+            print("Realm 초기화 실패: \(error)")
+        }
     }
     
     // MARK: UISceneSession Lifecycle
@@ -55,6 +83,35 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 }
 
 extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        let userInfo = notification.request.content.userInfo
+        let roomId = NotificationPayload.roomId(from: userInfo)
+
+        if let roomId = roomId,
+           ChatRoomContextManager.shared.currentRoomId == roomId {
+            completionHandler([])
+            return
+        }
+
+        completionHandler([.banner, .sound, .badge])
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let userInfo = response.notification.request.content.userInfo
+        if let roomId = NotificationPayload.roomId(from: userInfo) {
+            NotificationDeepLinkRouter.routeToChatRoom(roomId: roomId)
+        }
+        completionHandler()
+    }
+
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Messaging.messaging().apnsToken = deviceToken
         print("APNs token: \(deviceToken.map { String(format: "%02.2hhx", $0) }.joined())")
@@ -76,12 +133,12 @@ extension AppDelegate: MessagingDelegate {
 
         TokenManager.shared.deviceToken = fcmToken
 
-        let dataDict: [String: String] = ["token": fcmToken]
-        NotificationCenter.default.post(
-            name: Notification.Name("FCMToken"),
-            object: nil,
-            userInfo: dataDict
-        )
+        guard TokenManager.shared.isLoggedIn else {
+            return
+        }
+
+        pushService.registerTokenIfNeeded(token: fcmToken)
+            .sink { _ in }
+            .store(in: &cancellables)
     }
 }
-

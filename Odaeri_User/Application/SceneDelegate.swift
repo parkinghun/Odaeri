@@ -11,6 +11,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
     private var appCoordinator: AppCoordinator?
+    private var pendingRoomId: String?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = (scene as? UIWindowScene) else { return }
@@ -20,6 +21,16 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         appCoordinator = AppCoordinator(window: window)
         appCoordinator?.start()
+
+        if let response = connectionOptions.notificationResponse {
+            let userInfo = response.notification.request.content.userInfo
+            pendingRoomId = NotificationPayload.roomId(from: userInfo)
+        }
+
+        if let roomId = pendingRoomId {
+            pendingRoomId = nil
+            appCoordinator?.handleChatDeepLink(roomId: roomId)
+        }
     }
 
   func sceneDidDisconnect(_ scene: UIScene) {
@@ -32,6 +43,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
   func sceneDidBecomeActive(_ scene: UIScene) {
     // Called when the scene has moved from an inactive state to an active state.
     // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
+      UIApplication.shared.applicationIconBadgeNumber = 0
   }
 
   func sceneWillResignActive(_ scene: UIScene) {
@@ -50,6 +62,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // to restore the scene back to its current state.
   }
 
+    func handlePushDeepLink(roomId: String) {
+        if let appCoordinator = appCoordinator {
+            appCoordinator.handleChatDeepLink(roomId: roomId)
+        } else {
+            pendingRoomId = roomId
+        }
+    }
 
 }
-
