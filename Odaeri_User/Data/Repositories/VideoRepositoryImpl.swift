@@ -21,7 +21,7 @@ final class VideoRepositoryImpl: VideoRepository {
     }
 
     func getVideoStreamingURL(videoId: String) -> AnyPublisher<VideoStreamEntity, NetworkError> {
-        provider.requestPublisher(.getVideoStreamingURL(videoId: videoId))
+        provider.requestPublisherWithRetry(.getVideoStreamingURL(videoId: videoId))
             .map { (response: VideoStreamResponse) in
                 VideoStreamEntity(from: response)
             }

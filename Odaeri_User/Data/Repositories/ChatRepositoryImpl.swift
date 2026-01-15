@@ -59,21 +59,6 @@ final class ChatRepositoryImpl: ChatRepository {
             .eraseToAnyPublisher()
     }
 
-    func uploadChatFiles(
-        roomId: String,
-        files: [ChatUploadFile],
-        progress: @escaping (Double) -> Void
-    ) -> AnyPublisher<[String], NetworkError> {
-        provider.requestPublisherWithProgress(
-            .uploadChatFiles(roomId: roomId, files: files),
-            progress: progress
-        )
-        .map { (response: ChatFileUploadResponse) in
-            response.files
-        }
-        .eraseToAnyPublisher()
-    }
-
     private func loadMockChatRooms() -> AnyPublisher<[ChatRoomEntity], NetworkError> {
         guard let url = Bundle.main.url(forResource: "ChatRooms", withExtension: "json") else {
             return Fail(error: NetworkError.decodingFailed(MockDataError.fileNotFound))

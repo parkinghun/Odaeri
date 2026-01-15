@@ -13,9 +13,4 @@ protocol ChatRepository {
     func fetchChatRooms() -> AnyPublisher<[ChatRoomEntity], NetworkError>
     func sendChat(roomId: String, content: String, files: [String]) -> AnyPublisher<ChatEntity, NetworkError>
     func fetchChatHistory(roomId: String, next: String?) -> AnyPublisher<[ChatEntity], NetworkError>
-    func uploadChatFiles(
-        roomId: String,
-        files: [ChatUploadFile],
-        progress: @escaping (Double) -> Void
-    ) -> AnyPublisher<[String], NetworkError>
 }
