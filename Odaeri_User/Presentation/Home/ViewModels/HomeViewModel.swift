@@ -10,6 +10,8 @@ import Combine
 import CoreLocation
 
 final class HomeViewModel: BaseViewModel, ViewModelType {
+    weak var coordinator: HomeCoordinator?
+
     private let storeRepository: StoreRepository
     private let bannerRepository: BannerRepository
     private let locationManager: LocationManager
@@ -38,7 +40,9 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
         let categorySelected: AnyPublisher<Category?, Never>
         let refreshTriggered: AnyPublisher<Void, Never>
         let userScrolledBanner: AnyPublisher<Int, Never>
+        let bannerSelected: AnyPublisher<BannerEntity, Never>
         let storeLikeToggled: AnyPublisher<LikeButton.TapEvent, Never>
+        let storeSelected: AnyPublisher<String, Never>
     }
 
     struct Output {
@@ -114,6 +118,16 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
             }
             .store(in: &cancellables)
 
+        input.bannerSelected
+            .compactMap { banner -> String? in
+                guard banner.action.isWebView, let path = banner.action.webViewPath else { return nil }
+                return path
+            }
+            .sink { [weak self] path in
+                self?.coordinator?.showEventWeb(path: path)
+            }
+            .store(in: &cancellables)
+
         input.storeLikeToggled
             .sink { [weak self] event in
                 guard let self = self else { return }
@@ -138,6 +152,12 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
 
                 // 해당 storeId의 Subject로 이벤트 전송
                 self.likeSubjects[event.storeId]?.send(event.newState)
+            }
+            .store(in: &cancellables)
+
+        input.storeSelected
+            .sink { [weak self] storeId in
+                self?.coordinator?.showStoreDetail(storeId: storeId)
             }
             .store(in: &cancellables)
 

@@ -10,7 +10,7 @@ import UIKit
 enum TabBarItem: Int, CaseIterable {
     case home = 0
     case order = 1
-    case pick = 2
+    case streaming = 2
     case community = 3
     case profile = 4
 
@@ -18,7 +18,7 @@ enum TabBarItem: Int, CaseIterable {
         switch self {
         case .home: return "홈"
         case .order: return "주문"
-        case .pick: return "픽"
+        case .streaming: return "스트리밍"
         case .community: return "커뮤니티"
         case .profile: return "프로필"
         }
@@ -28,7 +28,7 @@ enum TabBarItem: Int, CaseIterable {
         switch self {
         case .home: return AppImage.homeEmpty
         case .order: return AppImage.orderEmpty
-        case .pick: return AppImage.pickEmpty
+        case .streaming: return AppImage.pickEmpty
         case .community: return AppImage.communityEmpty
         case .profile: return AppImage.profileEmpty
         }
@@ -38,13 +38,13 @@ enum TabBarItem: Int, CaseIterable {
         switch self {
         case .home: return AppImage.homeFill
         case .order: return AppImage.orderFill
-        case .pick: return AppImage.pickFill
+        case .streaming: return AppImage.pickFill
         case .community: return AppImage.communityFill
         case .profile: return AppImage.profileFill
         }
     }
 
     var isSpecial: Bool {
-        return self == .pick
+        return self == .streaming
     }
 }

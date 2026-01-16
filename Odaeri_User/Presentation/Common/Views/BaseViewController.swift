@@ -9,8 +9,8 @@ import UIKit
 import Combine
 import SnapKit
 
-class BaseViewController<VM: ViewModelType>: UIViewController {
-    
+class BaseViewController<VM: ViewModelType>: UIViewController, UIGestureRecognizerDelegate {
+
     let viewModel: VM
     var cancellables = Set<AnyCancellable>()
     
@@ -45,6 +45,7 @@ class BaseViewController<VM: ViewModelType>: UIViewController {
         view.backgroundColor = AppColor.gray0
         setupNavigationBar()
         setupLoadingIndicator()
+        setupKeyboardDismissGesture()
         setupUI()
         bind()
     }
@@ -53,6 +54,10 @@ class BaseViewController<VM: ViewModelType>: UIViewController {
     }
     
     func bind() {
+    }
+
+    func setKeyboardDismissMode(_ mode: UIScrollView.KeyboardDismissMode, for scrollView: UIScrollView) {
+        scrollView.keyboardDismissMode = mode
     }
     
     private func setupNavigationBar() {
@@ -93,7 +98,37 @@ class BaseViewController<VM: ViewModelType>: UIViewController {
         view.addSubview(loadingIndicator)
         loadingIndicator.snp.makeConstraints { $0.center.equalToSuperview() }
     }
-    
+
+    private func setupKeyboardDismissGesture() {
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleKeyboardDismissTap))
+        tapGesture.cancelsTouchesInView = false
+        tapGesture.delegate = self
+        view.addGestureRecognizer(tapGesture)
+    }
+
+    @objc private func handleKeyboardDismissTap() {
+        view.endEditing(true)
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        if touch.view is UIControl {
+            return false
+        }
+        if touch.view is UITextView {
+            return false
+        }
+
+        var currentView = touch.view?.superview
+        while let view = currentView {
+            if view is UIControl || view is UITextView {
+                return false
+            }
+            currentView = view.superview
+        }
+
+        return true
+    }
+
     func setLoading(_ isLoading: Bool) {
         if isLoading {
             view.endEditing(true)

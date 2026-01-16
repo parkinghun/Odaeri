@@ -53,7 +53,13 @@ enum AppImage {
     static let bike = image("bike")
     static let progressFinish = systemImage("checkmark.circle.fill")
     static let progressDefault = systemImage("record.circle.fill")
-    
+    static let chat = systemImage("bubble.fill")
+    static let settings = systemImage("gearshape.fill")
+    static let moreHorizontal = systemImage("ellipsis")
+    static let person = systemImage("person.fill")
+    static let pdf = image("pdf")
+    static let zip = image("zip")
+    static let document = image("document")
     
     // MARK: - TabBar
     static let communityEmpty = UIImage(named: "Community_Empty")
@@ -70,4 +76,3 @@ enum AppImage {
     // MARK: - Ohters
     static let pickchelin = UIImage(named: "PickchelinTag")
 }
-

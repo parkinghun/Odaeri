@@ -152,7 +152,6 @@ struct StoreEntity: Hashable, Equatable {
         self.totalReviewCount = summary.totalReviewCount
         self.totalOrderCount = summary.totalOrderCount
         self.totalRating = summary.totalRating
-        #warning("creator, menulist 수정")
         self.creator = nil
         self.menuList = []
     }

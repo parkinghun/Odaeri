@@ -13,7 +13,6 @@ enum ChatAPI {
     case getChatRooms
     case sendChat(roomId: String, request: SendChatRequest)
     case getChatHistory(roomId: String, next: String?)
-    case uploadChatFiles(roomId: String, files: [Data])
 }
 
 extension ChatAPI: BaseAPI {
@@ -27,14 +26,12 @@ extension ChatAPI: BaseAPI {
             return "/chats/\(roomId)"
         case .getChatHistory(let roomId, _):
             return "/chats/\(roomId)"
-        case .uploadChatFiles(let roomId, _):
-            return "/chats/\(roomId)/files"
         }
     }
 
     var method: Moya.Method {
         switch self {
-        case .createOrGetChatRoom, .sendChat, .uploadChatFiles:
+        case .createOrGetChatRoom, .sendChat:
             return .post
         case .getChatRooms, .getChatHistory:
             return .get
@@ -61,20 +58,6 @@ extension ChatAPI: BaseAPI {
             } else {
                 return .requestPlain
             }
-
-        case .uploadChatFiles(_, let files):
-            var formData = [MultipartFormData]()
-            for (index, fileData) in files.enumerated() {
-                formData.append(
-                    MultipartFormData(
-                        provider: .data(fileData),
-                        name: "files",
-                        fileName: "chat_file_\(index).jpg",
-                        mimeType: "image/jpeg"
-                    )
-                )
-            }
-            return .uploadMultipart(formData)
         }
     }
 }

@@ -35,6 +35,6 @@ extension BannerAPI: BaseAPI {
     }
     
     var headerSet: HeaderSet {
-        return .readImage
+        return .mediaRead
     }
 }

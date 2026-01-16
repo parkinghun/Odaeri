@@ -23,6 +23,7 @@ final class CommunityPostCell: UITableViewCell {
     }
 
     var onStoreInfoTapped: ((String) -> Void)?
+    var onCreatorTapped: ((String) -> Void)?
 
     private let cardView: UIView = {
         let view = UIView()
@@ -86,6 +87,7 @@ final class CommunityPostCell: UITableViewCell {
 
     private var currentLikeCount: Int = 0
     private var currentStoreId: String?
+    private var currentCreatorId: String?
 
     private lazy var contentStackView: UIStackView = {
         let stackView = UIStackView(
@@ -117,6 +119,10 @@ final class CommunityPostCell: UITableViewCell {
         contentView.addSubview(cardView)
         contentView.addSubview(dividerView)
         cardView.addSubview(contentStackView)
+
+        creatorInfoView.isUserInteractionEnabled = true
+        let creatorTapGesture = UITapGestureRecognizer(target: self, action: #selector(handleCreatorTap))
+        creatorInfoView.addGestureRecognizer(creatorTapGesture)
 
         storeInfoView.isUserInteractionEnabled = true
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleStoreTap))
@@ -151,6 +157,7 @@ final class CommunityPostCell: UITableViewCell {
     func configure(with viewModel: CommunityPostItemViewModel) {
         currentLikeCount = viewModel.likeCountValue
         currentStoreId = viewModel.storeId
+        currentCreatorId = viewModel.creatorUserId
         creatorInfoView.configure(
             name: viewModel.creatorName,
             createdAtText: viewModel.createdAtText,
@@ -191,5 +198,10 @@ final class CommunityPostCell: UITableViewCell {
     @objc private func handleStoreTap() {
         guard let storeId = currentStoreId else { return }
         onStoreInfoTapped?(storeId)
+    }
+
+    @objc private func handleCreatorTap() {
+        guard let creatorId = currentCreatorId else { return }
+        onCreatorTapped?(creatorId)
     }
 }

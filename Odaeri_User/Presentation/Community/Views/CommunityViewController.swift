@@ -7,13 +7,27 @@
 
 import UIKit
 import Combine
-import AVKit
 import SnapKit
 
 final class CommunityViewController: BaseViewController<CommunityViewModel> {
-    weak var coordinator: CommunityCoordinator?
-
     private let searchBar = SearchBar()
+
+    private let chatButton: UIButton = {
+        let button = UIButton()
+        button.backgroundColor = AppColor.deepSprout
+        button.layer.cornerRadius = 8
+        button.setImage(AppImage.chat, for: .normal)
+        button.tintColor = AppColor.gray0
+        return button
+    }()
+
+    private let chatBadgeView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .systemRed
+        view.layer.cornerRadius = 5
+        view.isHidden = true
+        return view
+    }()
 
     private let writeButton: UIButton = {
         let button = UIButton()
@@ -25,7 +39,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
     }()
 
     private lazy var topStackView: UIStackView = {
-        let stackView = UIStackView(arrangedSubviews: [searchBar, writeButton])
+        let stackView = UIStackView(arrangedSubviews: [searchBar, chatButton, writeButton])
         stackView.axis = .horizontal
         stackView.spacing = AppSpacing.small
         stackView.alignment = .center
@@ -54,9 +68,17 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
     private let sortSelectedSubject = PassthroughSubject<CommunitySortType, Never>()
     private let postLikeToggledSubject = PassthroughSubject<CommunityPostLikeEvent, Never>()
     private let bannerSelectedSubject = PassthroughSubject<BannerEntity, Never>()
+    private let storeSelectedSubject = PassthroughSubject<String, Never>()
+    private let creatorSelectedSubject = PassthroughSubject<String, Never>()
+
+    private enum Layout {
+        static let actionButtonSize: CGFloat = 40
+        static let badgeSize: CGFloat = 10
+    }
     
     override func setupUI() {
         super.setupUI()
+        setKeyboardDismissMode(.onDrag, for: tableView)
 
         view.backgroundColor = AppColor.gray15
 
@@ -65,7 +87,18 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
         view.addSubview(tableView)
 
         writeButton.snp.makeConstraints {
-            $0.size.equalTo(40)
+            $0.size.equalTo(Layout.actionButtonSize)
+        }
+
+        chatButton.snp.makeConstraints {
+            $0.size.equalTo(Layout.actionButtonSize)
+        }
+
+        chatButton.addSubview(chatBadgeView)
+        chatBadgeView.snp.makeConstraints {
+            $0.size.equalTo(Layout.badgeSize)
+            $0.top.equalToSuperview().offset(4)
+            $0.trailing.equalToSuperview().offset(-4)
         }
 
         topStackView.snp.makeConstraints {
@@ -117,6 +150,9 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
         let input = CommunityViewModel.Input(
             viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
             writeButtonTapped: writeButton.tapPublisher(),
+            chatButtonTapped: chatButton.tapPublisher(),
+            storeSelected: storeSelectedSubject.eraseToAnyPublisher(),
+            creatorSelected: creatorSelectedSubject.eraseToAnyPublisher(),
             distanceIndexSelected: distanceIndexSubject.eraseToAnyPublisher(),
             sortSelected: sortSelectedSubject.eraseToAnyPublisher(),
             userScrolledBanner: userScrolledBannerSubject.eraseToAnyPublisher(),
@@ -153,13 +189,6 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             }
             .store(in: &cancellables)
 
-        output.bannerWebPath
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] path in
-                self?.coordinator?.showEventWeb(path: path)
-            }
-            .store(in: &cancellables)
-
         output.posts
             .receive(on: DispatchQueue.main)
             .sink { [weak self] posts in
@@ -179,6 +208,13 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             }
             .store(in: &cancellables)
 
+        RealmChatRepository.shared.hasAnyUnreadRoom()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] hasUnread in
+                self?.chatBadgeView.isHidden = !hasUnread
+            }
+            .store(in: &cancellables)
+
         viewDidLoadSubject.send(())
     }
 
@@ -194,10 +230,14 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             cell.cancellables.removeAll()
             cell.configure(with: item)
             cell.onVideoSelected = { [weak self] url in
-                self?.presentVideoPlayer(url: url)
+                guard let self = self else { return }
+                AppMediaService.shared.playVideo(url: url.absoluteString, from: self)
             }
             cell.onStoreInfoTapped = { [weak self] storeId in
-                self?.coordinator?.showStoreDetail(storeId: storeId)
+                self?.storeSelectedSubject.send(storeId)
+            }
+            cell.onCreatorTapped = { [weak self] creatorId in
+                self?.creatorSelectedSubject.send(creatorId)
             }
             cell.likeTapPublisher
                 .sink { [weak self] event in
@@ -229,14 +269,6 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
         guard headerView.frame.height != height else { return }
         headerView.frame.size.height = height
         tableView.tableHeaderView = headerView
-    }
-
-    private func presentVideoPlayer(url: URL) {
-        let playerViewController = AVPlayerViewController()
-        playerViewController.player = AVPlayer(url: url)
-        present(playerViewController, animated: true) {
-            playerViewController.player?.play()
-        }
     }
 }
 

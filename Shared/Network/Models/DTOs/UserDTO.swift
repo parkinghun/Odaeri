@@ -73,7 +73,7 @@ struct ProfileResponse: Decodable {
     let userId: String
     let email: String
     let nick: String
-    let profileImage: String
+    let profileImage: String?
     let phoneNum: String
 
     enum CodingKeys: String, CodingKey {

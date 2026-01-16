@@ -29,8 +29,8 @@ final class HomeCoordinator: Coordinator {
 
     func start() {
         let homeViewModel = HomeViewModel()
+        homeViewModel.coordinator = self
         let homeViewController = HomeViewController(viewModel: homeViewModel)
-        homeViewController.coordinator = self
         navigationController.setViewControllers([homeViewController], animated: false)
     }
 

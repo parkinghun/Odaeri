@@ -10,8 +10,6 @@ import Combine
 import SnapKit
 
 final class LoginViewController: BaseViewController<LoginViewModel> {
-    weak var coordinator: AuthCoordinator?
-
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.text = "Odaeri"
@@ -156,10 +154,5 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
             }
             .store(in: &cancellables)
 
-        output.loginSuccess
-            .sink { [weak self] _ in
-                self?.coordinator?.didFinishLogin()
-            }
-            .store(in: &cancellables)
     }
 }
