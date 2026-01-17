@@ -6,9 +6,10 @@
 //
 
 import UIKit
+import Combine
 
 protocol CommunityCoordinatorDelegate: AnyObject {
-    
+    func communityCoordinatorDidCreatePost(_ coordinator: CommunityCoordinator)
 }
 
 final class CommunityCoordinator: Coordinator {
@@ -53,6 +54,24 @@ final class CommunityCoordinator: Coordinator {
         addChild(chatCoordinator)
         chatCoordinator.start()
     }
+
+    func showStoreSearch() {
+        let viewModel = StoreSearchViewModel(viewType: .community)
+        let viewController = StoreSearchViewController(viewModel: viewModel, viewType: .community)
+        viewController.delegate = self
+        navigationController.pushViewController(viewController, animated: true)
+    }
+
+    private func openWritePost() {
+        let viewModel = CommunityPostViewModel()
+        viewModel.coordinator = self
+        viewModel.onPostCreated = { [weak self] in
+            guard let self = self else { return }
+            self.delegate?.communityCoordinatorDidCreatePost(self)
+        }
+        let viewController = CommunityPostViewController(viewType: .create, viewModel: viewModel)
+        navigationController.pushViewController(viewController, animated: true)
+    }
 }
 
 extension CommunityCoordinator: UserProfileCoordinating {
@@ -69,7 +88,7 @@ extension CommunityCoordinator: UserProfileCoordinating {
     }
 
     func showWritePost() {
-        showPlaceholderAlert(title: "글쓰기", message: "게시글 작성 화면은 준비 중입니다.")
+        openWritePost()
     }
 
     func showEditPost(postId: String) {
@@ -99,5 +118,29 @@ extension CommunityCoordinator: UserProfileCoordinating {
 extension CommunityCoordinator: ChatCoordinatorDelegate {
     func chatCoordinatorDidFinish(_ coordinator: ChatCoordinator) {
         removeChild(coordinator)
+    }
+}
+
+extension CommunityCoordinator: StoreSearchDelegate {
+    func didSelectStore(storeId: String) {
+        navigationController.popViewController(animated: true)
+
+        if let postVC = navigationController.viewControllers.last as? CommunityPostViewController {
+            let storeRepository = StoreRepositoryImpl()
+            var cancellable: AnyCancellable?
+
+            cancellable = storeRepository.fetchStoreDetail(storeId: storeId)
+                .sink(
+                    receiveCompletion: { completion in
+                        if case .failure(let error) = completion {
+                            print("Failed to fetch store detail: \(error)")
+                        }
+                        cancellable?.cancel()
+                    },
+                    receiveValue: { store in
+                        postVC.updateSelectedStore(id: store.storeId, name: store.name)
+                    }
+                )
+        }
     }
 }
