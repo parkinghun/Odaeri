@@ -270,6 +270,10 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
         headerView.frame.size.height = height
         tableView.tableHeaderView = headerView
     }
+
+    func refresh() {
+        viewModel.refresh()
+    }
 }
 
 private enum CommunitySection {
