@@ -85,8 +85,8 @@ final class HomeCoordinator: Coordinator {
         navigationController.pushViewController(viewController, animated: true)
     }
 
-    func showStoreSearch() {
-        let viewModel = StoreSearchViewModel(viewType: .home)
+    func showStoreSearch(with keyword: String? = nil) {
+        let viewModel = StoreSearchViewModel(viewType: .home, initialSearchQuery: keyword)
         let viewController = StoreSearchViewController(viewModel: viewModel, viewType: .home)
         viewController.delegate = self
         navigationController.pushViewController(viewController, animated: true)

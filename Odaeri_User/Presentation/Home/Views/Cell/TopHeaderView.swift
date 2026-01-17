@@ -18,6 +18,11 @@ final class TopHeaderView: UICollectionReusableView {
         searchBarTapSubject.eraseToAnyPublisher()
     }
 
+    private let keywordSearchTapSubject = PassthroughSubject<String, Never>()
+    var keywordSearchTapPublisher: AnyPublisher<String, Never> {
+        keywordSearchTapSubject.eraseToAnyPublisher()
+    }
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
@@ -59,5 +64,8 @@ final class TopHeaderView: UICollectionReusableView {
 
     func configure(with keywords: [String]) {
         trendingSearchTickerView.configure(with: keywords)
+        trendingSearchTickerView.onSearchTapped = { [weak self] keyword in
+            self?.keywordSearchTapSubject.send(keyword)
+        }
     }
 }

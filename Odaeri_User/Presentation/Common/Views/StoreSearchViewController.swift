@@ -112,6 +112,10 @@ final class StoreSearchViewController: BaseViewController<StoreSearchViewModel> 
 
         let output = viewModel.transform(input: input)
 
+        if let initialQuery = viewModel.initialSearchQuery {
+            searchBar.text = initialQuery
+        }
+
         output.viewState
             .receive(on: DispatchQueue.main)
             .sink { [weak self] state in

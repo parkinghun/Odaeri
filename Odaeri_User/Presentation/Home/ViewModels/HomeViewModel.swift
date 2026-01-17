@@ -38,6 +38,7 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
     struct Input {
         let viewDidLoad: AnyPublisher<Void, Never>
         let searchBarTapped: AnyPublisher<Void, Never>
+        let keywordSearchTapped: AnyPublisher<String, Never>
         let categorySelected: AnyPublisher<Category?, Never>
         let refreshTriggered: AnyPublisher<Void, Never>
         let userScrolledBanner: AnyPublisher<Int, Never>
@@ -122,6 +123,12 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
         input.searchBarTapped
             .sink { [weak self] _ in
                 self?.coordinator?.showStoreSearch()
+            }
+            .store(in: &cancellables)
+
+        input.keywordSearchTapped
+            .sink { [weak self] keyword in
+                self?.coordinator?.showStoreSearch(with: keyword)
             }
             .store(in: &cancellables)
 

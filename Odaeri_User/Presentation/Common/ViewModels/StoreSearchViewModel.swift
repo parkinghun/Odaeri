@@ -61,15 +61,18 @@ enum StoreSearchViewState {
 
 final class StoreSearchViewModel: BaseViewModel, ViewModelType {
     private let viewType: StoreSearchViewType
+    let initialSearchQuery: String?
     private let storeRepository: StoreRepository
     private let orderRepository: OrderRepository
 
     init(
         viewType: StoreSearchViewType,
+        initialSearchQuery: String? = nil,
         storeRepository: StoreRepository = StoreRepositoryImpl(),
         orderRepository: OrderRepository = OrderRepositoryImpl()
     ) {
         self.viewType = viewType
+        self.initialSearchQuery = initialSearchQuery
         self.storeRepository = storeRepository
         self.orderRepository = orderRepository
     }
@@ -97,10 +100,21 @@ final class StoreSearchViewModel: BaseViewModel, ViewModelType {
         input.viewDidLoad
             .sink { [weak self] _ in
                 guard let self = self else { return }
-                self.initialFetch(
-                    viewStateSubject: viewStateSubject,
-                    recentStoresSubject: recentStoresSubject
-                )
+                if let initialQuery = self.initialSearchQuery {
+                    self.handleSearch(
+                        searchText: initialQuery,
+                        viewStateSubject: viewStateSubject,
+                        searchResultsSubject: searchResultsSubject,
+                        recentStoresSubject: recentStoresSubject,
+                        isLoadingSubject: isLoadingSubject,
+                        errorSubject: errorSubject
+                    )
+                } else {
+                    self.initialFetch(
+                        viewStateSubject: viewStateSubject,
+                        recentStoresSubject: recentStoresSubject
+                    )
+                }
             }
             .store(in: &cancellables)
 

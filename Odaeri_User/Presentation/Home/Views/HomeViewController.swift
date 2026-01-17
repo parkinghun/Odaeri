@@ -71,16 +71,18 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     }
     
     private let categorySelectedSubject = PassthroughSubject<Category?, Never>()
-    
+    private let keywordSearchTappedSubject = PassthroughSubject<String, Never>()
+
     override func bind() {
         super.bind()
-        
+
         let viewDidLoadSubject = PassthroughSubject<Void, Never>()
         let refreshSubject = PassthroughSubject<Void, Never>()
-        
+
         let input = HomeViewModel.Input(
             viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
             searchBarTapped: searchBarTappedSubject.eraseToAnyPublisher(),
+            keywordSearchTapped: keywordSearchTappedSubject.eraseToAnyPublisher(),
             categorySelected: categorySelectedSubject.eraseToAnyPublisher(),
             refreshTriggered: refreshSubject.eraseToAnyPublisher(),
             userScrolledBanner: userScrolledBannerSubject.eraseToAnyPublisher(),
@@ -550,6 +552,14 @@ private extension HomeViewController {
                 .throttle(for: .seconds(0.5), scheduler: RunLoop.main, latest: false)
                 .sink { [weak self] _ in
                     self?.searchBarTappedSubject.send()
+                }
+                .store(in: &self.cancellables)
+
+            // Keyword 검색 탭 이벤트 바인딩
+            supplementaryView.keywordSearchTapPublisher
+                .throttle(for: .seconds(0.5), scheduler: RunLoop.main, latest: false)
+                .sink { [weak self] keyword in
+                    self?.keywordSearchTappedSubject.send(keyword)
                 }
                 .store(in: &self.cancellables)
         }
