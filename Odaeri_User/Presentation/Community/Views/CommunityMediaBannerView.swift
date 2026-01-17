@@ -9,7 +9,7 @@ import UIKit
 import SnapKit
 
 final class CommunityMediaBannerView: UIView {
-    var onVideoSelected: ((URL) -> Void)?
+    var onVideoSelected: ((String) -> Void)?
     var isInteractionEnabled: Bool = true
 
     private var items: [CommunityMediaItemViewModel] = []
@@ -29,6 +29,7 @@ final class CommunityMediaBannerView: UIView {
         let view = UICollectionView(frame: .zero, collectionViewLayout: layout)
         view.showsHorizontalScrollIndicator = false
         view.isPagingEnabled = true
+        view.allowsSelection = true
         view.backgroundColor = .clear
         view.dataSource = self
         view.delegate = self
@@ -88,7 +89,11 @@ extension CommunityMediaBannerView: UICollectionViewDataSource, UICollectionView
             return UICollectionViewCell()
         }
 
-        cell.configure(with: items[indexPath.item])
+        let item = items[indexPath.item]
+        cell.configure(with: item)
+        cell.onTap = { [weak self] in
+            self?.handleTap(item: item)
+        }
         return cell
     }
 
@@ -100,13 +105,20 @@ extension CommunityMediaBannerView: UICollectionViewDataSource, UICollectionView
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard isInteractionEnabled else { return }
         let item = items[indexPath.item]
-        guard item.type == .video, let url = URL(string: item.url) else { return }
-        onVideoSelected?(url)
+        handleTap(item: item)
+    }
+
+    private func handleTap(item: CommunityMediaItemViewModel) {
+        guard isInteractionEnabled else { return }
+        guard item.type == .video else { return }
+        onVideoSelected?(item.url)
     }
 }
 
 private final class CommunityMediaBannerCell: UICollectionViewCell {
     static let reuseIdentifier = String(describing: CommunityMediaBannerCell.self)
+
+    var onTap: (() -> Void)?
 
     private let imageView: UIImageView = {
         let view = UIImageView()
@@ -123,6 +135,12 @@ private final class CommunityMediaBannerCell: UICollectionViewCell {
         view.contentMode = .scaleAspectFit
         view.isHidden = true
         return view
+    }()
+
+    private let tapButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.backgroundColor = .clear
+        return button
     }()
 
     override init(frame: CGRect) {
@@ -143,6 +161,7 @@ private final class CommunityMediaBannerCell: UICollectionViewCell {
     private func setupUI() {
         contentView.addSubview(imageView)
         contentView.addSubview(playIconView)
+        contentView.addSubview(tapButton)
 
         imageView.snp.makeConstraints {
             $0.edges.equalToSuperview()
@@ -152,6 +171,12 @@ private final class CommunityMediaBannerCell: UICollectionViewCell {
             $0.center.equalToSuperview()
             $0.size.equalTo(40)
         }
+
+        tapButton.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+        }
+
+        tapButton.addTarget(self, action: #selector(handleTap), for: .touchUpInside)
     }
 
     func configure(with item: CommunityMediaItemViewModel) {
@@ -167,5 +192,9 @@ private final class CommunityMediaBannerCell: UICollectionViewCell {
         } else {
             imageView.image = AppImage.default
         }
+    }
+
+    @objc private func handleTap() {
+        onTap?()
     }
 }

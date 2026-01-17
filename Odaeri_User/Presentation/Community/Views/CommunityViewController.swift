@@ -273,6 +273,10 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
 
             cell.cancellables.removeAll()
             cell.configure(with: item)
+            cell.onVideoSelected = { [weak self] videoURL in
+                guard let self = self else { return }
+                AppMediaService.shared.playVideo(url: videoURL, from: self)
+            }
             cell.onStoreInfoTapped = { [weak self] storeId in
                 self?.storeSelectedSubject.send(storeId)
             }

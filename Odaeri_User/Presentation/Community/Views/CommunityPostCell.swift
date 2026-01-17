@@ -22,7 +22,7 @@ final class CommunityPostCell: UITableViewCell {
         contentTapSubject.eraseToAnyPublisher()
     }
 
-    var onVideoSelected: ((URL) -> Void)? {
+    var onVideoSelected: ((String) -> Void)? {
         didSet { mediaGridView.onVideoSelected = onVideoSelected }
     }
 
@@ -148,6 +148,8 @@ final class CommunityPostCell: UITableViewCell {
         contentView.addSubview(dividerView)
         cardView.addSubview(contentStackView)
         cardView.addSubview(moreButton)
+
+        mediaGridView.isUserInteractionEnabled = true
 
         creatorInfoView.isUserInteractionEnabled = true
         let creatorTapGesture = UITapGestureRecognizer(target: self, action: #selector(handleCreatorTap))

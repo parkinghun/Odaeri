@@ -277,7 +277,11 @@ final class CommunityPostDetailViewController: BaseViewController<CommunityPostD
             }
             .store(in: &cancellables)
 
-        mediaBannerView.isInteractionEnabled = false
+        mediaBannerView.isInteractionEnabled = true
+        mediaBannerView.onVideoSelected = { [weak self] url in
+            guard let self = self else { return }
+            AppMediaService.shared.playVideo(url: url, from: self)
+        }
 
         likeButton.tapPublisher
             .sink { event in

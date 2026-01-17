@@ -41,6 +41,12 @@ final class CommunityMediaItemView: UIView {
         return label
     }()
 
+    private let tapButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.backgroundColor = .clear
+        return button
+    }()
+
     private var currentItem: CommunityMediaItemViewModel?
 
     override init(frame: CGRect) {
@@ -61,6 +67,7 @@ final class CommunityMediaItemView: UIView {
         addSubview(playIconView)
         addSubview(overlayView)
         overlayView.addSubview(overlayLabel)
+        addSubview(tapButton)
 
         imageView.snp.makeConstraints {
             $0.edges.equalToSuperview()
@@ -78,11 +85,16 @@ final class CommunityMediaItemView: UIView {
         overlayLabel.snp.makeConstraints {
             $0.center.equalToSuperview()
         }
+
+        tapButton.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+        }
     }
 
     private func setupGesture() {
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
         addGestureRecognizer(tap)
+        tapButton.addTarget(self, action: #selector(handleTap), for: .touchUpInside)
     }
 
     @objc private func handleTap() {

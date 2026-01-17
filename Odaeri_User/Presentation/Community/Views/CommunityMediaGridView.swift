@@ -10,7 +10,7 @@ import Combine
 import SnapKit
 
 final class CommunityMediaGridView: UIView {
-    var onVideoSelected: ((URL) -> Void)?
+    var onVideoSelected: ((String) -> Void)?
 
     var likeTapPublisher: AnyPublisher<LikeButton.TapEvent, Never> {
         likeButton.tapPublisher.eraseToAnyPublisher()
@@ -146,11 +146,6 @@ final class CommunityMediaGridView: UIView {
     private func handleMediaTap(_ item: CommunityMediaItemViewModel) {
         guard item.type == .video else { return }
 
-        guard let videoURL = URL(string: item.url) else {
-            print("[CommunityMediaGridView] Invalid video URL: \(item.url)")
-            return
-        }
-
-        onVideoSelected?(videoURL)
+        onVideoSelected?(item.url)
     }
 }
