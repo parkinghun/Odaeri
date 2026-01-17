@@ -9,6 +9,19 @@ import Combine
 import UIKit
 import Moya
 
+enum UploadItem {
+    case image(UIImage)
+    case imageURL(URL)
+    case video(URL)
+    case file(URL)
+}
+
+struct UploadResultItem {
+    let originalIndex: Int
+    let urls: [String]
+    let isThumbnailAndVideo: Bool
+}
+
 final class MediaUploadManager {
     static let shared = MediaUploadManager(
         processingService: .shared,
@@ -18,7 +31,6 @@ final class MediaUploadManager {
     private let processingService: MediaProcessingService
     private let uploadService: MediaUploadService
 
-    // 순차적 실행을 위한 세마포어
     private let semaphore = DispatchSemaphore(value: 1)
     private let progressSubject = CurrentValueSubject<Double, Never>(0)
     private var cancellables = Set<AnyCancellable>()
@@ -32,8 +44,8 @@ final class MediaUploadManager {
         progressSubject.eraseToAnyPublisher()
     }
 
-    func uploadFiles(
-        sourceURLs: [URL],
+    func uploadMedias(
+        _ items: [UploadItem],
         config: UploadConfig,
         roomId: String? = nil,
         progress: @escaping (Double) -> Void
@@ -50,39 +62,25 @@ final class MediaUploadManager {
                 }
 
                 var tempFiles: [URL] = []
+                var results: [UploadResultItem] = []
 
                 do {
-                    let multiparts = try await self.prepareMultiparts(
-                        sourceURLs: sourceURLs,
-                        config: config,
-                        tempFiles: &tempFiles
-                    )
+                    for (index, item) in items.enumerated() {
+                        let result = try await self.processAndUploadItem(
+                            item,
+                            at: index,
+                            config: config,
+                            roomId: roomId,
+                            tempFiles: &tempFiles,
+                            progress: progress
+                        )
+                        results.append(result)
+                    }
 
-                    self.uploadService.upload(
-                        context: config.context,
-                        roomId: roomId,
-                        multiparts: multiparts,
-                        progress: { [weak self] value in
-                            self?.progressSubject.send(value)
-                            progress(value)
-                        }
-                    )
-                    .sink(
-                        receiveCompletion: { [weak self] completion in
-                            guard let self = self else { return }
-                            self.cleanupFiles(tempFiles: tempFiles, taskID: &backgroundTaskID)
+                    let orderedURLs = self.buildOrderedURLs(from: results)
 
-                            if case .failure(let error) = completion {
-                                promise(.failure(self.mapError(error)))
-                            }
-                        },
-                        receiveValue: { [weak self] urls in
-                            guard let self = self else { return }
-                            self.cleanupFiles(tempFiles: tempFiles, taskID: &backgroundTaskID)
-                            promise(.success(urls))
-                        }
-                    )
-                    .store(in: &self.cancellables)
+                    self.cleanupFiles(tempFiles: tempFiles, taskID: &backgroundTaskID)
+                    promise(.success(orderedURLs))
 
                 } catch {
                     self.cleanupFiles(tempFiles: tempFiles, taskID: &backgroundTaskID)
@@ -93,92 +91,175 @@ final class MediaUploadManager {
         .eraseToAnyPublisher()
     }
 
-    func uploadVideo(
-        sourceURL: URL,
+    private func processAndUploadItem(
+        _ item: UploadItem,
+        at index: Int,
         config: UploadConfig,
-        roomId: String? = nil
-    ) -> AnyPublisher<MediaUploadResult, MediaError> {
-        Future<MediaUploadResult, MediaError> { [weak self] promise in
-            guard let self = self else { return }
+        roomId: String?,
+        tempFiles: inout [URL],
+        progress: @escaping (Double) -> Void
+    ) async throws -> UploadResultItem {
+        switch item {
+        case .image(let uiImage):
+            let processedURL = try await processingService.processImage(uiImage, config: config)
+            tempFiles.append(processedURL)
 
-            _Concurrency.Task {
-                // 1. 순서 보장을 위한 대기
-                self.semaphore.wait()
+            let uploadedURLs = try await uploadSingleFile(
+                processedURL,
+                config: config,
+                roomId: roomId,
+                progress: progress
+            )
 
-                // 2. 백그라운드 작업 시작
-                var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
-                backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "MediaUploadTask") {
-                    // 시스템에 의해 작업 시간이 만료된 경우 (안전을 위한 처리)
-                    self.endBackgroundTask(&backgroundTaskID)
-                }
+            return UploadResultItem(
+                originalIndex: index,
+                urls: uploadedURLs,
+                isThumbnailAndVideo: false
+            )
 
-                var compressedURL: URL?
+        case .imageURL(let url):
+            let processedURL = try await processingService.processImageFromURL(url, config: config)
+            tempFiles.append(processedURL)
 
-                do {
-                    // 3. 비디오 압축
-                    let finalURL = try await self.processingService.compressVideo(at: sourceURL, config: config)
-                    compressedURL = finalURL
+            let uploadedURLs = try await uploadSingleFile(
+                processedURL,
+                config: config,
+                roomId: roomId,
+                progress: progress
+            )
 
-                    // 4. 썸네일 생성
-                    let thumbnailData = try await self.processingService.generateThumbnail(at: finalURL)
+            return UploadResultItem(
+                originalIndex: index,
+                urls: uploadedURLs,
+                isThumbnailAndVideo: false
+            )
 
-                    // 5. [메모리 효율] .file 제공자 사용 / [서버 스펙] name: "files" 사용
-                    let multipart = MultipartFormData(
-                        provider: .file(finalURL),
-                        name: "files",
-                        fileName: finalURL.lastPathComponent,
-                        mimeType: "video/mp4"
-                    )
+        case .video(let url):
+            let compressedURL = try await processingService.compressVideo(at: url, config: config)
+            tempFiles.append(compressedURL)
 
-                    // 6. 업로드 실행
-                    self.uploadService.upload(
-                        context: config.context,
-                        roomId: roomId,
-                        multiparts: [multipart],
-                        progress: { [weak self] p in self?.progressSubject.send(p) }
-                    )
-                    .sink(
-                        receiveCompletion: { [weak self] completion in
-                            if case .failure(let error) = completion {
-                                promise(.failure(self?.mapError(error) ?? .unknown))
-                            }
-                            self?.cleanup(url: compressedURL, taskID: &backgroundTaskID)
-                        },
-                        receiveValue: { [weak self] urls in
-                            // 성공 결과 반환
-                            promise(.success(MediaUploadResult(
-                                uploadedURLs: urls,
-                                thumbnailData: thumbnailData,
-                                localTempURL: finalURL
-                            )))
-                            // 완료 시 자원 정리 (성공 시)
-                            self?.cleanup(url: compressedURL, taskID: &backgroundTaskID)
-                        }
-                    )
-                    .store(in: &self.cancellables)
+            let thumbnailData = try await processingService.generateThumbnail(at: compressedURL)
 
-                } catch {
-                    // 압축이나 썸네일 생성 중 에러 발생 시 정리
-                    self.cleanup(url: compressedURL, taskID: &backgroundTaskID)
-                    promise(.failure((error as? MediaError) ?? .unknown))
-                }
+            let thumbnailURL = try saveThumbnailToTempFile(thumbnailData)
+            tempFiles.append(thumbnailURL)
+
+            let thumbnailUploadedURLs = try await uploadSingleFile(
+                thumbnailURL,
+                config: config,
+                roomId: roomId,
+                progress: progress
+            )
+
+            let videoUploadedURLs = try await uploadSingleFile(
+                compressedURL,
+                config: config,
+                roomId: roomId,
+                progress: progress
+            )
+
+            let combinedURLs = thumbnailUploadedURLs + videoUploadedURLs
+
+            return UploadResultItem(
+                originalIndex: index,
+                urls: combinedURLs,
+                isThumbnailAndVideo: true
+            )
+
+        case .file(let url):
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                throw MediaError.invalidURL
             }
+
+            guard config.isDocumentFile(url) else {
+                throw MediaError.invalidFileExtension
+            }
+
+            let fileSize = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64 ?? 0
+            guard config.validateFileSize(fileSize) else {
+                throw MediaError.fileSizeExceeded(limit: config.maxFileSize)
+            }
+
+            let uploadedURLs = try await uploadSingleFile(
+                url,
+                config: config,
+                roomId: roomId,
+                progress: progress
+            )
+
+            return UploadResultItem(
+                originalIndex: index,
+                urls: uploadedURLs,
+                isThumbnailAndVideo: false
+            )
         }
-        .eraseToAnyPublisher()
     }
 
-    // 자원 정리 로직 통합
-    private func cleanup(url: URL?, taskID: inout UIBackgroundTaskIdentifier) {
-        // 임시 파일 삭제
-        if let url = url {
-            try? FileManager.default.removeItem(at: url)
+    private func uploadSingleFile(
+        _ fileURL: URL,
+        config: UploadConfig,
+        roomId: String?,
+        progress: @escaping (Double) -> Void
+    ) async throws -> [String] {
+        let mimeType = mimeType(for: fileURL)
+        let multipart = MultipartFormData(
+            provider: .file(fileURL),
+            name: "files",
+            fileName: fileURL.lastPathComponent,
+            mimeType: mimeType
+        )
+
+        return try await withCheckedThrowingContinuation { continuation in
+            self.uploadService.upload(
+                context: config.context,
+                roomId: roomId,
+                multiparts: [multipart],
+                progress: { [weak self] p in
+                    self?.progressSubject.send(p)
+                    progress(p)
+                }
+            )
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        continuation.resume(throwing: self.mapError(error))
+                    }
+                },
+                receiveValue: { urls in
+                    continuation.resume(returning: urls)
+                }
+            )
+            .store(in: &self.cancellables)
+        }
+    }
+
+    private func saveThumbnailToTempFile(_ data: Data) throws -> URL {
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MediaUploads", isDirectory: true)
+
+        if !FileManager.default.fileExists(atPath: tempDirectory.path) {
+            try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
         }
 
-        // 백그라운드 태스크 종료
-        endBackgroundTask(&taskID)
+        let fileURL = tempDirectory.appendingPathComponent("thumbnail_\(UUID().uuidString).jpg")
+        try data.write(to: fileURL)
+        return fileURL
+    }
 
-        // 세마포어 해제 (다음 업로드 허용)
-        self.semaphore.signal()
+    private func buildOrderedURLs(from results: [UploadResultItem]) -> [String] {
+        let sorted = results.sorted { $0.originalIndex < $1.originalIndex }
+        return sorted.flatMap { $0.urls }
+    }
+
+    private func cleanupFiles(tempFiles: [URL], taskID: inout UIBackgroundTaskIdentifier) {
+        cleanupTempFiles(tempFiles)
+        endBackgroundTask(&taskID)
+        semaphore.signal()
+    }
+
+    private func cleanupTempFiles(_ urls: [URL]) {
+        urls.forEach { url in
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 
     private func endBackgroundTask(_ taskID: inout UIBackgroundTaskIdentifier) {
@@ -188,57 +269,6 @@ final class MediaUploadManager {
         }
     }
 
-    private func prepareMultiparts(
-        sourceURLs: [URL],
-        config: UploadConfig,
-        tempFiles: inout [URL]
-    ) async throws -> [MultipartFormData] {
-        var multiparts: [MultipartFormData] = []
-
-        do {
-            for url in sourceURLs {
-                let uploadURL: URL
-                if isVideoFile(url) {
-                    uploadURL = try await processingService.compressVideo(at: url, config: config)
-                    tempFiles.append(uploadURL)
-                } else {
-                    uploadURL = url
-                }
-
-                let mimeType = mimeType(for: uploadURL)
-                multiparts.append(
-                    MultipartFormData(
-                        provider: .file(uploadURL),
-                        name: "files",
-                        fileName: uploadURL.lastPathComponent,
-                        mimeType: mimeType
-                    )
-                )
-            }
-            return multiparts
-        } catch {
-            cleanupTempFiles(tempFiles)
-            throw error
-        }
-    }
-
-    private func cleanupTempFiles(_ urls: [URL]) {
-        urls.forEach { url in
-            try? FileManager.default.removeItem(at: url)
-        }
-    }
-
-    private func cleanupFiles(tempFiles: [URL], taskID: inout UIBackgroundTaskIdentifier) {
-        cleanupTempFiles(tempFiles)
-        endBackgroundTask(&taskID)
-        semaphore.signal()
-    }
-
-    private func isVideoFile(_ url: URL) -> Bool {
-        let ext = url.pathExtension.lowercased()
-        return ext == "mp4" || ext == "mov"
-    }
-
     private func mimeType(for url: URL) -> String {
         let ext = url.pathExtension.lowercased()
         switch ext {
@@ -246,14 +276,24 @@ final class MediaUploadManager {
             return "video/mp4"
         case "mov":
             return "video/quicktime"
+        case "avi":
+            return "video/x-msvideo"
+        case "mkv":
+            return "video/x-matroska"
+        case "wmv":
+            return "video/x-ms-wmv"
         case "jpg", "jpeg":
             return "image/jpeg"
         case "png":
             return "image/png"
+        case "gif":
+            return "image/gif"
+        case "webp":
+            return "image/webp"
+        case "heic":
+            return "image/heic"
         case "pdf":
             return "application/pdf"
-        case "zip":
-            return "application/zip"
         default:
             return "application/octet-stream"
         }

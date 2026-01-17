@@ -106,4 +106,53 @@ final class MediaProcessingService {
         let values = try url.resourceValues(forKeys: [.fileSizeKey])
         return Int64(values.fileSize ?? 0)
     }
+
+    func processImage(_ image: UIImage, config: UploadConfig) async throws -> URL {
+        guard hasSufficientStorage(minimumBytes: Constant.minimumFreeBytes) else {
+            throw MediaError.insufficientStorage
+        }
+
+        guard let imageData = image.processForUpload(
+            maxDimension: config.maxImageDimension,
+            compressionQuality: Constant.compressionQuality
+        ) else {
+            throw MediaError.imageProcessingFailed
+        }
+
+        if Int64(imageData.count) > config.maxFileSize {
+            throw MediaError.fileSizeExceeded(limit: config.maxFileSize)
+        }
+
+        let outputURL = try makeTemporaryImageURL()
+        try imageData.write(to: outputURL)
+
+        return outputURL
+    }
+
+    func processImageFromURL(_ url: URL, config: UploadConfig) async throws -> URL {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw MediaError.invalidURL
+        }
+
+        guard config.isImageFile(url) else {
+            throw MediaError.invalidFileExtension
+        }
+
+        guard let image = UIImage(contentsOfFile: url.path) else {
+            throw MediaError.imageProcessingFailed
+        }
+
+        return try await processImage(image, config: config)
+    }
+
+    private func makeTemporaryImageURL() throws -> URL {
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(Constant.tempDirectoryName, isDirectory: true)
+
+        if !FileManager.default.fileExists(atPath: tempDirectory.path) {
+            try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        }
+
+        return tempDirectory.appendingPathComponent("image_\(UUID().uuidString).jpg")
+    }
 }

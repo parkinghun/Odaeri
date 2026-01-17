@@ -13,4 +13,30 @@ extension UIImage {
             draw(in: CGRect(origin: .zero, size: size))
         }
     }
+
+    func resizeToMaxDimension(_ maxDimension: CGFloat) -> UIImage {
+        let currentSize = self.size
+        let longerSide = max(currentSize.width, currentSize.height)
+
+        if longerSide <= maxDimension {
+            return self
+        }
+
+        let scale = maxDimension / longerSide
+        let newSize = CGSize(
+            width: currentSize.width * scale,
+            height: currentSize.height * scale
+        )
+
+        return resize(to: newSize)
+    }
+
+    func compressToJPEG(quality: CGFloat = 0.8) -> Data? {
+        return jpegData(compressionQuality: quality)
+    }
+
+    func processForUpload(maxDimension: CGFloat, compressionQuality: CGFloat = 0.8) -> Data? {
+        let resized = resizeToMaxDimension(maxDimension)
+        return resized.compressToJPEG(quality: compressionQuality)
+    }
 }
