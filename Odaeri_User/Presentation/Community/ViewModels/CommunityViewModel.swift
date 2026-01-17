@@ -112,6 +112,12 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
             }
             .store(in: &cancellables)
 
+        input.writeButtonTapped
+            .sink { [weak self] _ in
+                self?.coordinator?.showWritePost()
+            }
+            .store(in: &cancellables)
+
         input.storeSelected
             .sink { [weak self] storeId in
                 self?.coordinator?.showStoreDetail(storeId: storeId)
@@ -209,6 +215,10 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
                 }
             )
             .store(in: &cancellables)
+    }
+
+    func refresh() {
+        fetchPosts()
     }
 
     private func fetchPosts() {
