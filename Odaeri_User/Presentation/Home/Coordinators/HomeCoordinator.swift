@@ -85,6 +85,13 @@ final class HomeCoordinator: Coordinator {
         navigationController.pushViewController(viewController, animated: true)
     }
 
+    func showStoreSearch() {
+        let viewModel = StoreSearchViewModel(viewType: .home)
+        let viewController = StoreSearchViewController(viewModel: viewModel, viewType: .home)
+        viewController.delegate = self
+        navigationController.pushViewController(viewController, animated: true)
+    }
+
     func showPayment(paymentRequest: PaymentRequest) {
         let paymentCoordinator = PaymentCoordinator(
             navigationController: navigationController,
@@ -136,5 +143,11 @@ extension HomeCoordinator: NavigationCoordinatorDelegate {
     func navigationCoordinatorDidArrive(_ coordinator: NavigationCoordinator, at store: StoreEntity) {
         removeChild(coordinator)
         showAlert(title: "도착", message: "\(store.name)에 도착했습니다.")
+    }
+}
+
+extension HomeCoordinator: StoreSearchDelegate {
+    func didSelectStore(storeId: String) {
+        showStoreDetail(storeId: storeId)
     }
 }

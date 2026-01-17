@@ -130,7 +130,18 @@ extension MainCoordinator: ProfileCoordinatorDelegate {
     }
 }
 
+// MARK: - OrderCoordinator
+extension MainCoordinator: OrderCoordinatorDelegate {
+
+}
+
 // MARK: - CommunityCoordinator
 extension MainCoordinator: CommunityCoordinatorDelegate {
-    
+    func communityCoordinatorDidCreatePost(_ coordinator: CommunityCoordinator) {
+        guard let communityNavController = communityCoordinator?.navigationController else { return }
+
+        if let communityVC = communityNavController.viewControllers.first as? CommunityViewController {
+            communityVC.refresh()
+        }
+    }
 }

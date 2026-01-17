@@ -33,6 +33,7 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     private let likeTapSubject = PassthroughSubject<LikeButton.TapEvent, Never>()
     private let bannerSelectedSubject = PassthroughSubject<BannerEntity, Never>()
     private let storeSelectedSubject = PassthroughSubject<String, Never>()
+    private let searchBarTappedSubject = PassthroughSubject<Void, Never>()
     private var bannerCarouselCell: BannerCarouselCell?
 
     private var currentLocation: CLLocation?
@@ -79,6 +80,7 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
         
         let input = HomeViewModel.Input(
             viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
+            searchBarTapped: searchBarTappedSubject.eraseToAnyPublisher(),
             categorySelected: categorySelectedSubject.eraseToAnyPublisher(),
             refreshTriggered: refreshSubject.eraseToAnyPublisher(),
             userScrolledBanner: userScrolledBannerSubject.eraseToAnyPublisher(),
@@ -542,6 +544,14 @@ private extension HomeViewController {
         ) { [weak self] supplementaryView, _, _ in
             guard let self = self else { return }
             self.topHeaderView = supplementaryView
+
+            // SearchBar 탭 이벤트 바인딩 (throttle로 연속 탭 방지)
+            supplementaryView.searchBarTapPublisher
+                .throttle(for: .seconds(0.5), scheduler: RunLoop.main, latest: false)
+                .sink { [weak self] _ in
+                    self?.searchBarTappedSubject.send()
+                }
+                .store(in: &self.cancellables)
         }
         
         let shopListHeaderRegistration = UICollectionView.SupplementaryRegistration<ShopListHeaderView>(

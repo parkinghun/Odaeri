@@ -35,6 +35,7 @@ enum AppImage {
     static let checkmarkEmpty = systemImage("checkmark.square")
     static let chevron = image("chevron")
     static let cheveronRight = systemImage("chevron.forward")
+    static let chevronDown = systemImage("chevron.down")
     static let `default` = image("Default")
     static let detail = image("Detail")
     static let distance = image("Distance")

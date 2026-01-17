@@ -7,14 +7,21 @@
 
 import UIKit
 import SnapKit
+import Combine
 
 final class TopHeaderView: UICollectionReusableView {
     private let searchBar = SearchBar()
     private let trendingSearchTickerView = TrendingSearchTickerView()
 
+    private let searchBarTapSubject = PassthroughSubject<Void, Never>()
+    var searchBarTapPublisher: AnyPublisher<Void, Never> {
+        searchBarTapSubject.eraseToAnyPublisher()
+    }
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
+        setupGesture()
     }
 
     required init?(coder: NSCoder) {
@@ -37,6 +44,17 @@ final class TopHeaderView: UICollectionReusableView {
             $0.horizontalEdges.equalToSuperview()
             $0.bottom.equalToSuperview().inset(12)
         }
+    }
+
+    private func setupGesture() {
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(searchBarTapped))
+        searchBar.searchBar.addGestureRecognizer(tapGesture)
+        searchBar.searchBar.isUserInteractionEnabled = true
+        searchBar.searchBar.searchTextField.isUserInteractionEnabled = false
+    }
+
+    @objc private func searchBarTapped() {
+        searchBarTapSubject.send()
     }
 
     func configure(with keywords: [String]) {
