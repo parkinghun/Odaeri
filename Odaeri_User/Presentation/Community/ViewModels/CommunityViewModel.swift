@@ -62,6 +62,7 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
         let chatButtonTapped: AnyPublisher<Void, Never>
         let storeSelected: AnyPublisher<String, Never>
         let creatorSelected: AnyPublisher<String, Never>
+        let postDetailRequested: AnyPublisher<String, Never>
         let distanceIndexSelected: AnyPublisher<Int, Never>
         let sortSelected: AnyPublisher<CommunitySortType, Never>
         let userScrolledBanner: AnyPublisher<Int, Never>
@@ -141,6 +142,12 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
         input.creatorSelected
             .sink { [weak self] userId in
                 self?.coordinator?.showUserProfile(userId: userId)
+            }
+            .store(in: &cancellables)
+
+        input.postDetailRequested
+            .sink { [weak self] postId in
+                self?.coordinator?.showPostDetail(postId: postId)
             }
             .store(in: &cancellables)
 

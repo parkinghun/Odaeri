@@ -48,6 +48,12 @@ final class CommunityCoordinator: Coordinator {
         navigationController.pushViewController(viewController, animated: true)
     }
 
+    func showPostDetail(postId: String) {
+        let viewModel = CommunityPostDetailViewModel(postId: postId)
+        let viewController = CommunityPostDetailViewController(viewModel: viewModel)
+        navigationController.pushViewController(viewController, animated: true)
+    }
+
     func showChat() {
         let chatCoordinator = ChatCoordinator(navigationController: navigationController)
         chatCoordinator.delegate = self

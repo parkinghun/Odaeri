@@ -18,6 +18,10 @@ final class CommunityPostCell: UITableViewCell {
         mediaGridView.likeTapPublisher
     }
 
+    var contentTapPublisher: AnyPublisher<String, Never> {
+        contentTapSubject.eraseToAnyPublisher()
+    }
+
     var onVideoSelected: ((URL) -> Void)? {
         didSet { mediaGridView.onVideoSelected = onVideoSelected }
     }
@@ -26,6 +30,8 @@ final class CommunityPostCell: UITableViewCell {
     var onCreatorTapped: ((String) -> Void)?
     var onEditTapped: ((String) -> Void)?
     var onDeleteTapped: ((String) -> Void)?
+
+    private let contentTapSubject = PassthroughSubject<String, Never>()
 
     private let cardView: UIView = {
         let view = UIView()
@@ -88,6 +94,15 @@ final class CommunityPostCell: UITableViewCell {
         return label
     }()
 
+    private let titleContentContainer = UIView()
+
+    private lazy var titleContentStackView: UIStackView = {
+        let stackView = UIStackView(arrangedSubviews: [titleStackView, contentLabel])
+        stackView.axis = .vertical
+        stackView.spacing = AppSpacing.small
+        return stackView
+    }()
+
     private let storeInfoView = CommunityStoreInfoView()
 
     private let dividerView: UIView = {
@@ -104,7 +119,7 @@ final class CommunityPostCell: UITableViewCell {
 
     private lazy var contentStackView: UIStackView = {
         let stackView = UIStackView(
-            arrangedSubviews: [creatorInfoView, mediaGridView, titleStackView, contentLabel, storeInfoView]
+            arrangedSubviews: [creatorInfoView, mediaGridView, titleContentContainer, storeInfoView]
         )
         stackView.axis = .vertical
         stackView.spacing = AppSpacing.medium
@@ -138,6 +153,10 @@ final class CommunityPostCell: UITableViewCell {
         let creatorTapGesture = UITapGestureRecognizer(target: self, action: #selector(handleCreatorTap))
         creatorInfoView.addGestureRecognizer(creatorTapGesture)
 
+        titleContentContainer.isUserInteractionEnabled = true
+        let contentTapGesture = UITapGestureRecognizer(target: self, action: #selector(handleContentTap))
+        titleContentContainer.addGestureRecognizer(contentTapGesture)
+
         storeInfoView.isUserInteractionEnabled = true
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleStoreTap))
         storeInfoView.addGestureRecognizer(tapGesture)
@@ -160,14 +179,18 @@ final class CommunityPostCell: UITableViewCell {
             $0.size.equalTo(24)
         }
 
+        titleContentContainer.addSubview(titleContentStackView)
+        titleContentStackView.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+        }
+
         dividerView.snp.makeConstraints {
             $0.leading.trailing.equalToSuperview().inset(AppSpacing.screenMargin)
             $0.bottom.equalToSuperview()
             $0.height.equalTo(1)
         }
 
-        contentStackView.setCustomSpacing(AppSpacing.small, after: titleStackView)
-        contentStackView.setCustomSpacing(AppSpacing.small, after: contentLabel)
+        contentStackView.setCustomSpacing(AppSpacing.small, after: titleContentContainer)
 
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         likeInfoView.setContentCompressionResistancePriority(.required, for: .horizontal)
@@ -230,6 +253,11 @@ final class CommunityPostCell: UITableViewCell {
     @objc private func handleCreatorTap() {
         guard let creatorId = currentCreatorId else { return }
         onCreatorTapped?(creatorId)
+    }
+
+    @objc private func handleContentTap() {
+        guard let postId = currentPostId else { return }
+        contentTapSubject.send(postId)
     }
 
     @objc private func handleMoreTap() {

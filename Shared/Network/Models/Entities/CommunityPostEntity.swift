@@ -60,6 +60,7 @@ struct CommunityPostCommentEntity {
     let createdAt: Date?
     let creator: CreatorEntity
     let replies: [CommunityPostReplyEntity]
+    var isExpanded: Bool
 
     init(from response: CommunityPostCommentResponse) {
         self.commentId = response.commentId
@@ -67,6 +68,7 @@ struct CommunityPostCommentEntity {
         self.createdAt = response.createdAt.toDate()
         self.creator = CreatorEntity(from: response.creator)
         self.replies = (response.replies ?? []).map { CommunityPostReplyEntity(from: $0) }
+        self.isExpanded = false
     }
 }
 

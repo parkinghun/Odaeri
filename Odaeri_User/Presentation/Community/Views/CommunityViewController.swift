@@ -70,6 +70,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
     private let bannerSelectedSubject = PassthroughSubject<BannerEntity, Never>()
     private let storeSelectedSubject = PassthroughSubject<String, Never>()
     private let creatorSelectedSubject = PassthroughSubject<String, Never>()
+    private let postDetailRequestedSubject = PassthroughSubject<String, Never>()
     private let postEditRequestedSubject = PassthroughSubject<String, Never>()
     private let postDeleteRequestedSubject = PassthroughSubject<String, Never>()
     private let searchTextSubject = PassthroughSubject<String, Never>()
@@ -182,6 +183,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             chatButtonTapped: chatButton.tapPublisher(),
             storeSelected: storeSelectedSubject.eraseToAnyPublisher(),
             creatorSelected: creatorSelectedSubject.eraseToAnyPublisher(),
+            postDetailRequested: postDetailRequestedSubject.eraseToAnyPublisher(),
             distanceIndexSelected: distanceIndexSubject.eraseToAnyPublisher(),
             sortSelected: sortSelectedSubject.eraseToAnyPublisher(),
             userScrolledBanner: userScrolledBannerSubject.eraseToAnyPublisher(),
@@ -287,6 +289,11 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             cell.onDeleteTapped = { [weak self] postId in
                 self?.showDeleteConfirmation(postId: postId)
             }
+            cell.contentTapPublisher
+                .sink { [weak self] postId in
+                    self?.postDetailRequestedSubject.send(postId)
+                }
+                .store(in: &cell.cancellables)
             cell.likeTapPublisher
                 .sink { [weak self] event in
                     self?.postLikeToggledSubject.send(
