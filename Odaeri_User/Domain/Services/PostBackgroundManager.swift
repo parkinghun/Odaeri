@@ -44,12 +44,15 @@ struct PendingPost: Identifiable {
         self.content = content
         self.storeId = storeId
         self.storeName = storeName
-        self.uploadItems = mediaItems.map { item in
+        self.uploadItems = mediaItems.compactMap { item in
             switch item.kind {
             case .image(let image):
                 return .image(image)
-            case .video:
-                return .image(UIImage())
+            case .video(_, let fileName):
+                guard let videoURL = FilePathManager.getFileURL(from: fileName) else {
+                    return nil
+                }
+                return .video(videoURL)
             }
         }
         self.latitude = latitude
@@ -131,6 +134,103 @@ final class PostBackgroundManager {
         executeUpload(post: post)
     }
 
+    func startUpdate(
+        postId: String,
+        category: String,
+        title: String,
+        content: String,
+        storeId: String,
+        latitude: Double?,
+        longitude: Double?,
+        mediaItems: [CommunityPostMediaItem]
+    ) {
+        if mediaItems.isEmpty {
+            submitUpdate(
+                postId: postId,
+                category: category,
+                title: title,
+                content: content,
+                storeId: storeId,
+                latitude: latitude,
+                longitude: longitude,
+                fileUrls: nil
+            )
+        } else {
+            let uploadItems = mediaItems.compactMap { item -> UploadItem? in
+                switch item.kind {
+                case .image(let image):
+                    return .image(image)
+                case .video(_, let fileName):
+                    guard let videoURL = FilePathManager.getFileURL(from: fileName) else {
+                        return nil
+                    }
+                    return .video(videoURL)
+                }
+            }
+
+            mediaUploadManager.uploadMedias(
+                uploadItems,
+                config: .communityDefault,
+                progress: { _ in }
+            )
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("[PostBackgroundManager] Update media upload failed: \(error.errorDescription ?? "Unknown")")
+                    }
+                },
+                receiveValue: { [weak self] fileUrls in
+                    self?.submitUpdate(
+                        postId: postId,
+                        category: category,
+                        title: title,
+                        content: content,
+                        storeId: storeId,
+                        latitude: latitude,
+                        longitude: longitude,
+                        fileUrls: fileUrls
+                    )
+                }
+            )
+            .store(in: &cancellables)
+        }
+    }
+
+    private func submitUpdate(
+        postId: String,
+        category: String,
+        title: String,
+        content: String,
+        storeId: String,
+        latitude: Double?,
+        longitude: Double?,
+        fileUrls: [String]?
+    ) {
+        let request = CommunityPostUpdateRequest(
+            category: category,
+            title: title,
+            content: content,
+            storeId: storeId,
+            latitude: latitude,
+            longitude: longitude,
+            files: fileUrls
+        )
+
+        postRepository.updatePost(postId: postId, request: request)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("[PostBackgroundManager] Update failed: \(error.errorDescription ?? "Unknown")")
+                    }
+                },
+                receiveValue: { _ in
+                    print("[PostBackgroundManager] Update success: \(postId)")
+                    NotificationCenter.default.post(name: .communityPostDidUpdate, object: nil)
+                }
+            )
+            .store(in: &cancellables)
+    }
+
     private func executeUpload(post: PendingPost) {
         if post.uploadItems.isEmpty {
             submitPost(post: post, fileUrls: [])
@@ -181,6 +281,7 @@ final class PostBackgroundManager {
                 receiveValue: { [weak self] _ in
                     print("[PostBackgroundManager] Post created successfully")
                     self?.removePost(id: post.id)
+                    NotificationCenter.default.post(name: .communityPostDidUpdate, object: nil)
                 }
             )
             .store(in: &cancellables)

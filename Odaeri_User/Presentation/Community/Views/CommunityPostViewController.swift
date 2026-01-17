@@ -168,6 +168,7 @@ final class CommunityPostViewController: BaseViewController<CommunityPostViewMod
         configureCategoryMenu()
         configureMediaCollectionView()
         setupTextFieldDelegates()
+        populateInitialDataIfNeeded()
     }
 
     override func bind() {
@@ -256,8 +257,19 @@ final class CommunityPostViewController: BaseViewController<CommunityPostViewMod
                       selectedStoreId != nil &&
                       !content.isEmpty
 
-        doneButton?.isEnabled = isValid
-        doneButton?.alpha = isValid ? 1.0 : 0.5
+        if let postToEdit = viewModel.postToEdit {
+            let categoryChanged = selectedCategory?.title != postToEdit.category
+            let titleChanged = title != postToEdit.title
+            let contentChanged = content != postToEdit.content
+            let storeChanged = selectedStoreId != postToEdit.store.storeId
+
+            let hasChanges = categoryChanged || titleChanged || contentChanged || storeChanged
+            doneButton?.isEnabled = isValid && hasChanges
+            doneButton?.alpha = (isValid && hasChanges) ? 1.0 : 0.5
+        } else {
+            doneButton?.isEnabled = isValid
+            doneButton?.alpha = isValid ? 1.0 : 0.5
+        }
     }
 
     private func configureCategoryMenu() {
@@ -294,6 +306,29 @@ final class CommunityPostViewController: BaseViewController<CommunityPostViewMod
         mediaItems.remove(at: index)
         mediaCollectionView.reloadData()
     }
+
+    private func populateInitialDataIfNeeded() {
+        guard let postToEdit = viewModel.postToEdit else { return }
+
+        let category = Category.allCases.first { $0.title == postToEdit.category }
+        selectedCategory = category
+        if let category = category {
+            categoryButton.setTitle(category.title, for: .normal)
+            categoryButton.setTitleColor(AppColor.gray90, for: .normal)
+        }
+
+        titleTextField.text = postToEdit.title
+
+        selectedStoreId = postToEdit.store.storeId
+        selectedStoreName = postToEdit.store.name
+        storeButton.setTitle(postToEdit.store.name, for: .normal)
+        storeButton.setTitleColor(AppColor.gray90, for: .normal)
+
+        contentTextView.text = postToEdit.content
+        contentPlaceholderLabel.isHidden = !postToEdit.content.isEmpty
+
+        updateDoneButtonState()
+    }
 }
 
 extension CommunityPostViewController: UITextViewDelegate {
@@ -312,23 +347,24 @@ extension CommunityPostViewController: UICollectionViewDataSource, UICollectionV
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        if indexPath.item == 0 {
+        if mediaItems.count < Layout.maxMediaCount && indexPath.item == 0 {
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: CommunityPostMediaAddCell.reuseIdentifier, for: indexPath) as! CommunityPostMediaAddCell
             cell.configure(currentCount: mediaItems.count, maxCount: Layout.maxMediaCount)
             return cell
         }
 
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: CommunityPostMediaPreviewCell.reuseIdentifier, for: indexPath) as! CommunityPostMediaPreviewCell
-        let item = mediaItems[indexPath.item - 1]
+        let mediaIndex = mediaItems.count < Layout.maxMediaCount ? indexPath.item - 1 : indexPath.item
+        let item = mediaItems[mediaIndex]
         cell.configure(with: item)
         cell.onRemoveTapped = { [weak self] in
-            self?.removeMediaItem(at: indexPath.item - 1)
+            self?.removeMediaItem(at: mediaIndex)
         }
         return cell
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        if indexPath.item == 0 {
+        if mediaItems.count < Layout.maxMediaCount && indexPath.item == 0 {
             presentImagePicker()
         }
     }
@@ -357,7 +393,7 @@ struct CommunityPostMediaItem: Hashable {
 
     enum Kind: Hashable {
         case image(UIImage)
-        case video(thumbnail: UIImage)
+        case video(thumbnail: UIImage, fileName: String)
     }
 }
 
@@ -460,7 +496,7 @@ private final class CommunityPostMediaPreviewCell: UICollectionViewCell {
         case let .image(image):
             imageView.image = image
             playImageView.isHidden = true
-        case let .video(thumbnail):
+        case let .video(thumbnail, _):
             imageView.image = thumbnail
             playImageView.isHidden = false
         }
@@ -506,7 +542,7 @@ extension CommunityPostViewController: PHPickerViewControllerDelegate {
 
                     let thumbnail = self.generateVideoThumbnail(url: localURL)
                     let item = CommunityPostMediaItem(
-                        kind: .video(thumbnail: thumbnail ?? UIImage())
+                        kind: .video(thumbnail: thumbnail ?? UIImage(), fileName: savedFileName)
                     )
 
                     DispatchQueue.main.async {

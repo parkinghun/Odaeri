@@ -93,7 +93,14 @@ extension CommunityCoordinator: UserProfileCoordinating {
     }
 
     func showEditPost(postId: String) {
-        showPlaceholderAlert(title: "게시글 수정", message: "게시글 수정 화면은 준비 중입니다.")
+        showPlaceholderAlert(title: "게시글 수정", message: "ViewModel에서 호출해주세요")
+    }
+
+    func openEditPost(with post: CommunityPostEntity) {
+        let viewModel = CommunityPostViewModel(postToEdit: post)
+        viewModel.coordinator = self
+        let viewController = CommunityPostViewController(viewType: .edit, viewModel: viewModel)
+        navigationController.pushViewController(viewController, animated: true)
     }
 
     func showChatRoom(roomId: String, title: String?) {

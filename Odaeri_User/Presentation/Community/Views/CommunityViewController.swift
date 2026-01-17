@@ -70,6 +70,8 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
     private let bannerSelectedSubject = PassthroughSubject<BannerEntity, Never>()
     private let storeSelectedSubject = PassthroughSubject<String, Never>()
     private let creatorSelectedSubject = PassthroughSubject<String, Never>()
+    private let postEditRequestedSubject = PassthroughSubject<String, Never>()
+    private let postDeleteRequestedSubject = PassthroughSubject<String, Never>()
 
     private enum Layout {
         static let actionButtonSize: CGFloat = 40
@@ -157,7 +159,9 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             sortSelected: sortSelectedSubject.eraseToAnyPublisher(),
             userScrolledBanner: userScrolledBannerSubject.eraseToAnyPublisher(),
             bannerSelected: bannerSelectedSubject.eraseToAnyPublisher(),
-            postLikeToggled: postLikeToggledSubject.eraseToAnyPublisher()
+            postLikeToggled: postLikeToggledSubject.eraseToAnyPublisher(),
+            postEditRequested: postEditRequestedSubject.eraseToAnyPublisher(),
+            postDeleteRequested: postDeleteRequestedSubject.eraseToAnyPublisher()
         )
         let output = viewModel.transform(input: input)
 
@@ -239,6 +243,12 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             cell.onCreatorTapped = { [weak self] creatorId in
                 self?.creatorSelectedSubject.send(creatorId)
             }
+            cell.onEditTapped = { [weak self] postId in
+                self?.postEditRequestedSubject.send(postId)
+            }
+            cell.onDeleteTapped = { [weak self] postId in
+                self?.showDeleteConfirmation(postId: postId)
+            }
             cell.likeTapPublisher
                 .sink { [weak self] event in
                     self?.postLikeToggledSubject.send(
@@ -256,8 +266,8 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
     }
 
     private func applySnapshot(items: [CommunityPostItemViewModel]) {
-        guard var snapshot = dataSource?.snapshot() else { return }
-        snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .main))
+        var snapshot = Snapshot()
+        snapshot.appendSections([.main])
         snapshot.appendItems(items, toSection: .main)
         dataSource?.apply(snapshot, animatingDifferences: true)
     }
@@ -273,6 +283,15 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
 
     func refresh() {
         viewModel.refresh()
+    }
+
+    private func showDeleteConfirmation(postId: String) {
+        let alert = UIAlertController(title: "게시글 삭제", message: "정말 삭제하시겠습니까?", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+        alert.addAction(UIAlertAction(title: "삭제", style: .destructive) { [weak self] _ in
+            self?.postDeleteRequestedSubject.send(postId)
+        })
+        present(alert, animated: true)
     }
 }
 

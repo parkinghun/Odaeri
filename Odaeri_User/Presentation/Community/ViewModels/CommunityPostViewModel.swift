@@ -13,13 +13,19 @@ final class CommunityPostViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: CommunityCoordinator?
     private let locationManager: LocationManager
     private let backgroundManager: PostBackgroundManager
+    private let postRepository: CommunityPostRepository
+    let postToEdit: CommunityPostEntity?
 
     init(
+        postToEdit: CommunityPostEntity? = nil,
         locationManager: LocationManager = .shared,
-        backgroundManager: PostBackgroundManager = .shared
+        backgroundManager: PostBackgroundManager = .shared,
+        postRepository: CommunityPostRepository = CommunityPostRepositoryImpl()
     ) {
+        self.postToEdit = postToEdit
         self.locationManager = locationManager
         self.backgroundManager = backgroundManager
+        self.postRepository = postRepository
     }
 
     struct Input {
@@ -50,11 +56,21 @@ final class CommunityPostViewModel: BaseViewModel, ViewModelType {
             input.content,
             input.storeId
         )
-        .map { category, title, content, storeId in
+        .map { [weak self] category, title, content, storeId in
             guard let category = category, !category.isEmpty else { return false }
             guard let title = title, !title.isEmpty else { return false }
             guard let content = content, !content.isEmpty else { return false }
             guard let storeId = storeId, !storeId.isEmpty else { return false }
+
+            if let postToEdit = self?.postToEdit {
+                let categoryChanged = category != postToEdit.category
+                let titleChanged = title != postToEdit.title
+                let contentChanged = content != postToEdit.content
+                let storeChanged = storeId != postToEdit.store.storeId
+
+                return categoryChanged || titleChanged || contentChanged || storeChanged
+            }
+
             return true
         }
         .eraseToAnyPublisher()
@@ -87,16 +103,29 @@ final class CommunityPostViewModel: BaseViewModel, ViewModelType {
                 let latitude = location?.coordinate.latitude
                 let longitude = location?.coordinate.longitude
 
-                self.backgroundManager.startUpload(
-                    category: category,
-                    title: title,
-                    content: content,
-                    storeId: storeId,
-                    storeName: storeName,
-                    mediaItems: mediaItems,
-                    latitude: latitude,
-                    longitude: longitude
-                )
+                if let postToEdit = self.postToEdit {
+                    self.backgroundManager.startUpdate(
+                        postId: postToEdit.postId,
+                        category: category,
+                        title: title,
+                        content: content,
+                        storeId: storeId,
+                        latitude: latitude,
+                        longitude: longitude,
+                        mediaItems: mediaItems
+                    )
+                } else {
+                    self.backgroundManager.startUpload(
+                        category: category,
+                        title: title,
+                        content: content,
+                        storeId: storeId,
+                        storeName: storeName,
+                        mediaItems: mediaItems,
+                        latitude: latitude,
+                        longitude: longitude
+                    )
+                }
 
                 self.coordinator?.didFinishCreatePost()
             }

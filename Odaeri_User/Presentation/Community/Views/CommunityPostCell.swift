@@ -24,6 +24,8 @@ final class CommunityPostCell: UITableViewCell {
 
     var onStoreInfoTapped: ((String) -> Void)?
     var onCreatorTapped: ((String) -> Void)?
+    var onEditTapped: ((String) -> Void)?
+    var onDeleteTapped: ((String) -> Void)?
 
     private let cardView: UIView = {
         let view = UIView()
@@ -34,6 +36,15 @@ final class CommunityPostCell: UITableViewCell {
     }()
 
     private let creatorInfoView = CommunityCreatorInfoView()
+
+    private let moreButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setImage(AppImage.moreHorizontal, for: .normal)
+        button.tintColor = AppColor.gray75
+        button.isHidden = true
+        return button
+    }()
+
     private let mediaGridView = CommunityMediaGridView()
 
     private let titleLabel: UILabel = {
@@ -88,6 +99,8 @@ final class CommunityPostCell: UITableViewCell {
     private var currentLikeCount: Int = 0
     private var currentStoreId: String?
     private var currentCreatorId: String?
+    private var currentPostId: String?
+    private var isMyPost: Bool = false
 
     private lazy var contentStackView: UIStackView = {
         let stackView = UIStackView(
@@ -119,6 +132,7 @@ final class CommunityPostCell: UITableViewCell {
         contentView.addSubview(cardView)
         contentView.addSubview(dividerView)
         cardView.addSubview(contentStackView)
+        cardView.addSubview(moreButton)
 
         creatorInfoView.isUserInteractionEnabled = true
         let creatorTapGesture = UITapGestureRecognizer(target: self, action: #selector(handleCreatorTap))
@@ -128,6 +142,8 @@ final class CommunityPostCell: UITableViewCell {
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleStoreTap))
         storeInfoView.addGestureRecognizer(tapGesture)
 
+        moreButton.addTarget(self, action: #selector(handleMoreTap), for: .touchUpInside)
+
         cardView.snp.makeConstraints {
             $0.top.equalToSuperview()
             $0.leading.trailing.equalToSuperview()
@@ -136,6 +152,12 @@ final class CommunityPostCell: UITableViewCell {
 
         contentStackView.snp.makeConstraints {
             $0.edges.equalToSuperview().inset(AppSpacing.large)
+        }
+
+        moreButton.snp.makeConstraints {
+            $0.top.equalToSuperview().inset(AppSpacing.large)
+            $0.trailing.equalTo(storeInfoView.snp.trailing)
+            $0.size.equalTo(24)
         }
 
         dividerView.snp.makeConstraints {
@@ -158,6 +180,11 @@ final class CommunityPostCell: UITableViewCell {
         currentLikeCount = viewModel.likeCountValue
         currentStoreId = viewModel.storeId
         currentCreatorId = viewModel.creatorUserId
+        currentPostId = viewModel.postId
+        isMyPost = viewModel.isMyPost
+
+        moreButton.isHidden = !viewModel.isMyPost
+
         creatorInfoView.configure(
             name: viewModel.creatorName,
             createdAtText: viewModel.createdAtText,
@@ -203,5 +230,21 @@ final class CommunityPostCell: UITableViewCell {
     @objc private func handleCreatorTap() {
         guard let creatorId = currentCreatorId else { return }
         onCreatorTapped?(creatorId)
+    }
+
+    @objc private func handleMoreTap() {
+        guard let postId = currentPostId, isMyPost else { return }
+
+        let editAction = UIAction(title: "수정하기", image: UIImage(systemName: "pencil")) { [weak self] _ in
+            self?.onEditTapped?(postId)
+        }
+
+        let deleteAction = UIAction(title: "삭제하기", image: UIImage(systemName: "trash"), attributes: .destructive) { [weak self] _ in
+            self?.onDeleteTapped?(postId)
+        }
+
+        let menu = UIMenu(title: "", children: [editAction, deleteAction])
+        moreButton.menu = menu
+        moreButton.showsMenuAsPrimaryAction = true
     }
 }

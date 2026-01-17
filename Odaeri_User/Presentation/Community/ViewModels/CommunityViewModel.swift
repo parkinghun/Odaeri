@@ -40,6 +40,16 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
         self.postRepository = postRepository
         self.bannerRepository = bannerRepository
         self.locationManager = locationManager
+        super.init()
+        setupPostUpdateObserver()
+    }
+
+    private func setupPostUpdateObserver() {
+        NotificationCenter.default.publisher(for: .communityPostDidUpdate)
+            .sink { [weak self] _ in
+                self?.fetchPosts()
+            }
+            .store(in: &cancellables)
     }
 
     deinit {
@@ -57,6 +67,8 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
         let userScrolledBanner: AnyPublisher<Int, Never>
         let bannerSelected: AnyPublisher<BannerEntity, Never>
         let postLikeToggled: AnyPublisher<CommunityPostLikeEvent, Never>
+        let postEditRequested: AnyPublisher<String, Never>
+        let postDeleteRequested: AnyPublisher<String, Never>
     }
     
     struct Output {
@@ -165,6 +177,18 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
             }
             .sink { [weak self] path in
                 self?.coordinator?.showEventWeb(path: path)
+            }
+            .store(in: &cancellables)
+
+        input.postEditRequested
+            .sink { [weak self] postId in
+                self?.handleEditPost(postId: postId)
+            }
+            .store(in: &cancellables)
+
+        input.postDeleteRequested
+            .sink { [weak self] postId in
+                self?.handleDeletePost(postId: postId)
             }
             .store(in: &cancellables)
 
@@ -314,6 +338,44 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
         postsSubject.send(updatedPosts)
     }
 
+    private func handleEditPost(postId: String) {
+        guard let post = postsSubject.value.first(where: { $0.postId == postId }) else { return }
+
+        isLoadingSubject.send(true)
+        postRepository.fetchPostDetail(postId: postId)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    self?.isLoadingSubject.send(false)
+                    if case .failure(let error) = completion {
+                        self?.errorSubject.send(error.errorDescription)
+                    }
+                },
+                receiveValue: { [weak self] post in
+                    self?.coordinator?.openEditPost(with: post)
+                }
+            )
+            .store(in: &cancellables)
+    }
+
+    private func handleDeletePost(postId: String) {
+        let voidPublisher: AnyPublisher<Void, NetworkError> = postRepository.deletePost(postId: postId)
+
+        voidPublisher
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    if case .failure(let error) = completion {
+                        self?.errorSubject.send(error.errorDescription)
+                    }
+                },
+                receiveValue: { [weak self] in
+                    self?.fetchPosts()
+                }
+            )
+            .store(in: &cancellables)
+    }
+
     private func makePostViewModel(from post: CommunityPostEntity) -> CommunityPostItemViewModel {
         let mediaItems = post.files.map { url in
             CommunityMediaItemViewModel(
@@ -331,6 +393,9 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
         )
 
         let storeInfoText = storeInfoText(from: post.store)
+
+        let currentUserId = UserManager.shared.currentUser?.userId ?? ""
+        let isMyPost = post.creator.userId == currentUserId
 
         return CommunityPostItemViewModel(
             postId: post.postId,
@@ -350,7 +415,8 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
             storeInfoText: storeInfoText,
             storeImageUrl: post.store.storeImageUrls.first,
             latitude: post.geolocation.latitude,
-            longitude: post.geolocation.longitude
+            longitude: post.geolocation.longitude,
+            isMyPost: isMyPost
         )
     }
 
@@ -448,6 +514,7 @@ struct CommunityPostItemViewModel: Hashable {
     let storeImageUrl: String?
     let latitude: Double
     let longitude: Double
+    let isMyPost: Bool
 
     func updatingLike(isLiked: Bool, likeCount: Int) -> CommunityPostItemViewModel {
         CommunityPostItemViewModel(
@@ -468,7 +535,8 @@ struct CommunityPostItemViewModel: Hashable {
             storeInfoText: storeInfoText,
             storeImageUrl: storeImageUrl,
             latitude: latitude,
-            longitude: longitude
+            longitude: longitude,
+            isMyPost: isMyPost
         )
     }
 
@@ -491,15 +559,26 @@ struct CommunityPostItemViewModel: Hashable {
             storeInfoText: storeInfoText,
             storeImageUrl: storeImageUrl,
             latitude: latitude,
-            longitude: longitude
+            longitude: longitude,
+            isMyPost: isMyPost
         )
     }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(postId)
+        hasher.combine(title)
+        hasher.combine(content)
+        hasher.combine(likeCountValue)
+        hasher.combine(isLiked)
+        hasher.combine(mediaItems)
     }
 
     static func == (lhs: CommunityPostItemViewModel, rhs: CommunityPostItemViewModel) -> Bool {
-        lhs.postId == rhs.postId
+        lhs.postId == rhs.postId &&
+        lhs.title == rhs.title &&
+        lhs.content == rhs.content &&
+        lhs.likeCountValue == rhs.likeCountValue &&
+        lhs.isLiked == rhs.isLiked &&
+        lhs.mediaItems == rhs.mediaItems
     }
 }

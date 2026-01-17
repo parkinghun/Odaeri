@@ -12,6 +12,7 @@ extension Notification.Name {
     static let refreshTokenExpired = Notification.Name("com.odaeri.refreshTokenExpired")
     static let pendingPaymentValidated = Notification.Name("com.odaeri.pendingPaymentValidated")
     static let storeLikeUpdated = Notification.Name("com.odaeri.storeLikeUpdated")
+    static let communityPostDidUpdate = Notification.Name("com.odaeri.communityPostDidUpdate")
 }
 
 struct PendingPaymentValidatedInfo {
