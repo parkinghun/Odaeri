@@ -173,65 +173,48 @@ final class CommunityPostViewController: BaseViewController<CommunityPostViewMod
     override func bind() {
         super.bind()
 
+        let categoryPublisher = $selectedCategory
+            .map { $0?.title }
+            .eraseToAnyPublisher()
+
+        let titlePublisher = titleTextField.publisher(for: \.text)
+            .eraseToAnyPublisher()
+
+        let contentPublisher = contentTextView.publisher(for: \.text)
+            .eraseToAnyPublisher()
+
+        let storeIdPublisher = $selectedStoreId.eraseToAnyPublisher()
+
+        let storeNamePublisher = Just(selectedStoreName)
+            .merge(with: $selectedStoreId.map { [weak self] _ in self?.selectedStoreName })
+            .eraseToAnyPublisher()
+
+        let mediaItemsPublisher = Just(mediaItems)
+            .merge(with: NotificationCenter.default.publisher(for: .init("mediaItemsChanged"))
+                .map { [weak self] _ in self?.mediaItems ?? [] }
+            )
+            .eraseToAnyPublisher()
+
         let input = CommunityPostViewModel.Input(
+            category: categoryPublisher,
+            title: titlePublisher,
+            content: contentPublisher,
+            storeId: storeIdPublisher,
+            storeName: storeNamePublisher,
+            mediaItems: mediaItemsPublisher,
             storeButtonTapped: storeButtonTappedSubject.eraseToAnyPublisher(),
-            doneButtonTapped: doneButtonTappedSubject.eraseToAnyPublisher(),
-            postData: createPostDataPublisher()
+            doneButtonTapped: doneButtonTappedSubject.eraseToAnyPublisher()
         )
 
         let output = viewModel.transform(input: input)
 
-        output.isLoading
+        output.isDoneButtonEnabled
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] isLoading in
-                self?.setLoading(isLoading)
+            .sink { [weak self] isEnabled in
+                self?.doneButton?.isEnabled = isEnabled
+                self?.doneButton?.alpha = isEnabled ? 1.0 : 0.5
             }
             .store(in: &cancellables)
-
-        output.error
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] errorMessage in
-                self?.showAlert(title: "오류", message: errorMessage)
-            }
-            .store(in: &cancellables)
-
-        output.postCreated
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.handlePostCreated()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func createPostDataPublisher() -> AnyPublisher<CommunityPostViewModel.PostData?, Never> {
-        Publishers.CombineLatest4(
-            $selectedCategory.eraseToAnyPublisher(),
-            $selectedStoreId.eraseToAnyPublisher(),
-            contentTextView.publisher(for: \.text).eraseToAnyPublisher(),
-            titleTextField.publisher(for: \.text).eraseToAnyPublisher()
-        )
-        .map { [weak self] category, storeId, content, title -> CommunityPostViewModel.PostData? in
-            guard let self = self,
-                  let category = category,
-                  let storeId = storeId,
-                  let title = title, !title.isEmpty,
-                  let content = content, !content.isEmpty else {
-                return nil
-            }
-
-            return CommunityPostViewModel.PostData(
-                category: category.title,
-                title: title,
-                content: content,
-                storeId: storeId,
-                mediaItems: self.mediaItems
-            )
-        }
-        .eraseToAnyPublisher()
-    }
-
-    private func handlePostCreated() {
-        navigationController?.popViewController(animated: true)
     }
 
     func updateSelectedStore(id: String, name: String) {

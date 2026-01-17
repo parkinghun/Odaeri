@@ -11,190 +11,110 @@ import UIKit
 
 final class CommunityPostViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: CommunityCoordinator?
-    private let postRepository: CommunityPostRepository
     private let locationManager: LocationManager
-    var onPostCreated: (() -> Void)?
+    private let backgroundManager: PostBackgroundManager
 
     init(
-        postRepository: CommunityPostRepository = CommunityPostRepositoryImpl(),
-        locationManager: LocationManager = .shared
+        locationManager: LocationManager = .shared,
+        backgroundManager: PostBackgroundManager = .shared
     ) {
-        self.postRepository = postRepository
         self.locationManager = locationManager
-    }
-
-    struct PostData {
-        let category: String
-        let title: String
-        let content: String
-        let storeId: String
-        let mediaItems: [CommunityPostMediaItem]
+        self.backgroundManager = backgroundManager
     }
 
     struct Input {
+        let category: AnyPublisher<String?, Never>
+        let title: AnyPublisher<String?, Never>
+        let content: AnyPublisher<String?, Never>
+        let storeId: AnyPublisher<String?, Never>
+        let storeName: AnyPublisher<String?, Never>
+        let mediaItems: AnyPublisher<[CommunityPostMediaItem], Never>
         let storeButtonTapped: AnyPublisher<Void, Never>
         let doneButtonTapped: AnyPublisher<Void, Never>
-        let postData: AnyPublisher<PostData?, Never>
     }
 
     struct Output {
-        let isLoading: AnyPublisher<Bool, Never>
-        let error: AnyPublisher<String, Never>
-        let postCreated: AnyPublisher<Void, Never>
+        let isDoneButtonEnabled: AnyPublisher<Bool, Never>
     }
 
     func transform(input: Input) -> Output {
-        let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
-        let errorSubject = PassthroughSubject<String, Never>()
-        let postCreatedSubject = PassthroughSubject<Void, Never>()
-
         input.storeButtonTapped
             .sink { [weak self] _ in
                 self?.coordinator?.showStoreSearch()
             }
             .store(in: &cancellables)
 
+        let isDoneButtonEnabled = Publishers.CombineLatest4(
+            input.category,
+            input.title,
+            input.content,
+            input.storeId
+        )
+        .map { category, title, content, storeId in
+            guard let category = category, !category.isEmpty else { return false }
+            guard let title = title, !title.isEmpty else { return false }
+            guard let content = content, !content.isEmpty else { return false }
+            guard let storeId = storeId, !storeId.isEmpty else { return false }
+            return true
+        }
+        .eraseToAnyPublisher()
+
         input.doneButtonTapped
-            .withLatestFrom(input.postData)
-            .compactMap { $0 }
-            .sink { [weak self] postData in
-                self?.createPost(
-                    postData: postData,
-                    isLoadingSubject: isLoadingSubject,
-                    errorSubject: errorSubject,
-                    postCreatedSubject: postCreatedSubject
+            .throttle(for: .seconds(1), scheduler: RunLoop.main, latest: false)
+            .withLatestFrom(Publishers.CombineLatest4(
+                input.category,
+                input.title,
+                input.content,
+                Publishers.CombineLatest(input.storeId, input.storeName)
+            ))
+            .withLatestFrom(input.mediaItems)
+            .sink { [weak self] combinedData in
+                guard let self = self else { return }
+                let (_, formData) = combinedData.0
+                let mediaItems = combinedData.1
+                let (category, title, content, storeData) = formData
+                let (storeId, storeName) = storeData
+
+                guard let category = category, !category.isEmpty,
+                      let title = title, !title.isEmpty,
+                      let content = content, !content.isEmpty,
+                      let storeId = storeId, !storeId.isEmpty,
+                      let storeName = storeName, !storeName.isEmpty else {
+                    return
+                }
+
+                let location = self.locationManager.locationSubject.value
+                let latitude = location?.coordinate.latitude
+                let longitude = location?.coordinate.longitude
+
+                self.backgroundManager.startUpload(
+                    category: category,
+                    title: title,
+                    content: content,
+                    storeId: storeId,
+                    storeName: storeName,
+                    mediaItems: mediaItems,
+                    latitude: latitude,
+                    longitude: longitude
                 )
+
+                self.coordinator?.didFinishCreatePost()
             }
             .store(in: &cancellables)
 
         return Output(
-            isLoading: isLoadingSubject.eraseToAnyPublisher(),
-            error: errorSubject.eraseToAnyPublisher(),
-            postCreated: postCreatedSubject.eraseToAnyPublisher()
+            isDoneButtonEnabled: isDoneButtonEnabled
         )
-    }
-
-    private func createPost(
-        postData: PostData,
-        isLoadingSubject: CurrentValueSubject<Bool, Never>,
-        errorSubject: PassthroughSubject<String, Never>,
-        postCreatedSubject: PassthroughSubject<Void, Never>
-    ) {
-        isLoadingSubject.send(true)
-
-        let location = locationManager.locationSubject.value
-        let latitude = location?.coordinate.latitude ?? 0.0
-        let longitude = location?.coordinate.longitude ?? 0.0
-
-        if postData.mediaItems.isEmpty {
-            submitPost(
-                postData: postData,
-                fileUrls: [],
-                latitude: latitude,
-                longitude: longitude,
-                isLoadingSubject: isLoadingSubject,
-                errorSubject: errorSubject,
-                postCreatedSubject: postCreatedSubject
-            )
-        } else {
-            uploadMediaFiles(
-                mediaItems: postData.mediaItems,
-                postData: postData,
-                latitude: latitude,
-                longitude: longitude,
-                isLoadingSubject: isLoadingSubject,
-                errorSubject: errorSubject,
-                postCreatedSubject: postCreatedSubject
-            )
-        }
-    }
-
-    private func uploadMediaFiles(
-        mediaItems: [CommunityPostMediaItem],
-        postData: PostData,
-        latitude: Double,
-        longitude: Double,
-        isLoadingSubject: CurrentValueSubject<Bool, Never>,
-        errorSubject: PassthroughSubject<String, Never>,
-        postCreatedSubject: PassthroughSubject<Void, Never>
-    ) {
-        let files = mediaItems.compactMap { item -> CommunityPostAPI.UploadFileRequest? in
-            switch item.kind {
-            case .image(let image):
-                guard let data = image.jpegData(compressionQuality: 0.8) else { return nil }
-                let fileName = "image_\(UUID().uuidString).jpg"
-                return CommunityPostAPI.UploadFileRequest(data: data, fileName: fileName, mimeType: "image/jpeg")
-            case .video(let thumbnail):
-                guard let data = thumbnail.jpegData(compressionQuality: 0.8) else { return nil }
-                let fileName = "video_\(UUID().uuidString).jpg"
-                return CommunityPostAPI.UploadFileRequest(data: data, fileName: fileName, mimeType: "video/mp4")
-            }
-        }
-
-        postRepository.uploadPostFiles(files: files)
-            .sink(
-                receiveCompletion: { [weak self] completion in
-                    if case .failure = completion {
-                        isLoadingSubject.send(false)
-                        errorSubject.send("이미지/영상 파일을 업로드하는데 실패했습니다")
-                    }
-                },
-                receiveValue: { [weak self] fileUrls in
-                    self?.submitPost(
-                        postData: postData,
-                        fileUrls: fileUrls,
-                        latitude: latitude,
-                        longitude: longitude,
-                        isLoadingSubject: isLoadingSubject,
-                        errorSubject: errorSubject,
-                        postCreatedSubject: postCreatedSubject
-                    )
-                }
-            )
-            .store(in: &cancellables)
-    }
-
-    private func submitPost(
-        postData: PostData,
-        fileUrls: [String],
-        latitude: Double,
-        longitude: Double,
-        isLoadingSubject: CurrentValueSubject<Bool, Never>,
-        errorSubject: PassthroughSubject<String, Never>,
-        postCreatedSubject: PassthroughSubject<Void, Never>
-    ) {
-        let request = CommunityPostCreateRequest(
-            category: postData.category,
-            title: postData.title,
-            content: postData.content,
-            storeId: postData.storeId,
-            latitude: latitude,
-            longitude: longitude,
-            files: fileUrls
-        )
-
-        postRepository.createPost(request: request)
-        .sink(
-            receiveCompletion: { completion in
-                isLoadingSubject.send(false)
-                if case .failure(let error) = completion {
-                    errorSubject.send(error.errorDescription)
-                }
-            },
-            receiveValue: { [weak self] _ in
-                self?.onPostCreated?()
-                postCreatedSubject.send()
-            }
-        )
-        .store(in: &cancellables)
     }
 }
 
 extension Publisher {
-    func withLatestFrom<Other: Publisher>(_ other: Other) -> AnyPublisher<Other.Output, Failure> where Other.Failure == Failure {
+    func withLatestFrom<Other: Publisher>(_ other: Other) -> AnyPublisher<(Self.Output, Other.Output), Self.Failure> where Other.Failure == Self.Failure {
         let upstream = self
-        return other
-            .map { second in upstream.map { _ in second } }
+        return upstream
+            .map { upstreamValue in
+                other.map { otherValue in (upstreamValue, otherValue) }
+            }
             .switchToLatest()
             .eraseToAnyPublisher()
     }

@@ -185,7 +185,7 @@ struct StoreEntity: Hashable, Equatable {
 struct CreatorEntity: Hashable, Equatable {
     let userId: String
     let nick: String
-    let profileImage: String
+    let profileImage: String?
 
     init(userId: String, nick: String, profileImage: String) {
         self.userId = userId

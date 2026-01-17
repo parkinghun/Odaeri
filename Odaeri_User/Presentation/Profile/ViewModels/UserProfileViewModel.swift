@@ -206,7 +206,7 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
         updateHeader(nick: nick, profileImage: profileImage, isMe: isMe)
     }
 
-    private func updateHeader(nick: String, profileImage: String, isMe: Bool) {
+    private func updateHeader(nick: String, profileImage: String?, isMe: Bool) {
         let buttonTitle = isMe ? "프로필 수정" : "채팅하기"
         let buttonColor = isMe ? AppColor.gray30 : AppColor.blackSprout
         let textColor = isMe ? AppColor.gray90 : AppColor.gray0
@@ -290,7 +290,7 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
 
 struct UserProfileHeaderViewModel {
     let nick: String
-    let profileImageUrl: String
+    let profileImageUrl: String?
     let primaryButtonTitle: String
     let primaryButtonBackgroundColor: UIColor
     let primaryButtonTitleColor: UIColor

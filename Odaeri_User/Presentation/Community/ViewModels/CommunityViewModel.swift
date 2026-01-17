@@ -434,7 +434,7 @@ struct CommunityPostItemViewModel: Hashable {
     let storeId: String
     let creatorUserId: String
     let creatorName: String
-    let creatorProfileImageUrl: String
+    let creatorProfileImageUrl: String?
     let createdAtText: String
     let title: String
     let content: String

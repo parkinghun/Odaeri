@@ -65,12 +65,13 @@ final class CommunityCoordinator: Coordinator {
     private func openWritePost() {
         let viewModel = CommunityPostViewModel()
         viewModel.coordinator = self
-        viewModel.onPostCreated = { [weak self] in
-            guard let self = self else { return }
-            self.delegate?.communityCoordinatorDidCreatePost(self)
-        }
         let viewController = CommunityPostViewController(viewType: .create, viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
+    }
+
+    func didFinishCreatePost() {
+        navigationController.popViewController(animated: true)
+        delegate?.communityCoordinatorDidCreatePost(self)
     }
 }
 

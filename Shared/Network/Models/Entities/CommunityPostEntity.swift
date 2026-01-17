@@ -47,6 +47,11 @@ struct GeolocationEntity {
         self.longitude = response.longitude
         self.latitude = response.latitude
     }
+
+    init(longitude: Double, latitude: Double) {
+        self.longitude = longitude
+        self.latitude = latitude
+    }
 }
 
 struct CommunityPostCommentEntity {
@@ -76,5 +81,65 @@ struct CommunityPostReplyEntity {
         self.content = response.content
         self.createdAt = response.createdAt.toDate()
         self.creator = CreatorEntity(from: response.creator)
+    }
+}
+
+extension CommunityPostEntity {
+    init(
+        postId: String,
+        category: String,
+        title: String,
+        content: String,
+        store: StoreEntity,
+        geolocation: GeolocationEntity,
+        creator: CreatorEntity,
+        files: [String],
+        isLike: Bool,
+        likeCount: Int,
+        comments: [CommunityPostCommentEntity],
+        createdAt: Date?,
+        updatedAt: Date?
+    ) {
+        self.postId = postId
+        self.category = category
+        self.title = title
+        self.content = content
+        self.store = store
+        self.geolocation = geolocation
+        self.creator = creator
+        self.files = files
+        self.isLike = isLike
+        self.likeCount = likeCount
+        self.comments = comments
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    static func temporary(
+        postId: String,
+        category: String,
+        title: String,
+        content: String,
+        store: StoreEntity,
+        geolocation: GeolocationEntity,
+        creator: CreatorEntity,
+        files: [String],
+        createdAt: Date
+    ) -> CommunityPostEntity {
+        CommunityPostEntity(
+            postId: postId,
+            category: category,
+            title: title,
+            content: content,
+            store: store,
+            geolocation: geolocation,
+            creator: creator,
+            files: files,
+            isLike: false,
+            likeCount: 0,
+            comments: [],
+            createdAt: createdAt,
+            updatedAt: createdAt
+        )
     }
 }

@@ -458,9 +458,9 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     ) {
         print("[ChatViewModel] 2단계 파이프라인 시작")
         sendingStates[tempId] = .uploading
-        let uploadURLs: [URL]
+        let uploadItems: [UploadItem]
         do {
-            uploadURLs = try resolveUploadURLs(from: localFiles)
+            uploadItems = try convertToUploadItems(from: localFiles)
         } catch {
             updateMessageStatus(tempId: tempId, status: .failed)
             cancelTimeout(for: tempId)
@@ -469,9 +469,9 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             return
         }
 
-        print("[ChatViewModel] Step 1: 파일 업로드 (\(uploadURLs.count)개)")
-        let uploadCancellable = mediaUploadManager.uploadFiles(
-            sourceURLs: uploadURLs,
+        print("[ChatViewModel] Step 1: 파일 업로드 (\(uploadItems.count)개)")
+        let uploadCancellable = mediaUploadManager.uploadMedias(
+            uploadItems,
             config: .chatDefault,
             roomId: roomId,
             progress: { [weak self] progress in
@@ -582,7 +582,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         }
     }
 
-    private func resolveUploadURLs(from fileStrings: [String]) throws -> [URL] {
+    private func convertToUploadItems(from fileStrings: [String]) throws -> [UploadItem] {
         return try fileStrings.map { fileString in
             let normalizedFileName = normalizeFileName(fileString)
 
@@ -593,7 +593,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
                 throw MediaError.invalidURL
             }
 
-            return url
+            return .file(url)
         }
     }
 
