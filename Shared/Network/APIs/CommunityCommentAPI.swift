@@ -9,71 +9,55 @@ import Foundation
 import Moya
 
 enum CommunityCommentAPI {
-    case getComments(postId: Int, page: Int, limit: Int)
-    case createComment(postId: Int, content: String, parentCommentId: Int?)
-    case updateComment(commentId: Int, content: String)
-    case deleteComment(commentId: Int)
-    case likeComment(commentId: Int)
-    case unlikeComment(commentId: Int)
+    case addComment(postId: String, parentId: String?, content: String)
+    case updateComment(postId: String, commentId: String, content: String)
+    case deleteComment(postId: String, commentId: String)
 }
 
 extension CommunityCommentAPI: BaseAPI {
     var endpoint: String {
         switch self {
-        case .getComments(let postId, _, _):
-            return "/community/posts/\(postId)/comments"
-        case .createComment(let postId, _, _):
-            return "/community/posts/\(postId)/comments"
-        case .updateComment(let commentId, _):
-            return "/community/comments/\(commentId)"
-        case .deleteComment(let commentId):
-            return "/community/comments/\(commentId)"
-        case .likeComment(let commentId):
-            return "/community/comments/\(commentId)/like"
-        case .unlikeComment(let commentId):
-            return "/community/comments/\(commentId)/unlike"
+        case let .addComment(postId, _, _):
+            return "/posts/\(postId)/comments"
+        case let .updateComment(postId, commentId, _),
+            let .deleteComment(postId, commentId) :
+            return "/posts/\(postId)/comments/\(commentId)"
         }
     }
-
+    
     var method: Moya.Method {
         switch self {
-        case .createComment, .likeComment:
+        case .addComment:
             return .post
-        case .getComments:
-            return .get
         case .updateComment:
-            return .patch
-        case .deleteComment, .unlikeComment:
+            return .put
+        case .deleteComment:
             return .delete
         }
     }
-
+    
     var task: Task {
         switch self {
-        case let .getComments(_, page, limit):
-            return .requestParameters(
-                parameters: ["page": page, "limit": limit],
-                encoding: URLEncoding.queryString
+        case let .addComment(_, parentId, content):
+            // 대댓글 작성 시 parentCommentId 포함 (1뎁스까지만 허용)
+            let request = CommunityCommentRequest(
+                content: content,
+                parentCommentId: (parentId?.isEmpty ?? true) ? nil : parentId
             )
-
-        case let .createComment(_, content, parentCommentId):
-            var parameters: [String: Any] = ["content": content]
-            if let parentCommentId = parentCommentId {
-                parameters["parentCommentId"] = parentCommentId
-            }
-            return .requestParameters(
-                parameters: parameters,
-                encoding: JSONEncoding.default
-            )
-
-        case let .updateComment(_, content):
-            return .requestParameters(
-                parameters: ["content": content],
-                encoding: JSONEncoding.default
-            )
-
-        case .deleteComment, .likeComment, .unlikeComment:
+            return .requestJSONEncodable(request)
+            
+        case let .updateComment(_, _, content):
+            // 수정 시 작성자 본인만 가능, content 전달
+            let parameters: [String: Any] = ["content": content]
+            return .requestParameters(parameters: parameters, encoding: JSONEncoding.default)
+            
+        case .deleteComment:
+            // 삭제 시 하위 대댓글도 함께 삭제됨
             return .requestPlain
         }
+    }
+
+    var headerSet: HeaderSet {
+        return .authenticated
     }
 }

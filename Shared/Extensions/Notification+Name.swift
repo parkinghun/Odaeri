@@ -13,6 +13,7 @@ extension Notification.Name {
     static let pendingPaymentValidated = Notification.Name("com.odaeri.pendingPaymentValidated")
     static let storeLikeUpdated = Notification.Name("com.odaeri.storeLikeUpdated")
     static let communityPostDidUpdate = Notification.Name("com.odaeri.communityPostDidUpdate")
+    static let communityPostInteractionDidUpdate = Notification.Name("com.odaeri.communityPostInteractionDidUpdate")
 }
 
 struct PendingPaymentValidatedInfo {
@@ -25,4 +26,11 @@ struct StoreLikeUpdateInfo {
     let storeId: String
     let isPick: Bool
     let pickCount: Int
+}
+
+struct CommunityPostInteractionUpdateInfo {
+    let postId: String
+    let isLiked: Bool
+    let likeCount: Int
+    let commentCount: Int
 }
