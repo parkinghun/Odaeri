@@ -17,10 +17,13 @@ final class CommunityPostViewController: BaseViewController<CommunityPostViewMod
     @Published private var selectedCategory: Category?
     @Published private var selectedStoreId: String?
     private var selectedStoreName: String?
+
+    private let mediaItemsSubject = CurrentValueSubject<[CommunityPostMediaItem], Never>([])
     private var mediaItems: [CommunityPostMediaItem] = [] {
         didSet {
             mediaCollectionView.reloadData()
             updateDoneButtonState()
+            mediaItemsSubject.send(mediaItems)
         }
     }
 
@@ -190,19 +193,13 @@ final class CommunityPostViewController: BaseViewController<CommunityPostViewMod
             .merge(with: $selectedStoreId.map { [weak self] _ in self?.selectedStoreName })
             .eraseToAnyPublisher()
 
-        let mediaItemsPublisher = Just(mediaItems)
-            .merge(with: NotificationCenter.default.publisher(for: .init("mediaItemsChanged"))
-                .map { [weak self] _ in self?.mediaItems ?? [] }
-            )
-            .eraseToAnyPublisher()
-
         let input = CommunityPostViewModel.Input(
             category: categoryPublisher,
             title: titlePublisher,
             content: contentPublisher,
             storeId: storeIdPublisher,
             storeName: storeNamePublisher,
-            mediaItems: mediaItemsPublisher,
+            mediaItems: mediaItemsSubject.eraseToAnyPublisher(),
             storeButtonTapped: storeButtonTappedSubject.eraseToAnyPublisher(),
             doneButtonTapped: doneButtonTappedSubject.eraseToAnyPublisher()
         )
@@ -214,6 +211,24 @@ final class CommunityPostViewController: BaseViewController<CommunityPostViewMod
             .sink { [weak self] isEnabled in
                 self?.doneButton?.isEnabled = isEnabled
                 self?.doneButton?.alpha = isEnabled ? 1.0 : 0.5
+            }
+            .store(in: &cancellables)
+
+        output.initialMediaItems
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] items in
+                print("[CommunityPostViewController] Received initial media items: \(items.count)")
+                for (index, item) in items.enumerated() {
+                    switch item.kind {
+                    case .image:
+                        print("  [\(index)] Image")
+                    case .video:
+                        print("  [\(index)] Video")
+                    case let .remote(url, thumbnailUrl, isVideo):
+                        print("  [\(index)] Remote - isVideo: \(isVideo), url: \(url), thumbnail: \(thumbnailUrl ?? "nil")")
+                    }
+                }
+                self?.mediaItems = items
             }
             .store(in: &cancellables)
     }
@@ -393,7 +408,8 @@ struct CommunityPostMediaItem: Hashable {
 
     enum Kind: Hashable {
         case image(UIImage)
-        case video(thumbnail: UIImage, fileName: String)
+        case video(thumbnail: UIImage, url: URL)
+        case remote(url: String, thumbnailUrl: String?, isVideo: Bool)
     }
 }
 
@@ -496,9 +512,17 @@ private final class CommunityPostMediaPreviewCell: UICollectionViewCell {
         case let .image(image):
             imageView.image = image
             playImageView.isHidden = true
-        case let .video(thumbnail, _):
+        case let .video(thumbnail, url: _):
             imageView.image = thumbnail
             playImageView.isHidden = false
+        case let .remote(url, thumbnailUrl, isVideo):
+            playImageView.isHidden = !isVideo
+            imageView.resetImage()
+            if isVideo, let thumbUrl = thumbnailUrl {
+                imageView.setImage(url: thumbUrl)
+            } else {
+                imageView.setImage(url: url)
+            }
         }
     }
 
@@ -530,6 +554,23 @@ extension CommunityPostViewController: PHPickerViewControllerDelegate {
                         return
                     }
 
+                    guard let fileSize = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? UInt64 else {
+                        group.leave()
+                        return
+                    }
+
+                    let fileSizeMB = Double(fileSize) / 1_048_576
+                    if fileSizeMB > 5.0 {
+                        DispatchQueue.main.async {
+                            self.showAlert(
+                                title: "파일 용량 초과",
+                                message: "동영상 파일 용량이 5MB를 초과했습니다.\n현재 용량: \(String(format: "%.1f", fileSizeMB))MB"
+                            )
+                            group.leave()
+                        }
+                        return
+                    }
+
                     guard let savedFileName = FilePathManager.saveFile(at: url) else {
                         group.leave()
                         return
@@ -542,7 +583,7 @@ extension CommunityPostViewController: PHPickerViewControllerDelegate {
 
                     let thumbnail = self.generateVideoThumbnail(url: localURL)
                     let item = CommunityPostMediaItem(
-                        kind: .video(thumbnail: thumbnail ?? UIImage(), fileName: savedFileName)
+                        kind: .video(thumbnail: thumbnail ?? UIImage(), url: localURL)
                     )
 
                     DispatchQueue.main.async {
@@ -555,9 +596,26 @@ extension CommunityPostViewController: PHPickerViewControllerDelegate {
 
             if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
                 group.enter()
-                provider.loadObject(ofClass: UIImage.self) { object, _ in
-                    guard let image = object as? UIImage else {
+                provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
+                    guard let self = self, let image = object as? UIImage else {
                         group.leave()
+                        return
+                    }
+
+                    guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+                        group.leave()
+                        return
+                    }
+
+                    let fileSizeMB = Double(imageData.count) / 1_048_576
+                    if fileSizeMB > 5.0 {
+                        DispatchQueue.main.async {
+                            self.showAlert(
+                                title: "파일 용량 초과",
+                                message: "이미지 파일 용량이 5MB를 초과했습니다.\n현재 용량: \(String(format: "%.1f", fileSizeMB))MB"
+                            )
+                            group.leave()
+                        }
                         return
                     }
 

@@ -48,11 +48,10 @@ struct PendingPost: Identifiable {
             switch item.kind {
             case .image(let image):
                 return .image(image)
-            case .video(_, let fileName):
-                guard let videoURL = FilePathManager.getFileURL(from: fileName) else {
-                    return nil
-                }
-                return .video(videoURL)
+            case .video(_, let url):
+                return .video(url)
+            case .remote:
+                return nil
             }
         }
         self.latitude = latitude
@@ -144,7 +143,31 @@ final class PostBackgroundManager {
         longitude: Double?,
         mediaItems: [CommunityPostMediaItem]
     ) {
-        if mediaItems.isEmpty {
+        var remoteURLs: [String] = []
+        var newUploadItems: [UploadItem] = []
+        var indexMap: [(index: Int, isRemote: Bool)] = []
+
+        for (index, item) in mediaItems.enumerated() {
+            switch item.kind {
+            case let .remote(url, thumbnailUrl, isVideo):
+                if isVideo, let thumbUrl = thumbnailUrl {
+                    remoteURLs.append(thumbUrl)
+                    remoteURLs.append(url)
+                } else {
+                    remoteURLs.append(url)
+                }
+                indexMap.append((index, true))
+            case .image(let image):
+                newUploadItems.append(.image(image))
+                indexMap.append((index, false))
+            case .video(_, let url):
+                newUploadItems.append(.video(url))
+                indexMap.append((index, false))
+            }
+        }
+
+        if newUploadItems.isEmpty {
+            let finalURLs = remoteURLs.isEmpty ? nil : remoteURLs
             submitUpdate(
                 postId: postId,
                 category: category,
@@ -153,23 +176,11 @@ final class PostBackgroundManager {
                 storeId: storeId,
                 latitude: latitude,
                 longitude: longitude,
-                fileUrls: nil
+                fileUrls: finalURLs
             )
         } else {
-            let uploadItems = mediaItems.compactMap { item -> UploadItem? in
-                switch item.kind {
-                case .image(let image):
-                    return .image(image)
-                case .video(_, let fileName):
-                    guard let videoURL = FilePathManager.getFileURL(from: fileName) else {
-                        return nil
-                    }
-                    return .video(videoURL)
-                }
-            }
-
             mediaUploadManager.uploadMedias(
-                uploadItems,
+                newUploadItems,
                 config: .communityDefault,
                 progress: { _ in }
             )
@@ -179,7 +190,13 @@ final class PostBackgroundManager {
                         print("[PostBackgroundManager] Update media upload failed: \(error.errorDescription ?? "Unknown")")
                     }
                 },
-                receiveValue: { [weak self] fileUrls in
+                receiveValue: { [weak self] newURLs in
+                    let mergedURLs = self?.mergeMediaURLs(
+                        indexMap: indexMap,
+                        remoteURLs: remoteURLs,
+                        newURLs: newURLs
+                    ) ?? []
+
                     self?.submitUpdate(
                         postId: postId,
                         category: category,
@@ -188,12 +205,38 @@ final class PostBackgroundManager {
                         storeId: storeId,
                         latitude: latitude,
                         longitude: longitude,
-                        fileUrls: fileUrls
+                        fileUrls: mergedURLs.isEmpty ? nil : mergedURLs
                     )
                 }
             )
             .store(in: &cancellables)
         }
+    }
+
+    private func mergeMediaURLs(
+        indexMap: [(index: Int, isRemote: Bool)],
+        remoteURLs: [String],
+        newURLs: [String]
+    ) -> [String] {
+        var result: [String] = []
+        var remoteIndex = 0
+        var newIndex = 0
+
+        for item in indexMap {
+            if item.isRemote {
+                if remoteIndex < remoteURLs.count {
+                    result.append(remoteURLs[remoteIndex])
+                    remoteIndex += 1
+                }
+            } else {
+                if newIndex < newURLs.count {
+                    result.append(newURLs[newIndex])
+                    newIndex += 1
+                }
+            }
+        }
+
+        return result
     }
 
     private func submitUpdate(

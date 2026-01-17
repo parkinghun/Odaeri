@@ -72,6 +72,26 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
     private let creatorSelectedSubject = PassthroughSubject<String, Never>()
     private let postEditRequestedSubject = PassthroughSubject<String, Never>()
     private let postDeleteRequestedSubject = PassthroughSubject<String, Never>()
+    private let searchTextSubject = PassthroughSubject<String, Never>()
+
+    private let emptyView: UIView = {
+        let view = UIView()
+        view.backgroundColor = AppColor.gray15
+        view.isHidden = true
+
+        let label = UILabel()
+        label.text = "검색 결과가 없습니다"
+        label.font = AppFont.body1
+        label.textColor = AppColor.gray60
+        label.textAlignment = .center
+        view.addSubview(label)
+
+        label.snp.makeConstraints {
+            $0.center.equalToSuperview()
+        }
+
+        return view
+    }()
 
     private enum Layout {
         static let actionButtonSize: CGFloat = 40
@@ -87,6 +107,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
         view.addSubview(topStackView)
         view.addSubview(distanceView)
         view.addSubview(tableView)
+        view.addSubview(emptyView)
 
         writeButton.snp.makeConstraints {
             $0.size.equalTo(Layout.actionButtonSize)
@@ -118,6 +139,12 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             $0.top.equalTo(distanceView.snp.bottom).offset(AppSpacing.xLarge)
             $0.leading.trailing.bottom.equalToSuperview()
         }
+
+        emptyView.snp.makeConstraints {
+            $0.edges.equalTo(tableView)
+        }
+
+        searchBar.searchBar.delegate = self
 
         tableView.register(CommunityPostCell.self, forCellReuseIdentifier: CommunityPostCell.reuseIdentifier)
         tableView.tableHeaderView = headerView
@@ -161,7 +188,10 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             bannerSelected: bannerSelectedSubject.eraseToAnyPublisher(),
             postLikeToggled: postLikeToggledSubject.eraseToAnyPublisher(),
             postEditRequested: postEditRequestedSubject.eraseToAnyPublisher(),
-            postDeleteRequested: postDeleteRequestedSubject.eraseToAnyPublisher()
+            postDeleteRequested: postDeleteRequestedSubject.eraseToAnyPublisher(),
+            searchText: searchTextSubject
+                .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+                .eraseToAnyPublisher()
         )
         let output = viewModel.transform(input: input)
 
@@ -200,6 +230,14 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             }
             .store(in: &cancellables)
 
+        output.isEmpty
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isEmpty in
+                self?.emptyView.isHidden = !isEmpty
+                self?.tableView.isHidden = isEmpty
+            }
+            .store(in: &cancellables)
+
         output.isLoading
             .sink { [weak self] isLoading in
                 self?.setLoading(isLoading)
@@ -233,9 +271,9 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
 
             cell.cancellables.removeAll()
             cell.configure(with: item)
-            cell.onVideoSelected = { [weak self] url in
+            cell.onVideoSelected = { [weak self] videoURL in
                 guard let self = self else { return }
-                AppMediaService.shared.playVideo(url: url.absoluteString, from: self)
+                AppMediaService.shared.playVideo(url: videoURL.absoluteString, from: self)
             }
             cell.onStoreInfoTapped = { [weak self] storeId in
                 self?.storeSelectedSubject.send(storeId)
@@ -269,7 +307,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
         var snapshot = Snapshot()
         snapshot.appendSections([.main])
         snapshot.appendItems(items, toSection: .main)
-        dataSource?.apply(snapshot, animatingDifferences: true)
+        dataSource?.apply(snapshot, animatingDifferences: false)
     }
 
     private func updateHeaderHeightIfNeeded() {
@@ -297,4 +335,20 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
 
 private enum CommunitySection {
     case main
+}
+
+extension CommunityViewController: UISearchBarDelegate {
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        searchTextSubject.send(searchText)
+    }
+
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
+    }
+
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.text = ""
+        searchBar.resignFirstResponder()
+        searchTextSubject.send("")
+    }
 }

@@ -41,9 +41,21 @@ final class CommunityPostViewModel: BaseViewModel, ViewModelType {
 
     struct Output {
         let isDoneButtonEnabled: AnyPublisher<Bool, Never>
+        let initialMediaItems: AnyPublisher<[CommunityPostMediaItem], Never>
     }
 
     func transform(input: Input) -> Output {
+        let initialMediaItemsSubject = PassthroughSubject<[CommunityPostMediaItem], Never>()
+
+        if let postToEdit = postToEdit {
+            print("[CommunityPostViewModel] Loading existing media from files: \(postToEdit.files)")
+            let items = loadExistingMediaItems(from: postToEdit.files)
+            print("[CommunityPostViewModel] Loaded \(items.count) media items")
+            DispatchQueue.main.async {
+                initialMediaItemsSubject.send(items)
+            }
+        }
+
         input.storeButtonTapped
             .sink { [weak self] _ in
                 self?.coordinator?.showStoreSearch()
@@ -132,8 +144,38 @@ final class CommunityPostViewModel: BaseViewModel, ViewModelType {
             .store(in: &cancellables)
 
         return Output(
-            isDoneButtonEnabled: isDoneButtonEnabled
+            isDoneButtonEnabled: isDoneButtonEnabled,
+            initialMediaItems: initialMediaItemsSubject.eraseToAnyPublisher()
         )
+    }
+
+    private func loadExistingMediaItems(from files: [String]) -> [CommunityPostMediaItem] {
+        var items: [CommunityPostMediaItem] = []
+        var i = 0
+
+        while i < files.count {
+            let currentURL = files[i]
+            let isVideo = currentURL.lowercased().contains(".mp4") ||
+                         currentURL.lowercased().contains(".mov") ||
+                         currentURL.lowercased().contains(".m4v")
+
+            if isVideo {
+                let thumbnailURL = currentURL
+                let videoURL = (i + 1 < files.count) ? files[i + 1] : currentURL
+
+                items.append(CommunityPostMediaItem(
+                    kind: .remote(url: videoURL, thumbnailUrl: thumbnailURL, isVideo: true)
+                ))
+                i += 2
+            } else {
+                items.append(CommunityPostMediaItem(
+                    kind: .remote(url: currentURL, thumbnailUrl: nil, isVideo: false)
+                ))
+                i += 1
+            }
+        }
+
+        return items
     }
 }
 

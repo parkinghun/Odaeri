@@ -69,14 +69,16 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
         let postLikeToggled: AnyPublisher<CommunityPostLikeEvent, Never>
         let postEditRequested: AnyPublisher<String, Never>
         let postDeleteRequested: AnyPublisher<String, Never>
+        let searchText: AnyPublisher<String, Never>
     }
-    
+
     struct Output {
         let distanceSelection: AnyPublisher<CommunityDistanceSelection, Never>
         let sortSelection: AnyPublisher<CommunitySortType, Never>
         let banners: AnyPublisher<[BannerEntity], Never>
         let currentBannerIndex: AnyPublisher<Int, Never>
         let posts: AnyPublisher<[CommunityPostItemViewModel], Never>
+        let isEmpty: AnyPublisher<Bool, Never>
         let isLoading: AnyPublisher<Bool, Never>
         let error: AnyPublisher<String, Never>
     }
@@ -192,12 +194,27 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
             }
             .store(in: &cancellables)
 
+        input.searchText
+            .sink { [weak self] searchText in
+                if searchText.isEmpty {
+                    self?.fetchPosts()
+                } else {
+                    self?.searchPosts(title: searchText)
+                }
+            }
+            .store(in: &cancellables)
+
+        let isEmpty = postsSubject
+            .map { $0.isEmpty }
+            .eraseToAnyPublisher()
+
         return Output(
             distanceSelection: distanceSelectionSubject.eraseToAnyPublisher(),
             sortSelection: sortTypeSubject.eraseToAnyPublisher(),
             banners: bannersSubject.eraseToAnyPublisher(),
             currentBannerIndex: currentBannerIndexSubject.eraseToAnyPublisher(),
             posts: postsSubject.eraseToAnyPublisher(),
+            isEmpty: isEmpty,
             isLoading: isLoadingSubject.eraseToAnyPublisher(),
             error: errorSubject.eraseToAnyPublisher()
         )
@@ -376,14 +393,70 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
             .store(in: &cancellables)
     }
 
-    private func makePostViewModel(from post: CommunityPostEntity) -> CommunityPostItemViewModel {
-        let mediaItems = post.files.map { url in
-            CommunityMediaItemViewModel(
-                url: url,
-                thumbnailUrl: nil,
-                type: CommunityMediaType.from(url: url)
+    private func searchPosts(title: String) {
+        isLoadingSubject.send(true)
+        postRepository.searchPosts(title: title)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    self?.isLoadingSubject.send(false)
+                    if case .failure(let error) = completion {
+                        self?.errorSubject.send(error.errorDescription)
+                    }
+                },
+                receiveValue: { [weak self] posts in
+                    guard let self = self else { return }
+                    let viewModels = posts.map { self.makePostViewModel(from: $0) }
+                    self.postsSubject.send(viewModels)
+                }
             )
+            .store(in: &cancellables)
+    }
+
+    private func mapMediaItems(from files: [String]) -> [CommunityMediaItemViewModel] {
+        var result: [CommunityMediaItemViewModel] = []
+        var i = 0
+
+        while i < files.count {
+            let currentURL = files[i]
+            let isVideoOrImage = CommunityMediaType.from(url: currentURL)
+
+            if isVideoOrImage == .video || (i + 1 < files.count && CommunityMediaType.from(url: files[i + 1]) == .video) {
+                let thumbnailURL = currentURL
+                let videoURL = (i + 1 < files.count) ? files[i + 1] : currentURL
+
+                let finalType: CommunityMediaType = CommunityMediaType.from(url: videoURL) == .video ? .video : .image
+
+                if finalType == .video {
+                    result.append(CommunityMediaItemViewModel(
+                        url: videoURL,
+                        thumbnailUrl: thumbnailURL,
+                        type: .video
+                    ))
+                    i += 2
+                } else {
+                    result.append(CommunityMediaItemViewModel(
+                        url: currentURL,
+                        thumbnailUrl: nil,
+                        type: .image
+                    ))
+                    i += 1
+                }
+            } else {
+                result.append(CommunityMediaItemViewModel(
+                    url: currentURL,
+                    thumbnailUrl: nil,
+                    type: .image
+                ))
+                i += 1
+            }
         }
+
+        return result
+    }
+
+    private func makePostViewModel(from post: CommunityPostEntity) -> CommunityPostItemViewModel {
+        let mediaItems = mapMediaItems(from: post.files)
 
         let createdAtText = post.createdAt?.toRelativeTime ?? "방금 전"
         let distanceText = formatDistanceText(
@@ -566,19 +639,9 @@ struct CommunityPostItemViewModel: Hashable {
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(postId)
-        hasher.combine(title)
-        hasher.combine(content)
-        hasher.combine(likeCountValue)
-        hasher.combine(isLiked)
-        hasher.combine(mediaItems)
     }
 
     static func == (lhs: CommunityPostItemViewModel, rhs: CommunityPostItemViewModel) -> Bool {
-        lhs.postId == rhs.postId &&
-        lhs.title == rhs.title &&
-        lhs.content == rhs.content &&
-        lhs.likeCountValue == rhs.likeCountValue &&
-        lhs.isLiked == rhs.isLiked &&
-        lhs.mediaItems == rhs.mediaItems
+        lhs.postId == rhs.postId
     }
 }

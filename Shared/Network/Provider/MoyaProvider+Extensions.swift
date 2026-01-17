@@ -205,18 +205,25 @@ extension MoyaProvider {
                     print(body) // 서버가 보내준 실제 JSON 전문 출력
                 }
                 print("=======================================")
-                
+
                 if let error = self.parseError(from: response) {
                     return Fail(error: error).eraseToAnyPublisher()
                 }
 
                 do {
+                    if response.data.isEmpty && T.self == EmptyResponse.self {
+                        let emptyResponse = EmptyResponse() as! T
+                        return Just(emptyResponse)
+                            .setFailureType(to: NetworkError.self)
+                            .eraseToAnyPublisher()
+                    }
+
                     let decoded = try response.map(T.self)
                     return Just(decoded)
                         .setFailureType(to: NetworkError.self)
                         .eraseToAnyPublisher()
                 } catch {
-                    print("Decoding Error: \(error)")
+                    print("Decoding Error: \(error), Status Code: \(response.statusCode), Data Length: \(response.data.count)")
                     return Fail(error: NetworkError.decodingFailed(error))
                         .eraseToAnyPublisher()
                 }
