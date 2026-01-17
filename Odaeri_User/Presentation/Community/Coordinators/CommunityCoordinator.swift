@@ -50,6 +50,7 @@ final class CommunityCoordinator: Coordinator {
 
     func showPostDetail(postId: String) {
         let viewModel = CommunityPostDetailViewModel(postId: postId)
+        viewModel.coordinator = self
         let viewController = CommunityPostDetailViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
     }

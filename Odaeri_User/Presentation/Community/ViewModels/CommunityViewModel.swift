@@ -50,6 +50,13 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
                 self?.fetchPosts()
             }
             .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .communityPostInteractionDidUpdate)
+            .compactMap { $0.object as? CommunityPostInteractionUpdateInfo }
+            .sink { [weak self] info in
+                self?.applyPostInteractionUpdate(info)
+            }
+            .store(in: &cancellables)
     }
 
     deinit {
@@ -350,6 +357,14 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
         let current = updatedPosts[index]
         let likeCount = max(0, current.likeCountValue + (isLiked ? 1 : -1))
         updatedPosts[index] = current.updatingLike(isLiked: isLiked, likeCount: likeCount)
+        postsSubject.send(updatedPosts)
+    }
+
+    private func applyPostInteractionUpdate(_ info: CommunityPostInteractionUpdateInfo) {
+        var updatedPosts = postsSubject.value
+        guard let index = updatedPosts.firstIndex(where: { $0.postId == info.postId }) else { return }
+        let current = updatedPosts[index]
+        updatedPosts[index] = current.updatingLike(isLiked: info.isLiked, likeCount: info.likeCount)
         postsSubject.send(updatedPosts)
     }
 

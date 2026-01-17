@@ -19,8 +19,9 @@ extension CommunityCommentAPI: BaseAPI {
         switch self {
         case let .addComment(postId, _, _):
             return "/posts/\(postId)/comments"
-        case let .updateComment(postId, commentId, _),
-            let .deleteComment(postId, commentId) :
+        case let .updateComment(postId, commentId, _):
+            return "/posts/\(postId)/comments/\(commentId)"
+        case let .deleteComment(postId, commentId) :
             return "/posts/\(postId)/comments/\(commentId)"
         }
     }
@@ -56,7 +57,7 @@ extension CommunityCommentAPI: BaseAPI {
             return .requestPlain
         }
     }
-
+    
     var headerSet: HeaderSet {
         return .authenticated
     }

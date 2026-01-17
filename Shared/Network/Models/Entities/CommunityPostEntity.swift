@@ -22,7 +22,7 @@ struct CommunityPostEntity {
     let createdAt: Date?
     let updatedAt: Date?
 
-    init(from response: CommunityPostResponse) {
+    init(from response: CommunityPostResponse, currentUserId: String) {
         self.postId = response.postId
         self.category = response.category
         self.title = response.title
@@ -33,7 +33,7 @@ struct CommunityPostEntity {
         self.files = response.files
         self.isLike = response.isLike
         self.likeCount = response.likeCount
-        self.comments = (response.comments ?? []).map { CommunityPostCommentEntity(from: $0) }
+        self.comments = (response.comments ?? []).map { CommunityPostCommentEntity(from: $0, currentUserId: currentUserId) }
         self.createdAt = response.createdAt.toDate()
         self.updatedAt = response.updatedAt.toDate()
     }
@@ -60,15 +60,35 @@ struct CommunityPostCommentEntity {
     let createdAt: Date?
     let creator: CreatorEntity
     let replies: [CommunityPostReplyEntity]
+    let isMine: Bool
     var isExpanded: Bool
 
-    init(from response: CommunityPostCommentResponse) {
+    init(from response: CommunityPostCommentResponse, currentUserId: String) {
         self.commentId = response.commentId
         self.content = response.content
         self.createdAt = response.createdAt.toDate()
         self.creator = CreatorEntity(from: response.creator)
-        self.replies = (response.replies ?? []).map { CommunityPostReplyEntity(from: $0) }
+        self.replies = (response.replies ?? []).map { CommunityPostReplyEntity(from: $0, currentUserId: currentUserId) }
+        self.isMine = response.creator.userId == currentUserId
         self.isExpanded = false
+    }
+
+    init(
+        commentId: String,
+        content: String,
+        createdAt: Date?,
+        creator: CreatorEntity,
+        replies: [CommunityPostReplyEntity],
+        isMine: Bool,
+        isExpanded: Bool
+    ) {
+        self.commentId = commentId
+        self.content = content
+        self.createdAt = createdAt
+        self.creator = creator
+        self.replies = replies
+        self.isMine = isMine
+        self.isExpanded = isExpanded
     }
 }
 
@@ -77,12 +97,28 @@ struct CommunityPostReplyEntity {
     let content: String
     let createdAt: Date?
     let creator: CreatorEntity
+    let isMine: Bool
 
-    init(from response: CommunityPostReplyResponse) {
+    init(from response: CommunityPostReplyResponse, currentUserId: String) {
         self.commentId = response.commentId
         self.content = response.content
         self.createdAt = response.createdAt.toDate()
         self.creator = CreatorEntity(from: response.creator)
+        self.isMine = response.creator.userId == currentUserId
+    }
+
+    init(
+        commentId: String,
+        content: String,
+        createdAt: Date?,
+        creator: CreatorEntity,
+        isMine: Bool
+    ) {
+        self.commentId = commentId
+        self.content = content
+        self.createdAt = createdAt
+        self.creator = creator
+        self.isMine = isMine
     }
 }
 

@@ -10,6 +10,7 @@ import SnapKit
 
 final class CommunityMediaBannerView: UIView {
     var onVideoSelected: ((URL) -> Void)?
+    var isInteractionEnabled: Bool = true
 
     private var items: [CommunityMediaItemViewModel] = []
 
@@ -97,6 +98,7 @@ extension CommunityMediaBannerView: UICollectionViewDataSource, UICollectionView
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard isInteractionEnabled else { return }
         let item = items[indexPath.item]
         guard item.type == .video, let url = URL(string: item.url) else { return }
         onVideoSelected?(url)
@@ -111,6 +113,7 @@ private final class CommunityMediaBannerCell: UICollectionViewCell {
         view.contentMode = .scaleAspectFill
         view.clipsToBounds = true
         view.backgroundColor = AppColor.gray30
+        view.layer.cornerRadius = 12
         return view
     }()
 
@@ -162,7 +165,7 @@ private final class CommunityMediaBannerCell: UICollectionViewCell {
         if let thumbnailUrl = item.thumbnailUrl {
             imageView.setImage(url: thumbnailUrl)
         } else {
-            imageView.setVideoThumbnail(url: item.url)
+            imageView.image = AppImage.default
         }
     }
 }

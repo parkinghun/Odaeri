@@ -187,7 +187,7 @@ struct CreatorEntity: Hashable, Equatable {
     let nick: String
     let profileImage: String?
 
-    init(userId: String, nick: String, profileImage: String) {
+    init(userId: String, nick: String, profileImage: String?) {
         self.userId = userId
         self.nick = nick
         self.profileImage = profileImage

@@ -23,7 +23,8 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
     func createPost(request: CommunityPostCreateRequest) -> AnyPublisher<CommunityPostEntity, NetworkError> {
         provider.requestPublisher(.createPost(request: request))
             .map { (response: CommunityPostResponse) in
-                CommunityPostEntity(from: response)
+                let currentUserId = UserManager.shared.currentUser?.userId ?? ""
+                return CommunityPostEntity(from: response, currentUserId: currentUserId)
             }
             .eraseToAnyPublisher()
     }
@@ -31,7 +32,8 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
     func updatePost(postId: String, request: CommunityPostUpdateRequest) -> AnyPublisher<CommunityPostEntity, NetworkError> {
         provider.requestPublisher(.updatePost(postId: postId, request: request))
             .map { (response: CommunityPostResponse) in
-                CommunityPostEntity(from: response)
+                let currentUserId = UserManager.shared.currentUser?.userId ?? ""
+                return CommunityPostEntity(from: response, currentUserId: currentUserId)
             }
             .eraseToAnyPublisher()
     }
@@ -54,7 +56,8 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
     func fetchPostDetail(postId: String) -> AnyPublisher<CommunityPostEntity, NetworkError> {
         provider.requestPublisher(.fetchPostDetail(postId: postId))
             .map { (response: CommunityPostResponse) in
-                CommunityPostEntity(from: response)
+                let currentUserId = UserManager.shared.currentUser?.userId ?? ""
+                return CommunityPostEntity(from: response, currentUserId: currentUserId)
             }
             .eraseToAnyPublisher()
     }
@@ -80,7 +83,8 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
             )
         )
         .map { (response: CommunityPostListResponse) in
-            let posts = response.data.map { CommunityPostEntity(from: $0) }
+            let currentUserId = UserManager.shared.currentUser?.userId ?? ""
+            let posts = response.data.map { CommunityPostEntity(from: $0, currentUserId: currentUserId) }
             return (posts: posts, nextCursor: response.nextCursor)
         }
         .eraseToAnyPublisher()
@@ -89,7 +93,8 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
     func searchPosts(title: String) -> AnyPublisher<[CommunityPostEntity], NetworkError> {
         provider.requestPublisher(.searchPosts(title: title))
             .map { (response: CommunityPostListResponse) in
-                response.data.map { CommunityPostEntity(from: $0) }
+                let currentUserId = UserManager.shared.currentUser?.userId ?? ""
+                return response.data.map { CommunityPostEntity(from: $0, currentUserId: currentUserId) }
             }
             .eraseToAnyPublisher()
     }
@@ -104,7 +109,8 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
             .fetchPostsByUser(userId: userId, category: category, limit: limit, next: next)
         )
         .map { (response: CommunityPostListResponse) in
-            let posts = response.data.map { CommunityPostEntity(from: $0) }
+            let currentUserId = UserManager.shared.currentUser?.userId ?? ""
+            let posts = response.data.map { CommunityPostEntity(from: $0, currentUserId: currentUserId) }
             return (posts: posts, nextCursor: response.nextCursor)
         }
         .eraseToAnyPublisher()
@@ -119,7 +125,8 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
             .fetchMyLikedPosts(category: category, limit: limit, next: next)
         )
         .map { (response: CommunityPostListResponse) in
-            let posts = response.data.map { CommunityPostEntity(from: $0) }
+            let currentUserId = UserManager.shared.currentUser?.userId ?? ""
+            let posts = response.data.map { CommunityPostEntity(from: $0, currentUserId: currentUserId) }
             return (posts: posts, nextCursor: response.nextCursor)
         }
         .eraseToAnyPublisher()

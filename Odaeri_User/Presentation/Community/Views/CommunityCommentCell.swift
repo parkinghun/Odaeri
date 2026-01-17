@@ -10,6 +10,11 @@ import SnapKit
 
 final class CommunityCommentCell: UIView {
     var onToggleTapped: ((String) -> Void)?
+    var onReplyTapped: ((String, String) -> Void)?
+    var onEditTapped: ((String, String) -> Void)?
+    var onDeleteTapped: ((String) -> Void)?
+    var onProfileTapped: ((String) -> Void)?
+    var onContentTapped: ((String) -> Void)?
 
     private let profileImageView: UIImageView = {
         let view = UIImageView()
@@ -40,6 +45,29 @@ final class CommunityCommentCell: UIView {
         label.textColor = AppColor.gray90
         label.numberOfLines = 0
         return label
+    }()
+
+    private let replyButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("답글 달기", for: .normal)
+        button.titleLabel?.font = AppFont.caption2
+        button.setTitleColor(AppColor.gray60, for: .normal)
+        button.contentHorizontalAlignment = .left
+        return button
+    }()
+
+    private let moreButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setImage(AppImage.moreHorizontal, for: .normal)
+        button.tintColor = AppColor.gray60
+        return button
+    }()
+
+    private let spacerView: UIView = {
+        let view = UIView()
+        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return view
     }()
 
     private let toggleButton: UIButton = {
@@ -77,7 +105,7 @@ final class CommunityCommentCell: UIView {
     }()
 
     private lazy var headerStackView: UIStackView = {
-        let stackView = UIStackView(arrangedSubviews: [nameLabel, timeLabel])
+        let stackView = UIStackView(arrangedSubviews: [nameLabel, timeLabel, spacerView, moreButton])
         stackView.axis = .horizontal
         stackView.spacing = AppSpacing.small
         stackView.alignment = .center
@@ -85,7 +113,7 @@ final class CommunityCommentCell: UIView {
     }()
 
     private lazy var commentContentStackView: UIStackView = {
-        let stackView = UIStackView(arrangedSubviews: [headerStackView, contentLabel])
+        let stackView = UIStackView(arrangedSubviews: [headerStackView, contentLabel, replyButton])
         stackView.axis = .vertical
         stackView.spacing = AppSpacing.xSmall
         return stackView
@@ -108,6 +136,10 @@ final class CommunityCommentCell: UIView {
 
     private var currentCommentId: String?
     private var currentReplies: [CommunityPostReplyEntity] = []
+    private var currentUserName: String?
+    private var currentContent: String?
+    private var currentCreatorId: String?
+    private var isMine: Bool = false
 
     private enum Layout {
         static let profileSize: CGFloat = 32
@@ -171,16 +203,32 @@ final class CommunityCommentCell: UIView {
 
     private func setupActions() {
         toggleButton.addTarget(self, action: #selector(handleToggleTapped), for: .touchUpInside)
+        replyButton.addTarget(self, action: #selector(handleReplyTapped), for: .touchUpInside)
+        moreButton.addTarget(self, action: #selector(handleMoreTapped), for: .touchUpInside)
+
+        let profileTapGesture = UITapGestureRecognizer(target: self, action: #selector(handleProfileTapped))
+        profileImageView.isUserInteractionEnabled = true
+        profileImageView.addGestureRecognizer(profileTapGesture)
+
+        let contentTapGesture = UITapGestureRecognizer(target: self, action: #selector(handleContentTapped))
+        contentLabel.isUserInteractionEnabled = true
+        contentLabel.addGestureRecognizer(contentTapGesture)
     }
 
     func configure(comment: CommunityPostCommentEntity) {
         currentCommentId = comment.commentId
         currentReplies = comment.replies
+        currentUserName = comment.creator.nick
+        currentContent = comment.content
+        currentCreatorId = comment.creator.userId
+        isMine = comment.isMine
 
         nameLabel.text = comment.creator.nick
         timeLabel.text = comment.createdAt?.toRelativeTime ?? "방금 전"
         contentLabel.text = comment.content
         profileImageView.setImage(url: comment.creator.profileImage)
+
+        moreButton.isHidden = !comment.isMine
 
         let replyCount = comment.replies.count
         toggleButton.isHidden = replyCount == 0
@@ -196,10 +244,22 @@ final class CommunityCommentCell: UIView {
     private func updateReplies(isExpanded: Bool) {
         if isExpanded {
             if repliesStackView.arrangedSubviews.isEmpty {
-                currentReplies.forEach { reply in
+                currentReplies.forEach { [weak self] reply in
                     let view = CommunityReplyView()
                     view.configure(reply: reply)
-                    repliesStackView.addArrangedSubview(view)
+                    view.onEditTapped = { [weak self] commentId, content in
+                        self?.onEditTapped?(commentId, content)
+                    }
+                    view.onDeleteTapped = { [weak self] commentId in
+                        self?.onDeleteTapped?(commentId)
+                    }
+                    view.onProfileTapped = { [weak self] userId in
+                        self?.onProfileTapped?(userId)
+                    }
+                    view.onContentTapped = { [weak self] commentId in
+                        self?.onContentTapped?(commentId)
+                    }
+                    self?.repliesStackView.addArrangedSubview(view)
                 }
             }
         } else {
@@ -215,5 +275,60 @@ final class CommunityCommentCell: UIView {
     @objc private func handleToggleTapped() {
         guard let commentId = currentCommentId else { return }
         onToggleTapped?(commentId)
+    }
+
+    @objc private func handleReplyTapped() {
+        guard let commentId = currentCommentId,
+              let userName = currentUserName else { return }
+        onReplyTapped?(commentId, userName)
+    }
+
+    @objc private func handleMoreTapped() {
+        guard let commentId = currentCommentId,
+              let content = currentContent else { return }
+        showMoreMenu(commentId: commentId, content: content)
+    }
+
+    private func showMoreMenu(commentId: String, content: String) {
+        guard let viewController = findViewController() else { return }
+
+        let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+
+        let editAction = UIAlertAction(title: "수정하기", style: .default) { [weak self] _ in
+            self?.onEditTapped?(commentId, content)
+        }
+
+        let deleteAction = UIAlertAction(title: "삭제하기", style: .destructive) { [weak self] _ in
+            self?.onDeleteTapped?(commentId)
+        }
+
+        let cancelAction = UIAlertAction(title: "취소", style: .cancel)
+
+        alert.addAction(editAction)
+        alert.addAction(deleteAction)
+        alert.addAction(cancelAction)
+
+        viewController.present(alert, animated: true)
+    }
+
+    private func findViewController() -> UIViewController? {
+        var responder: UIResponder? = self
+        while let nextResponder = responder?.next {
+            if let viewController = nextResponder as? UIViewController {
+                return viewController
+            }
+            responder = nextResponder
+        }
+        return nil
+    }
+
+    @objc private func handleProfileTapped() {
+        guard let creatorId = currentCreatorId else { return }
+        onProfileTapped?(creatorId)
+    }
+
+    @objc private func handleContentTapped() {
+        guard let commentId = currentCommentId else { return }
+        onContentTapped?(commentId)
     }
 }

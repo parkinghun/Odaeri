@@ -9,6 +9,8 @@ import UIKit
 import SnapKit
 
 final class CommunityCreatorInfoView: UIView {
+    var onTap: (() -> Void)?
+
     private let profileImageView: UIImageView = {
         let view = UIImageView()
         view.contentMode = .scaleAspectFill
@@ -42,6 +44,7 @@ final class CommunityCreatorInfoView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
+        setupGesture()
     }
 
     required init?(coder: NSCoder) {
@@ -62,6 +65,16 @@ final class CommunityCreatorInfoView: UIView {
             $0.trailing.equalToSuperview()
             $0.centerY.equalTo(profileImageView)
         }
+    }
+
+    private func setupGesture() {
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        addGestureRecognizer(tapGesture)
+        isUserInteractionEnabled = true
+    }
+
+    @objc private func handleTap() {
+        onTap?()
     }
 
     func configure(name: String, createdAtText: String, profileImageUrl: String?) {

@@ -35,14 +35,6 @@ final class CommunityStoreDetailCard: UIView {
         textColor: AppColor.gray75
     )
 
-    private let reviewCountView = IconLabelView(
-        icon: AppImage.list,
-        iconSize: 18,
-        iconColor: AppColor.gray60,
-        font: AppFont.caption1,
-        textColor: AppColor.gray75
-    )
-
     private let pickCountView = IconLabelView(
         icon: AppImage.likeFill,
         iconSize: 18,
@@ -51,15 +43,8 @@ final class CommunityStoreDetailCard: UIView {
         textColor: AppColor.gray75
     )
 
-    private let pickchelinImageView: UIImageView = {
-        let view = UIImageView(image: AppImage.pickchelin)
-        view.contentMode = .scaleAspectFit
-        view.isHidden = true
-        return view
-    }()
-
     private lazy var ratingStackView: UIStackView = {
-        let stackView = UIStackView(arrangedSubviews: [ratingView, reviewCountView, pickchelinImageView])
+        let stackView = UIStackView(arrangedSubviews: [ratingView, pickCountView])
         stackView.axis = .horizontal
         stackView.spacing = AppSpacing.small
         stackView.alignment = .center
@@ -76,7 +61,7 @@ final class CommunityStoreDetailCard: UIView {
     }()
 
     private lazy var textStackView: UIStackView = {
-        let stackView = UIStackView(arrangedSubviews: [storeNameLabel, ratingStackView, pickCountView, tagScrollView])
+        let stackView = UIStackView(arrangedSubviews: [storeNameLabel, ratingStackView, tagScrollView])
         stackView.axis = .vertical
         stackView.spacing = AppSpacing.small
         return stackView
@@ -157,9 +142,7 @@ final class CommunityStoreDetailCard: UIView {
     ) {
         storeNameLabel.text = storeName
         ratingView.updateText(ratingText)
-        reviewCountView.updateText(reviewCountText)
         pickCountView.updateText(pickCountText)
-        pickchelinImageView.isHidden = !isPickchelin
         storeImageView.setImage(url: imageUrl)
         updateTags(tags)
     }
