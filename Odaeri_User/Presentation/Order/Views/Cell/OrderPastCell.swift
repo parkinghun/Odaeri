@@ -103,6 +103,7 @@ final class OrderPastCell: BaseCollectionViewCell {
     }()
 
     var onStoreTapped: (() -> Void)?
+    var onReviewTapped: (() -> Void)?
 
     override func setupUI() {
         super.setupUI()
@@ -167,6 +168,7 @@ final class OrderPastCell: BaseCollectionViewCell {
         storeNameLabel.addGestureRecognizer(nameTap)
         storeImageView.addGestureRecognizer(imageTap)
         priceButton.addTarget(self, action: #selector(handlePriceTap), for: .touchUpInside)
+        reviewButton.addTarget(self, action: #selector(handleReviewTap), for: .touchUpInside)
     }
 
     func configure(with display: OrderPastDisplay) {
@@ -197,11 +199,13 @@ final class OrderPastCell: BaseCollectionViewCell {
             config.title = review.ratingText
             config.baseForegroundColor = AppColor.gray75
             reviewButton.tintColor = AppColor.brightForsythia
+            reviewButton.layer.borderColor = AppColor.gray30.cgColor
             
         } else {
             config.image = nil
             config.title = "리뷰 작성"
-            config.baseForegroundColor = AppColor.gray45
+            config.baseForegroundColor = AppColor.deepSprout
+            reviewButton.layer.borderColor = AppColor.deepSprout.cgColor
         }
 
         reviewButton.configuration = config
@@ -213,5 +217,9 @@ final class OrderPastCell: BaseCollectionViewCell {
 
     @objc private func handleStoreTap() {
         onStoreTapped?()
+    }
+
+    @objc private func handleReviewTap() {
+        onReviewTapped?()
     }
 }

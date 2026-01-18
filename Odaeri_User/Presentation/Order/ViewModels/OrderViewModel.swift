@@ -24,6 +24,7 @@ final class OrderViewModel: BaseViewModel, ViewModelType {
         let viewDidLoad: AnyPublisher<Void, Never>
         let priceTapped: AnyPublisher<String, Never>
         let storeTapped: AnyPublisher<String, Never>
+        let reviewTapped: AnyPublisher<String, Never>
     }
 
     struct Output {
@@ -74,6 +75,16 @@ final class OrderViewModel: BaseViewModel, ViewModelType {
         input.storeTapped
             .sink { [weak self] storeId in
                 self?.coordinator?.showStoreDetail(storeId: storeId)
+            }
+            .store(in: &cancellables)
+
+        input.reviewTapped
+            .compactMap { [weak self] orderId in
+                self?.orderEntityCache[orderId]
+            }
+            .sink { [weak self] order in
+                let mode: ReviewWriteMode = order.review == nil ? .create(order: order) : .edit(order: order)
+                self?.coordinator?.showReviewWrite(mode: mode)
             }
             .store(in: &cancellables)
 

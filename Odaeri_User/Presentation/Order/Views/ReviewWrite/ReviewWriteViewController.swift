@@ -110,6 +110,8 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.backgroundColor = .clear
         collectionView.showsHorizontalScrollIndicator = false
+        collectionView.showsVerticalScrollIndicator = false
+        collectionView.alwaysBounceVertical = false
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.register(ReviewWriteImageAddCell.self, forCellWithReuseIdentifier: ReviewWriteImageAddCell.reuseIdentifier)
@@ -236,6 +238,7 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
         submitButton.addTarget(self, action: #selector(handleSubmit), for: .touchUpInside)
 
         setupRatingButtons()
+        addRatingPanGesture()
     }
 
     override func bind() {
@@ -283,6 +286,12 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
         ratingButtons.forEach { ratingStackView.addArrangedSubview($0) }
     }
 
+    private func addRatingPanGesture() {
+        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handleRatingPan(_:)))
+        panGesture.cancelsTouchesInView = false
+        ratingStackView.addGestureRecognizer(panGesture)
+    }
+
     private func updateRatingButtons(rating: Int) {
         for (index, button) in ratingButtons.enumerated() {
             let isSelected = index < rating
@@ -307,6 +316,16 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
         let generator = UISelectionFeedbackGenerator()
         generator.selectionChanged()
         ratingSubject.send(sender.tag)
+    }
+
+    @objc private func handleRatingPan(_ gesture: UIPanGestureRecognizer) {
+        let location = gesture.location(in: ratingStackView)
+        guard let rating = ratingButtons.first(where: { $0.frame.contains(location) })?.tag else { return }
+        ratingSubject.send(rating)
+        if gesture.state == .began || gesture.state == .changed {
+            let generator = UISelectionFeedbackGenerator()
+            generator.selectionChanged()
+        }
     }
 
     @objc private func handleSubmit() {
@@ -366,14 +385,16 @@ extension ReviewWriteViewController: UITextViewDelegate {
 
 extension ReviewWriteViewController: UICollectionViewDataSource, UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return selectedImages.count + 1
+        let canAddMore = selectedImages.count < Constant.maxImageCount
+        return selectedImages.count + (canAddMore ? 1 : 0)
     }
 
     func collectionView(
         _ collectionView: UICollectionView,
         cellForItemAt indexPath: IndexPath
     ) -> UICollectionViewCell {
-        if indexPath.item == 0 {
+        let canAddMore = selectedImages.count < Constant.maxImageCount
+        if canAddMore && indexPath.item == 0 {
             let cell = collectionView.dequeueReusableCell(
                 withReuseIdentifier: ReviewWriteImageAddCell.reuseIdentifier,
                 for: indexPath
@@ -386,16 +407,17 @@ extension ReviewWriteViewController: UICollectionViewDataSource, UICollectionVie
             withReuseIdentifier: ReviewWriteImageCell.reuseIdentifier,
             for: indexPath
         ) as! ReviewWriteImageCell
-        let image = selectedImages[indexPath.item - 1]
+        let imageIndex = canAddMore ? indexPath.item - 1 : indexPath.item
+        let image = selectedImages[imageIndex]
         cell.configure(image: image)
         cell.onDeleteTapped = { [weak self] in
-            self?.selectedImages.remove(at: indexPath.item - 1)
+            self?.selectedImages.remove(at: imageIndex)
         }
         return cell
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        if indexPath.item == 0 {
+        if selectedImages.count < Constant.maxImageCount && indexPath.item == 0 {
             presentImagePicker()
         }
     }
@@ -419,206 +441,5 @@ extension ReviewWriteViewController: PHPickerViewControllerDelegate {
                 }
             }
         }
-    }
-}
-
-private final class ReviewWriteHeaderView: UIView {
-    private enum Layout {
-        static let imageSize: CGFloat = 52
-    }
-
-    private let storeImageView: UIImageView = {
-        let view = UIImageView()
-        view.contentMode = .scaleAspectFill
-        view.layer.cornerRadius = 10
-        view.clipsToBounds = true
-        view.backgroundColor = AppColor.gray30
-        return view
-    }()
-
-    private let storeNameLabel: UILabel = {
-        let label = UILabel()
-        label.font = AppFont.body1Bold
-        label.textColor = AppColor.gray90
-        return label
-    }()
-
-    private let menuChipLabel = ReviewWriteChipLabel()
-
-    private lazy var textStackView: UIStackView = {
-        let stackView = UIStackView(arrangedSubviews: [storeNameLabel, menuChipLabel])
-        stackView.axis = .vertical
-        stackView.spacing = AppSpacing.xxSmall
-        return stackView
-    }()
-
-    private lazy var rootStackView: UIStackView = {
-        let stackView = UIStackView(arrangedSubviews: [storeImageView, textStackView])
-        stackView.axis = .horizontal
-        stackView.spacing = AppSpacing.medium
-        stackView.alignment = .center
-        return stackView
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupUI()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupUI() {
-        addSubview(rootStackView)
-        rootStackView.snp.makeConstraints {
-            $0.edges.equalToSuperview()
-        }
-
-        storeImageView.snp.makeConstraints {
-            $0.size.equalTo(Layout.imageSize)
-        }
-    }
-
-    func configure(with header: ReviewWriteHeader) {
-        storeNameLabel.text = header.storeName
-        menuChipLabel.text = header.menuSummary
-        storeImageView.setImage(url: header.storeImageUrl)
-    }
-}
-
-private final class ReviewWriteChipLabel: UILabel {
-    private let contentInset = UIEdgeInsets(top: 4, left: 10, bottom: 4, right: 10)
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        font = AppFont.caption1
-        textColor = AppColor.gray75
-        backgroundColor = AppColor.gray15
-        layer.cornerRadius = 10
-        clipsToBounds = true
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func drawText(in rect: CGRect) {
-        super.drawText(in: rect.inset(by: contentInset))
-    }
-
-    override var intrinsicContentSize: CGSize {
-        let size = super.intrinsicContentSize
-        return CGSize(
-            width: size.width + contentInset.left + contentInset.right,
-            height: size.height + contentInset.top + contentInset.bottom
-        )
-    }
-}
-
-private final class ReviewWriteImageAddCell: UICollectionViewCell {
-    static let reuseIdentifier = "ReviewWriteImageAddCell"
-
-    private let iconView: UIImageView = {
-        let view = UIImageView(image: UIImage(systemName: "plus"))
-        view.tintColor = AppColor.gray60
-        return view
-    }()
-
-    private let countLabel: UILabel = {
-        let label = UILabel()
-        label.font = AppFont.caption2
-        label.textColor = AppColor.gray60
-        label.textAlignment = .center
-        return label
-    }()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupUI()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupUI() {
-        contentView.layer.cornerRadius = 12
-        contentView.layer.borderWidth = 1
-        contentView.layer.borderColor = AppColor.gray30.cgColor
-
-        contentView.addSubview(iconView)
-        contentView.addSubview(countLabel)
-
-        iconView.snp.makeConstraints {
-            $0.centerX.equalToSuperview()
-            $0.top.equalToSuperview().offset(22)
-        }
-
-        countLabel.snp.makeConstraints {
-            $0.top.equalTo(iconView.snp.bottom).offset(6)
-            $0.centerX.equalToSuperview()
-        }
-    }
-
-    func configure(currentCount: Int, maxCount: Int) {
-        countLabel.text = "\(currentCount)/\(maxCount)"
-    }
-}
-
-private final class ReviewWriteImageCell: UICollectionViewCell {
-    static let reuseIdentifier = "ReviewWriteImageCell"
-
-    private let imageView: UIImageView = {
-        let view = UIImageView()
-        view.contentMode = .scaleAspectFill
-        view.clipsToBounds = true
-        return view
-    }()
-
-    private let removeButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
-        button.tintColor = AppColor.gray0
-        return button
-    }()
-
-    var onDeleteTapped: (() -> Void)?
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupUI()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupUI() {
-        contentView.layer.cornerRadius = 12
-        contentView.clipsToBounds = true
-
-        contentView.addSubview(imageView)
-        contentView.addSubview(removeButton)
-
-        imageView.snp.makeConstraints {
-            $0.edges.equalToSuperview()
-        }
-
-        removeButton.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(6)
-            $0.trailing.equalToSuperview().offset(-6)
-            $0.size.equalTo(22)
-        }
-
-        removeButton.addTarget(self, action: #selector(handleDelete), for: .touchUpInside)
-    }
-
-    func configure(image: UIImage) {
-        imageView.image = image
-    }
-
-    @objc private func handleDelete() {
-        onDeleteTapped?()
     }
 }

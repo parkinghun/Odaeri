@@ -10,7 +10,7 @@ import Combine
 
 final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
     private enum Constant {
-        static let minContentLength = 10
+        static let minSubmitLength = 1
     }
 
     struct Input {
@@ -64,7 +64,7 @@ final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
         let isSubmitEnabled = Publishers.CombineLatest(ratingSubject, contentSubject)
             .map { rating, content in
                 let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-                return rating > 0 && trimmed.count >= Constant.minContentLength
+                return rating > 0 && trimmed.count >= Constant.minSubmitLength
             }
             .removeDuplicates()
             .eraseToAnyPublisher()

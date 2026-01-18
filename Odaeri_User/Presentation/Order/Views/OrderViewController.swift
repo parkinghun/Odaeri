@@ -66,6 +66,7 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
     private var receiptCancellables: Set<AnyCancellable> = []
     private let priceTapSubject = PassthroughSubject<String, Never>()
     private let storeTapSubject = PassthroughSubject<String, Never>()
+    private let reviewTapSubject = PassthroughSubject<String, Never>()
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -119,7 +120,8 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
         let input = OrderViewModel.Input(
             viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
             priceTapped: priceTapSubject.eraseToAnyPublisher(),
-            storeTapped: storeTapSubject.eraseToAnyPublisher()
+            storeTapped: storeTapSubject.eraseToAnyPublisher(),
+            reviewTapped: reviewTapSubject.eraseToAnyPublisher()
         )
         let output = viewModel.transform(input: input)
         
@@ -218,6 +220,9 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
             }
             cell.onStoreTapped = { [weak self] in
                 self?.storeTapSubject.send(display.past.storeId)
+            }
+            cell.onReviewTapped = { [weak self] in
+                self?.reviewTapSubject.send(orderId)
             }
         }
         
