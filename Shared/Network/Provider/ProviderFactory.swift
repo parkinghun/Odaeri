@@ -29,8 +29,8 @@ enum ProviderFactory {
         return MoyaProvider<PaymentAPI>(plugins: makePlugins())
     }
 
-    static func makeReviewProvider() -> MoyaProvider<ReviewAPI> {
-        return MoyaProvider<ReviewAPI>(plugins: makePlugins())
+    static func makeReviewProvider() -> MoyaProvider<StoreReviewAPI> {
+        return MoyaProvider<StoreReviewAPI>(plugins: makePlugins())
     }
 
     static func makeCommunityPostProvider() -> MoyaProvider<CommunityPostAPI> {

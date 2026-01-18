@@ -11,6 +11,7 @@ import Moya
 enum MediaUploadAPI {
     case chatUpload(roomId: String, files: [MultipartFormData])
     case communityUpload(files: [MultipartFormData])
+    case storeReviewUpload(storeId: String, files: [MultipartFormData])
 }
 
 extension MediaUploadAPI: BaseAPI {
@@ -20,6 +21,8 @@ extension MediaUploadAPI: BaseAPI {
             return "/chats/\(roomId)/files"
         case .communityUpload:
             return "/posts/files"
+        case let .storeReviewUpload(storeId, _):
+            return "/stores/\(storeId)/reviews/files"
         }
     }
 
@@ -30,7 +33,8 @@ extension MediaUploadAPI: BaseAPI {
     var task: Task {
         switch self {
         case .chatUpload(_, let files),
-             .communityUpload(let files):
+             .communityUpload(let files),
+             .storeReviewUpload(_, let files):
             return .uploadMultipart(files)
         }
     }
