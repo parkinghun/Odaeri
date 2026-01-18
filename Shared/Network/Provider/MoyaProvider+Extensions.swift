@@ -192,9 +192,23 @@ extension MoyaProvider {
         print("Task: \(target.task)")
         print("===================================")
 
-        return self.requestPublisher(target)
-            .mapError { self.handleMoyaError($0) }
-            .flatMap { response -> AnyPublisher<T, NetworkError> in
+        return Deferred {
+            Future<Void, NetworkError> { promise in
+                _Concurrency.Task {
+                    do {
+                        try await TokenRefreshCoordinator.shared.waitIfRefreshing()
+                        promise(.success(()))
+                    } catch {
+                        promise(.failure(error as? NetworkError ?? .unknown(error)))
+                    }
+                }
+            }
+        }
+        .flatMap { _ in
+            self.requestPublisher(target)
+                .mapError { self.handleMoyaError($0) }
+        }
+        .flatMap { response -> AnyPublisher<T, NetworkError> in
                 print("========== RESPONSE DEBUG ==========")
                 print("Status Code: \(response.statusCode)")
                 print("Response Headers: \(response.response?.allHeaderFields ?? [:])")
@@ -243,8 +257,9 @@ extension MoyaProvider {
                     return Fail(error: error).eraseToAnyPublisher()
 
                 case .accessTokenExpired:
-                    return self.handleTokenRefresh()
-                        .flatMap { _ in
+                    return TokenRefreshCoordinator.shared.refresh()
+                        .mapError { $0 as? NetworkError ?? .unknown($0) }
+                        .flatMap { _ -> AnyPublisher<T, NetworkError> in
                             self.requestPublisher(target, timeout: timeout)
                         }
                         .eraseToAnyPublisher()
@@ -274,8 +289,21 @@ extension MoyaProvider {
         print("Task: \(target.task)")
         print("===================================")
 
-        let requestPublisher = Deferred {
-            Future<Response, NetworkError> { promise in
+        return Deferred {
+            Future<Void, NetworkError> { promise in
+                _Concurrency.Task {
+                    do {
+                        try await TokenRefreshCoordinator.shared.waitIfRefreshing()
+                        promise(.success(()))
+                    } catch {
+                        promise(.failure(error as? NetworkError ?? .unknown(error)))
+                    }
+                }
+            }
+        }
+        .flatMap { _ -> AnyPublisher<T, NetworkError> in
+            let requestPublisher = Deferred {
+                Future<Response, NetworkError> { promise in
                 self.request(
                     target,
                     callbackQueue: nil,
@@ -291,12 +319,12 @@ extension MoyaProvider {
                         }
                     }
                 )
+                }
             }
-        }
-        .eraseToAnyPublisher()
+            .eraseToAnyPublisher()
 
-        return requestPublisher
-            .flatMap { response -> AnyPublisher<T, NetworkError> in
+            return requestPublisher
+                .flatMap { response -> AnyPublisher<T, NetworkError> in
                 print("========== RESPONSE DEBUG ==========")
                 print("Status Code: \(response.statusCode)")
                 print("Response Headers: \(response.response?.allHeaderFields ?? [:])")
@@ -321,38 +349,41 @@ extension MoyaProvider {
                     print("Decoding Error: \(error)")
                     return Fail(error: NetworkError.decodingFailed(error))
                         .eraseToAnyPublisher()
+                    }
                 }
-            }
-            .catch { [weak self] error -> AnyPublisher<T, NetworkError> in
-                guard let self = self else {
-                    return Fail(error: error).eraseToAnyPublisher()
+                .catch { [weak self] error -> AnyPublisher<T, NetworkError> in
+                    guard let self = self else {
+                        return Fail(error: error).eraseToAnyPublisher()
+                    }
+
+                    switch error {
+                    case .invalidRefreshToken, .refreshTokenExpired:
+                        NotificationCenter.default.post(name: .refreshTokenExpired, object: nil)
+                        return Fail(error: error).eraseToAnyPublisher()
+
+                    case .unauthorized:
+                        NotificationCenter.default.post(name: .unauthorizedAccess, object: nil)
+                        return Fail(error: error).eraseToAnyPublisher()
+
+                    case .accessTokenExpired:
+                        return TokenRefreshCoordinator.shared.refresh()
+                            .mapError { $0 as? NetworkError ?? .unknown($0) }
+                            .flatMap { _ -> AnyPublisher<T, NetworkError> in
+                                self.requestPublisherWithProgress(
+                                    target,
+                                    timeout: timeout,
+                                    progress: progress
+                                )
+                            }
+                            .eraseToAnyPublisher()
+
+                    default:
+                        return Fail(error: error).eraseToAnyPublisher()
+                    }
                 }
-
-                switch error {
-                case .invalidRefreshToken, .refreshTokenExpired:
-                    NotificationCenter.default.post(name: .refreshTokenExpired, object: nil)
-                    return Fail(error: error).eraseToAnyPublisher()
-
-                case .unauthorized:
-                    NotificationCenter.default.post(name: .unauthorizedAccess, object: nil)
-                    return Fail(error: error).eraseToAnyPublisher()
-
-                case .accessTokenExpired:
-                    return self.handleTokenRefresh()
-                        .flatMap { _ in
-                            self.requestPublisherWithProgress(
-                                target,
-                                timeout: timeout,
-                                progress: progress
-                            )
-                        }
-                        .eraseToAnyPublisher()
-
-                default:
-                    return Fail(error: error).eraseToAnyPublisher()
-                }
-            }
-            .eraseToAnyPublisher()
+                .eraseToAnyPublisher()
+        }
+        .eraseToAnyPublisher()
     }
 
     func requestPublisher(
@@ -364,9 +395,23 @@ extension MoyaProvider {
                 .eraseToAnyPublisher()
         }
 
-        return self.requestPublisher(target)
-            .mapError { self.handleMoyaError($0) }
-            .flatMap { response -> AnyPublisher<Void, NetworkError> in
+        return Deferred {
+            Future<Void, NetworkError> { promise in
+                _Concurrency.Task {
+                    do {
+                        try await TokenRefreshCoordinator.shared.waitIfRefreshing()
+                        promise(.success(()))
+                    } catch {
+                        promise(.failure(error as? NetworkError ?? .unknown(error)))
+                    }
+                }
+            }
+        }
+        .flatMap { _ in
+            self.requestPublisher(target)
+                .mapError { self.handleMoyaError($0) }
+        }
+        .flatMap { response -> AnyPublisher<Void, NetworkError> in
                 if let error = self.parseError(from: response) {
                     return Fail(error: error).eraseToAnyPublisher()
                 }
@@ -385,7 +430,8 @@ extension MoyaProvider {
                     return Fail(error: error).eraseToAnyPublisher()
 
                 case .accessTokenExpired:
-                    return self.handleTokenRefresh()
+                    return TokenRefreshCoordinator.shared.refresh()
+                        .mapError { $0 as? NetworkError ?? .unknown($0) }
                         .flatMap { _ -> AnyPublisher<Void, NetworkError> in
                             self.requestPublisher(target, timeout: timeout)
                         }
@@ -512,42 +558,4 @@ extension MoyaProvider {
         }
     }
 
-    private func handleTokenRefresh() -> AnyPublisher<Void, NetworkError> {
-        return TokenManager.shared.getOrCreateRefreshPublisher {
-            guard let refreshToken = TokenManager.shared.refreshToken else {
-                TokenManager.shared.clearTokens()
-                return Fail(error: NetworkError.refreshTokenExpired)
-                    .eraseToAnyPublisher()
-            }
-
-            let authProvider = MoyaProvider<AuthAPI>(plugins: [])
-            let publisher: AnyPublisher<RefreshTokenResponse, NetworkError> = authProvider.requestPublisher(
-                AuthAPI.refreshToken
-            )
-
-            return publisher
-                .flatMap { refreshResponse -> AnyPublisher<Void, NetworkError> in
-                    TokenManager.shared.saveTokens(
-                        accessToken: refreshResponse.accessToken,
-                        refreshToken: refreshResponse.refreshToken
-                    )
-                    return Just(())
-                        .setFailureType(to: NetworkError.self)
-                        .eraseToAnyPublisher()
-                }
-                .catch { error -> AnyPublisher<Void, NetworkError> in
-                    TokenManager.shared.clearTokens()
-
-                    let finalError: NetworkError
-                    if case .unauthorized = error {
-                        finalError = .invalidRefreshToken
-                    } else {
-                        finalError = error
-                    }
-
-                    return Fail(error: finalError).eraseToAnyPublisher()
-                }
-                .eraseToAnyPublisher()
-        }
-    }
 }
