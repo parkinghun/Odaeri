@@ -16,6 +16,8 @@ final class StoreReviewViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: HomeCoordinator?
 
     private let storeId: String
+    private let storeName: String
+    private let storeImageUrl: String?
     private let repository: StoreReviewRepository
 
     private var currentOrder: StoreReviewOrder = .latest
@@ -25,8 +27,15 @@ final class StoreReviewViewModel: BaseViewModel, ViewModelType {
     private var reviews: [StoreReviewEntity] = []
     private var photoUrls: [String] = []
 
-    init(storeId: String, repository: StoreReviewRepository = StoreReviewRepositoryImpl()) {
+    init(
+        storeId: String,
+        storeName: String,
+        storeImageUrl: String?,
+        repository: StoreReviewRepository = StoreReviewRepositoryImpl()
+    ) {
         self.storeId = storeId
+        self.storeName = storeName
+        self.storeImageUrl = storeImageUrl
         self.repository = repository
     }
 
@@ -34,6 +43,8 @@ final class StoreReviewViewModel: BaseViewModel, ViewModelType {
         let viewDidLoad: AnyPublisher<Void, Never>
         let loadMore: AnyPublisher<Void, Never>
         let orderChanged: AnyPublisher<StoreReviewOrder, Never>
+        let editReview: AnyPublisher<StoreReviewItemViewModel, Never>
+        let reviewUpdated: AnyPublisher<StoreReviewDetailEntity, Never>
         let deleteReview: AnyPublisher<String, Never>
         let profileTapped: AnyPublisher<StoreReviewProfileTarget, Never>
         let galleryTapped: AnyPublisher<Void, Never>
@@ -99,6 +110,41 @@ final class StoreReviewViewModel: BaseViewModel, ViewModelType {
                     reviewsSubject: reviewsSubject,
                     photoUrlsSubject: photoUrlsSubject,
                     errorSubject: errorSubject
+                )
+            }
+            .store(in: &cancellables)
+
+        input.editReview
+            .sink { [weak self] item in
+                guard let self else { return }
+                let context = ReviewWriteContext(
+                    storeId: self.storeId,
+                    storeName: self.storeName,
+                    storeImageUrl: self.storeImageUrl,
+                    menuNames: item.menuList,
+                    orderCode: nil
+                )
+                let initial = ReviewWriteInitialData(
+                    rating: item.rating,
+                    content: item.content,
+                    imageUrls: item.imageUrls
+                )
+                let mode = ReviewWriteMode.edit(
+                    context: context,
+                    reviewId: item.reviewId,
+                    initial: initial
+                )
+                self.coordinator?.showReviewWrite(mode: mode)
+            }
+            .store(in: &cancellables)
+
+        input.reviewUpdated
+            .sink { [weak self] review in
+                self?.applyUpdatedReview(
+                    review,
+                    summarySubject: summarySubject,
+                    reviewsSubject: reviewsSubject,
+                    photoUrlsSubject: photoUrlsSubject
                 )
             }
             .store(in: &cancellables)
@@ -221,12 +267,12 @@ private extension StoreReviewViewModel {
             .sink { [weak self] ratings, listResult in
                 guard let self else { return }
                 self.updateRatingCounts(with: ratings)
-                self.reviews = listResult.reviews
-                self.photoUrls = self.collectPhotoUrls(from: listResult.reviews)
+                self.reviews = self.sortedReviews(listResult.reviews)
+                self.photoUrls = self.collectPhotoUrls(from: self.reviews)
                 photoUrlsSubject.send(self.photoUrls)
                 self.nextCursor = self.normalizedCursor(listResult.nextCursor)
                 summarySubject.send(self.makeSummary(from: listResult.reviews))
-                reviewsSubject.send(listResult.reviews.map(self.makeReviewItem))
+                reviewsSubject.send(self.reviews.map(self.makeReviewItem))
                 isLoadingSubject.send(false)
             }
             .store(in: &cancellables)
@@ -259,6 +305,7 @@ private extension StoreReviewViewModel {
             let existingIds = Set(self.reviews.map { $0.reviewId })
             let newReviews = result.reviews.filter { !existingIds.contains($0.reviewId) }
             self.reviews.append(contentsOf: newReviews)
+            self.reviews = self.sortedReviews(self.reviews)
             self.photoUrls = self.collectPhotoUrls(from: self.reviews)
             photoUrlsSubject.send(self.photoUrls)
             reviewsSubject.send(self.reviews.map(self.makeReviewItem))
@@ -294,6 +341,42 @@ private extension StoreReviewViewModel {
                 reviewsSubject.send(self.reviews.map(self.makeReviewItem))
             }
             .store(in: &cancellables)
+    }
+
+    func applyUpdatedReview(
+        _ detail: StoreReviewDetailEntity,
+        summarySubject: CurrentValueSubject<StoreReviewSummaryViewModel, Never>,
+        reviewsSubject: CurrentValueSubject<[StoreReviewItemViewModel], Never>,
+        photoUrlsSubject: CurrentValueSubject<[String], Never>
+    ) {
+        guard let index = reviews.firstIndex(where: { $0.reviewId == detail.reviewId }) else { return }
+        let current = reviews[index]
+        if current.rating != detail.rating {
+            if let currentCount = ratingCounts[current.rating] {
+                ratingCounts[current.rating] = max(0, currentCount - 1)
+            }
+            ratingCounts[detail.rating, default: 0] += 1
+        }
+
+        let updatedReview = StoreReviewEntity(
+            reviewId: current.reviewId,
+            content: detail.content,
+            rating: detail.rating,
+            reviewImageUrls: detail.reviewImageUrls,
+            orderMenuList: detail.orderMenuList,
+            creator: detail.creator,
+            userTotalReviewCount: current.userTotalReviewCount,
+            userTotalRating: current.userTotalRating,
+            createdAt: current.createdAt,
+            updatedAt: detail.updatedAt
+        )
+
+        reviews[index] = updatedReview
+        reviews = sortedReviews(reviews)
+        photoUrls = collectPhotoUrls(from: reviews)
+        photoUrlsSubject.send(photoUrls)
+        summarySubject.send(makeSummary(from: reviews))
+        reviewsSubject.send(reviews.map(makeReviewItem))
     }
 
     func updateRatingCounts(with ratings: [ReviewRatingEntity]) {
@@ -359,5 +442,31 @@ private extension StoreReviewViewModel {
 
     func collectPhotoUrls(from reviews: [StoreReviewEntity]) -> [String] {
         reviews.flatMap { $0.reviewImageUrls }
+    }
+
+    func sortedReviews(_ reviews: [StoreReviewEntity]) -> [StoreReviewEntity] {
+        switch currentOrder {
+        case .latest:
+            return reviews.sorted {
+                let leftDate = $0.updatedAt ?? $0.createdAt ?? .distantPast
+                let rightDate = $1.updatedAt ?? $1.createdAt ?? .distantPast
+                if leftDate == rightDate {
+                    return $0.reviewId > $1.reviewId
+                }
+                return leftDate > rightDate
+            }
+        case .rating:
+            return reviews.sorted {
+                if $0.rating == $1.rating {
+                    let leftDate = $0.updatedAt ?? $0.createdAt ?? .distantPast
+                    let rightDate = $1.updatedAt ?? $1.createdAt ?? .distantPast
+                    if leftDate == rightDate {
+                        return $0.reviewId > $1.reviewId
+                    }
+                    return leftDate > rightDate
+                }
+                return $0.rating > $1.rating
+            }
+        }
     }
 }

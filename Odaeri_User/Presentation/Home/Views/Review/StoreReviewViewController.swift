@@ -18,6 +18,8 @@ final class StoreReviewViewController: BaseViewController<StoreReviewViewModel> 
     private var reviewItems: [StoreReviewItemViewModel] = []
     private let orderChangedSubject = CurrentValueSubject<StoreReviewOrder, Never>(.latest)
     private let loadMoreSubject = PassthroughSubject<Void, Never>()
+    private let editReviewSubject = PassthroughSubject<StoreReviewItemViewModel, Never>()
+    private let reviewUpdatedSubject = PassthroughSubject<StoreReviewDetailEntity, Never>()
     private let deleteReviewSubject = PassthroughSubject<String, Never>()
     private let profileTapSubject = PassthroughSubject<StoreReviewProfileTarget, Never>()
     private let galleryTapSubject = PassthroughSubject<Void, Never>()
@@ -81,6 +83,8 @@ final class StoreReviewViewController: BaseViewController<StoreReviewViewModel> 
             viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
             loadMore: loadMoreSubject.eraseToAnyPublisher(),
             orderChanged: orderChangedSubject.eraseToAnyPublisher(),
+            editReview: editReviewSubject.eraseToAnyPublisher(),
+            reviewUpdated: reviewUpdatedSubject.eraseToAnyPublisher(),
             deleteReview: deleteReviewSubject.eraseToAnyPublisher(),
             profileTapped: profileTapSubject.eraseToAnyPublisher(),
             galleryTapped: galleryTapSubject.eraseToAnyPublisher()
@@ -116,6 +120,13 @@ final class StoreReviewViewController: BaseViewController<StoreReviewViewModel> 
             .receive(on: DispatchQueue.main)
             .sink { [weak self] message in
                 self?.showAlert(title: "오류", message: message)
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .reviewUpdated)
+            .compactMap { $0.userInfo?["review"] as? StoreReviewDetailEntity }
+            .sink { [weak self] review in
+                self?.reviewUpdatedSubject.send(review)
             }
             .store(in: &cancellables)
 
@@ -235,7 +246,7 @@ extension StoreReviewViewController: UITableViewDataSource, UITableViewDelegate 
         guard item.isMe else { return }
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         alert.addAction(UIAlertAction(title: "수정하기", style: .default) { _ in
-            // TODO: 리뷰 수정 화면 연결
+            self.editReviewSubject.send(item)
         })
         alert.addAction(UIAlertAction(title: "삭제하기", style: .destructive) { [weak self] _ in
             self?.deleteReviewSubject.send(item.reviewId)

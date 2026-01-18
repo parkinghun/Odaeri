@@ -277,7 +277,11 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
             store
         }
         .sink { [weak self] store in
-            self?.coordinator?.showStoreReviews(storeId: store.storeId)
+            self?.coordinator?.showStoreReviews(
+                storeId: store.storeId,
+                storeName: store.name,
+                storeImageUrl: store.storeImageUrls.first
+            )
         }
         .store(in: &cancellables)
 

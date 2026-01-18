@@ -60,8 +60,16 @@ final class ReviewWriteImageCell: UICollectionViewCell {
         imageView.image = image
     }
 
+    func configure(url: String) {
+        imageView.setImage(url: url)
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        imageView.image = nil
+    }
+
     @objc private func handleDelete() {
         onDeleteTapped?()
     }
 }
-

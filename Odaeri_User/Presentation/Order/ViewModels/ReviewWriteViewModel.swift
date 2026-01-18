@@ -35,22 +35,26 @@ final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
     let mode: ReviewWriteMode
     private let repository: StoreReviewRepository
     private let mediaUploadProvider = MoyaProvider<MediaUploadAPI>()
-    weak var coordinator: OrderCoordinator?
+    weak var coordinator: ReviewWriteCoordinating?
 
     private let ratingSubject: CurrentValueSubject<Int, Never>
     private let contentSubject = CurrentValueSubject<String, Never>("")
     private let imagesSubject = CurrentValueSubject<[UIImage], Never>([])
     private let submitSubject = PassthroughSubject<Void, Never>()
+    private var existingImageUrls: [String] = []
 
     init(mode: ReviewWriteMode, repository: StoreReviewRepository = StoreReviewRepositoryImpl()) {
         self.mode = mode
         self.repository = repository
         self.ratingSubject = CurrentValueSubject<Int, Never>(mode.initialRating)
+        self.existingImageUrls = mode.initialImageUrls
+    }
+
+    func setExistingImageUrls(_ urls: [String]) {
+        self.existingImageUrls = urls
     }
 
     func transform(input: Input) -> Output {
-        let mode = self.mode
-
         input.ratingSelected
             .sink { [weak self] rating in
                 self?.ratingSubject.send(rating)
@@ -102,26 +106,11 @@ final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
 
                 print("[ReviewWriteVM] Submit tapped - rating: \(rating), content length: \(trimmed.count), images: \(images.count)")
 
-                if images.isEmpty {
-                    print("[ReviewWriteVM] Creating review without images")
-                    let request = StoreReviewRequest(
-                        content: trimmed,
-                        rating: rating,
-                        imageUrls: [],
-                        orderCode: mode.order.orderCode
-                    )
-
-                    return self.repository.createReview(
-                        storeId: mode.order.store.id,
-                        request: request
-                    )
-                } else {
-                    print("[ReviewWriteVM] Uploading \(images.count) images first")
-                    return self.uploadImagesAndCreateReview(
-                        images: images,
-                        rating: rating,
-                        content: trimmed
-                    )
+                switch self.mode {
+                case .create:
+                    return self.handleCreateReview(rating: rating, content: trimmed, newImages: images)
+                case .edit:
+                    return self.handleUpdateReview(rating: rating, content: trimmed, newImages: images)
                 }
             }
             .sink(
@@ -185,9 +174,17 @@ final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
             ))).eraseToAnyPublisher()
         }
 
+        guard let orderCode = mode.orderCode else {
+            return Fail(error: NetworkError.unknown(NSError(
+                domain: "ReviewWriteViewModel",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "주문 정보가 없습니다."]
+            ))).eraseToAnyPublisher()
+        }
+
         print("[ReviewWriteVM] Uploading \(multipartData.count) images to server")
         return mediaUploadProvider.requestPublisher(
-            .storeReviewUpload(storeId: mode.order.store.id, files: multipartData)
+            .storeReviewUpload(storeId: mode.storeId, files: multipartData)
         )
         .map { (response: StoreReviewImageUploadResponse) in
             print("[ReviewWriteVM] Images uploaded successfully: \(response.reviewImageUrls)")
@@ -204,11 +201,11 @@ final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
                 content: content,
                 rating: rating,
                 imageUrls: imageUrls,
-                orderCode: self.mode.order.orderCode
+                orderCode: orderCode
             )
 
             return self.repository.createReview(
-                storeId: self.mode.order.store.id,
+                storeId: self.mode.storeId,
                 request: request
             )
         }
@@ -230,20 +227,150 @@ struct ReviewWritePayload {
 
 private extension ReviewWriteViewModel {
     func makeHeader() -> ReviewWriteHeader {
-        let order = mode.order
-        let menuSummary = makeMenuSummary(from: order)
         return ReviewWriteHeader(
-            storeName: order.store.name,
-            storeImageUrl: order.store.storeImageUrls.first,
-            menuSummary: menuSummary
+            storeName: mode.storeName,
+            storeImageUrl: mode.storeImageUrl,
+            menuSummary: mode.menuSummary
         )
     }
 
-    func makeMenuSummary(from order: OrderListItemEntity) -> String {
-        guard let first = order.orderMenuList.first else { return "메뉴 없음" }
-        if order.orderMenuList.count > 1 {
-            return "\(first.menu.name) 외 \(order.orderMenuList.count - 1)건"
+    func handleCreateReview(
+        rating: Int,
+        content: String,
+        newImages: [UIImage]
+    ) -> AnyPublisher<StoreReviewDetailEntity, NetworkError> {
+        guard let orderCode = mode.orderCode else {
+            return Fail(error: NetworkError.unknown(NSError(
+                domain: "ReviewWriteViewModel",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "주문 정보가 없습니다."]
+            ))).eraseToAnyPublisher()
         }
-        return first.menu.name
+
+        if newImages.isEmpty {
+            print("[ReviewWriteVM] Creating review without images")
+            let request = StoreReviewRequest(
+                content: content,
+                rating: rating,
+                imageUrls: [],
+                orderCode: orderCode
+            )
+
+            return repository.createReview(
+                storeId: mode.storeId,
+                request: request
+            )
+        } else {
+            print("[ReviewWriteVM] Uploading \(newImages.count) images first")
+            return uploadImagesAndCreateReview(
+                images: newImages,
+                rating: rating,
+                content: content
+            )
+        }
+    }
+
+    func handleUpdateReview(
+        rating: Int,
+        content: String,
+        newImages: [UIImage]
+    ) -> AnyPublisher<StoreReviewDetailEntity, NetworkError> {
+        guard let reviewId = mode.reviewId else {
+            return Fail(error: NetworkError.unknown(NSError(
+                domain: "ReviewWriteViewModel",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "리뷰 ID가 없습니다."]
+            ))).eraseToAnyPublisher()
+        }
+
+        if newImages.isEmpty {
+            print("[ReviewWriteVM] Updating review with existing images only")
+            let request = StoreReviewRequest(
+                updateContent: content,
+                rating: rating,
+                imageUrls: existingImageUrls
+            )
+
+            return repository.updateReview(
+                storeId: mode.storeId,
+                reviewId: reviewId,
+                request: request
+            )
+        } else {
+            print("[ReviewWriteVM] Uploading \(newImages.count) new images for update")
+            return uploadImagesAndUpdateReview(
+                reviewId: reviewId,
+                images: newImages,
+                rating: rating,
+                content: content
+            )
+        }
+    }
+
+    func uploadImagesAndUpdateReview(
+        reviewId: String,
+        images: [UIImage],
+        rating: Int,
+        content: String
+    ) -> AnyPublisher<StoreReviewDetailEntity, NetworkError> {
+        print("[ReviewWriteVM] Processing \(images.count) images for upload (update)")
+
+        let multipartData = images.compactMap { image -> MultipartFormData? in
+            guard let imageData = image.processForUpload(
+                maxDimension: Constant.maxImageDimension,
+                compressionQuality: Constant.compressionQuality
+            ) else {
+                print("[ReviewWriteVM] Failed to process image")
+                return nil
+            }
+
+            print("[ReviewWriteVM] Image processed: \(imageData.count) bytes")
+            return MultipartFormData(
+                provider: .data(imageData),
+                name: "files",
+                fileName: "image_\(UUID().uuidString).jpg",
+                mimeType: "image/jpeg"
+            )
+        }
+
+        guard multipartData.count == images.count else {
+            print("[ReviewWriteVM] Image processing failed - expected \(images.count), got \(multipartData.count)")
+            return Fail(error: NetworkError.unknown(NSError(
+                domain: "ReviewWriteViewModel",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "이미지 처리에 실패했습니다."]
+            ))).eraseToAnyPublisher()
+        }
+
+        print("[ReviewWriteVM] Uploading \(multipartData.count) images to server")
+        return mediaUploadProvider.requestPublisher(
+            .storeReviewUpload(storeId: mode.storeId, files: multipartData)
+        )
+        .map { (response: StoreReviewImageUploadResponse) in
+            print("[ReviewWriteVM] Images uploaded successfully: \(response.reviewImageUrls)")
+            return response.reviewImageUrls
+        }
+        .flatMap { [weak self] newImageUrls -> AnyPublisher<StoreReviewDetailEntity, NetworkError> in
+            guard let self = self else {
+                return Fail(error: NetworkError.unknown(NSError(domain: "ReviewWriteViewModel", code: -1)))
+                    .eraseToAnyPublisher()
+            }
+
+            let allImageUrls = self.existingImageUrls + newImageUrls
+            print("[ReviewWriteVM] Updating review with \(allImageUrls.count) total image URLs")
+
+            let request = StoreReviewRequest(
+                updateContent: content,
+                rating: rating,
+                imageUrls: allImageUrls
+            )
+
+            return self.repository.updateReview(
+                storeId: self.mode.storeId,
+                reviewId: reviewId,
+                request: request
+            )
+        }
+        .eraseToAnyPublisher()
     }
 }

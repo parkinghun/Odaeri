@@ -120,10 +120,17 @@ final class OrderReceiptViewController: UIViewController {
     private func makeActionButton() -> UIButton {
         let button = UIButton(type: .system)
         let hasReview = order.review != nil
-        button.setTitle(hasReview ? "작성한 리뷰 보기" : "리뷰 작성하기", for: .normal)
+        button.setTitle(hasReview ? "리뷰 작성 완료" : "리뷰 작성하기", for: .normal)
         button.titleLabel?.font = AppFont.body1Bold
-        button.setTitleColor(AppColor.gray0, for: .normal)
-        button.backgroundColor = AppColor.deepSprout
+        if hasReview {
+            button.setTitleColor(AppColor.gray75, for: .normal)
+            button.backgroundColor = AppColor.gray30
+            button.isEnabled = false
+        } else {
+            button.setTitleColor(AppColor.gray0, for: .normal)
+            button.backgroundColor = AppColor.deepSprout
+            button.isEnabled = true
+        }
         button.layer.cornerRadius = 12
         button.addTarget(self, action: #selector(handleReviewAction), for: .touchUpInside)
         return button
@@ -148,7 +155,10 @@ final class OrderReceiptViewController: UIViewController {
         }
 
         print("[OrderReceipt] Updating action button text")
-        actionButton?.setTitle("작성한 리뷰 보기", for: .normal)
+        actionButton?.setTitle("리뷰 작성 완료", for: .normal)
+        actionButton?.setTitleColor(AppColor.gray75, for: .normal)
+        actionButton?.backgroundColor = AppColor.gray30
+        actionButton?.isEnabled = false
     }
 }
 

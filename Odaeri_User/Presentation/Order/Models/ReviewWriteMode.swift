@@ -8,13 +8,42 @@
 import Foundation
 
 enum ReviewWriteMode {
-    case create(order: OrderListItemEntity)
-    case edit(order: OrderListItemEntity)
+    case create(context: ReviewWriteContext)
+    case edit(context: ReviewWriteContext, reviewId: String, initial: ReviewWriteInitialData)
 
-    var order: OrderListItemEntity {
+    var context: ReviewWriteContext {
         switch self {
-        case .create(let order), .edit(let order):
-            return order
+        case .create(let context), .edit(let context, _, _):
+            return context
+        }
+    }
+
+    var storeId: String {
+        context.storeId
+    }
+
+    var storeName: String {
+        context.storeName
+    }
+
+    var storeImageUrl: String? {
+        context.storeImageUrl
+    }
+
+    var menuSummary: String {
+        context.menuSummary
+    }
+
+    var orderCode: String? {
+        context.orderCode
+    }
+
+    var reviewId: String? {
+        switch self {
+        case .create:
+            return nil
+        case .edit(_, let reviewId, _):
+            return reviewId
         }
     }
 
@@ -37,6 +66,62 @@ enum ReviewWriteMode {
     }
 
     var initialRating: Int {
-        order.review?.rating ?? 0
+        switch self {
+        case .create:
+            return 0
+        case .edit(_, _, let initial):
+            return initial.rating
+        }
     }
+
+    var initialContent: String {
+        switch self {
+        case .create:
+            return ""
+        case .edit(_, _, let initial):
+            return initial.content
+        }
+    }
+
+    var initialImageUrls: [String] {
+        switch self {
+        case .create:
+            return []
+        case .edit(_, _, let initial):
+            return initial.imageUrls
+        }
+    }
+}
+
+struct ReviewWriteContext {
+    let storeId: String
+    let storeName: String
+    let storeImageUrl: String?
+    let menuNames: [String]
+    let orderCode: String?
+
+    var menuSummary: String {
+        guard let first = menuNames.first else { return "메뉴 없음" }
+        if menuNames.count > 1 {
+            return "\(first) 외 \(menuNames.count - 1)건"
+        }
+        return first
+    }
+
+    static func from(order: OrderListItemEntity) -> ReviewWriteContext {
+        let menuNames = order.orderMenuList.map { $0.menu.name }
+        return ReviewWriteContext(
+            storeId: order.store.id,
+            storeName: order.store.name,
+            storeImageUrl: order.store.storeImageUrls.first,
+            menuNames: menuNames,
+            orderCode: order.orderCode
+        )
+    }
+}
+
+struct ReviewWriteInitialData {
+    let rating: Int
+    let content: String
+    let imageUrls: [String]
 }

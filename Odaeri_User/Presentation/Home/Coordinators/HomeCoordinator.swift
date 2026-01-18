@@ -12,7 +12,7 @@ protocol HomeCoordinatorDelegate: AnyObject {
     func homeCoordinatorDidSelectStore(_ coordinator: HomeCoordinator, storeId: String)
 }
 
-final class HomeCoordinator: Coordinator {
+final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
     var navigationController: UINavigationController
     var childCoordinators: [Coordinator] = []
 
@@ -79,8 +79,12 @@ final class HomeCoordinator: Coordinator {
         navigationController.pushViewController(viewController, animated: true)
     }
 
-    func showStoreReviews(storeId: String) {
-        let viewModel = StoreReviewViewModel(storeId: storeId)
+    func showStoreReviews(storeId: String, storeName: String, storeImageUrl: String?) {
+        let viewModel = StoreReviewViewModel(
+            storeId: storeId,
+            storeName: storeName,
+            storeImageUrl: storeImageUrl
+        )
         viewModel.coordinator = self
         let viewController = StoreReviewViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
@@ -89,6 +93,17 @@ final class HomeCoordinator: Coordinator {
     func showReviewGallery(imageUrls: [String]) {
         let viewController = StoreReviewGalleryViewController(imageUrls: imageUrls)
         navigationController.pushViewController(viewController, animated: true)
+    }
+
+    func showReviewWrite(mode: ReviewWriteMode) {
+        let viewModel = ReviewWriteViewModel(mode: mode)
+        viewModel.coordinator = self
+        let viewController = ReviewWriteViewController(viewModel: viewModel)
+        navigationController.pushViewController(viewController, animated: true)
+    }
+
+    func popReviewWrite() {
+        navigationController.popViewController(animated: true)
     }
 
     func showUserProfile(userId: String, nick: String? = nil, profileImage: String? = nil) {

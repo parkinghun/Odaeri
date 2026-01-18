@@ -83,7 +83,22 @@ final class OrderViewModel: BaseViewModel, ViewModelType {
                 self?.orderEntityCache[orderId]
             }
             .sink { [weak self] order in
-                let mode: ReviewWriteMode = order.review == nil ? .create(order: order) : .edit(order: order)
+                let context = ReviewWriteContext.from(order: order)
+                let mode: ReviewWriteMode
+                if let review = order.review {
+                    let initial = ReviewWriteInitialData(
+                        rating: review.rating,
+                        content: "",
+                        imageUrls: []
+                    )
+                    mode = .edit(
+                        context: context,
+                        reviewId: review.id,
+                        initial: initial
+                    )
+                } else {
+                    mode = .create(context: context)
+                }
                 self?.coordinator?.showReviewWrite(mode: mode)
             }
             .store(in: &cancellables)

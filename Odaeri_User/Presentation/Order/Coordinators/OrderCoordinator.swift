@@ -11,7 +11,7 @@ protocol OrderCoordinatorDelegate: AnyObject {
 
 }
 
-final class OrderCoordinator: Coordinator {
+final class OrderCoordinator: Coordinator, ReviewWriteCoordinating {
     var navigationController: UINavigationController
     var childCoordinators: [Coordinator] = []
 

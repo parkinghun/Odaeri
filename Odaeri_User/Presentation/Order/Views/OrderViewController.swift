@@ -367,7 +367,22 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
                 guard let self else { return }
                 viewController?.dismiss(animated: true) { [weak self] in
                     guard let self else { return }
-                    let mode: ReviewWriteMode = order.review == nil ? .create(order: order) : .edit(order: order)
+                    let context = ReviewWriteContext.from(order: order)
+                    let mode: ReviewWriteMode
+                    if let review = order.review {
+                        let initial = ReviewWriteInitialData(
+                            rating: review.rating,
+                            content: "",
+                            imageUrls: []
+                        )
+                        mode = .edit(
+                            context: context,
+                            reviewId: review.id,
+                            initial: initial
+                        )
+                    } else {
+                        mode = .create(context: context)
+                    }
                     self.viewModel.coordinator?.showReviewWrite(mode: mode)
                 }
             }

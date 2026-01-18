@@ -28,6 +28,13 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
     private let imagesSubject = CurrentValueSubject<[UIImage], Never>([])
     private let submitSubject = PassthroughSubject<Void, Never>()
 
+    private var existingImageUrls: [String] = [] {
+        didSet {
+            mediaCollectionView.reloadData()
+            viewModel.setExistingImageUrls(existingImageUrls)
+        }
+    }
+
     private var selectedImages: [UIImage] = [] {
         didSet {
             mediaCollectionView.reloadData()
@@ -141,6 +148,17 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
     override func viewDidLoad() {
         super.viewDidLoad()
         updateRatingButtons(rating: viewModel.mode.initialRating)
+
+        if !viewModel.mode.initialContent.isEmpty {
+            contentTextView.text = viewModel.mode.initialContent
+            contentPlaceholderLabel.isHidden = true
+            contentSubject.send(viewModel.mode.initialContent)
+        }
+
+        if !viewModel.mode.initialImageUrls.isEmpty {
+            loadExistingImages(from: viewModel.mode.initialImageUrls)
+        }
+
         updateContentCounter(text: contentTextView.text)
         updateSubmitButton(isEnabled: false)
     }
@@ -280,12 +298,24 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
             .sink { [weak self] review in
                 guard let self = self else { return }
                 print("[ReviewWrite] Review created successfully: \(review.reviewId)")
-                NotificationCenter.default.post(
-                    name: .reviewCreated,
-                    object: nil,
-                    userInfo: ["review": review, "orderCode": self.viewModel.mode.order.orderCode]
-                )
-                print("[ReviewWrite] Notification posted")
+                switch self.viewModel.mode {
+                case .create:
+                    if let orderCode = self.viewModel.mode.orderCode {
+                        NotificationCenter.default.post(
+                            name: .reviewCreated,
+                            object: nil,
+                            userInfo: ["review": review, "orderCode": orderCode]
+                        )
+                        print("[ReviewWrite] Notification posted")
+                    }
+                case .edit:
+                    NotificationCenter.default.post(
+                        name: .reviewUpdated,
+                        object: nil,
+                        userInfo: ["review": review]
+                    )
+                    print("[ReviewWrite] Update notification posted")
+                }
             }
             .store(in: &cancellables)
 
@@ -358,10 +388,11 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
     }
 
     private func presentImagePicker() {
-        guard selectedImages.count < Constant.maxImageCount else { return }
+        let totalCount = existingImageUrls.count + selectedImages.count
+        guard totalCount < Constant.maxImageCount else { return }
         var configuration = PHPickerConfiguration()
         configuration.filter = .images
-        configuration.selectionLimit = Constant.maxImageCount - selectedImages.count
+        configuration.selectionLimit = Constant.maxImageCount - totalCount
         let picker = PHPickerViewController(configuration: configuration)
         picker.delegate = self
         present(picker, animated: true)
@@ -385,6 +416,15 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
         section.interGroupSpacing = Constant.mediaItemSpacing
 
         return UICollectionViewCompositionalLayout(section: section)
+    }
+
+    private func loadExistingImages(from urls: [String]) {
+        existingImageUrls = urls
+    }
+
+    private func removeExistingImage(at index: Int) {
+        guard existingImageUrls.indices.contains(index) else { return }
+        existingImageUrls.remove(at: index)
     }
 }
 
@@ -410,39 +450,51 @@ extension ReviewWriteViewController: UITextViewDelegate {
 
 extension ReviewWriteViewController: UICollectionViewDataSource, UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        let canAddMore = selectedImages.count < Constant.maxImageCount
-        return selectedImages.count + (canAddMore ? 1 : 0)
+        let totalCount = existingImageUrls.count + selectedImages.count
+        let canAddMore = totalCount < Constant.maxImageCount
+        return totalCount + (canAddMore ? 1 : 0)
     }
 
     func collectionView(
         _ collectionView: UICollectionView,
         cellForItemAt indexPath: IndexPath
     ) -> UICollectionViewCell {
-        let canAddMore = selectedImages.count < Constant.maxImageCount
+        let totalCount = existingImageUrls.count + selectedImages.count
+        let canAddMore = totalCount < Constant.maxImageCount
         if canAddMore && indexPath.item == 0 {
             let cell = collectionView.dequeueReusableCell(
                 withReuseIdentifier: ReviewWriteImageAddCell.reuseIdentifier,
                 for: indexPath
             ) as! ReviewWriteImageAddCell
-            cell.configure(currentCount: selectedImages.count, maxCount: Constant.maxImageCount)
+            cell.configure(currentCount: totalCount, maxCount: Constant.maxImageCount)
             return cell
         }
 
+        let adjustedIndex = indexPath.item - (canAddMore ? 1 : 0)
         let cell = collectionView.dequeueReusableCell(
             withReuseIdentifier: ReviewWriteImageCell.reuseIdentifier,
             for: indexPath
         ) as! ReviewWriteImageCell
-        let imageIndex = canAddMore ? indexPath.item - 1 : indexPath.item
-        let image = selectedImages[imageIndex]
-        cell.configure(image: image)
-        cell.onDeleteTapped = { [weak self] in
-            self?.selectedImages.remove(at: imageIndex)
+        if adjustedIndex < existingImageUrls.count {
+            let url = existingImageUrls[adjustedIndex]
+            cell.configure(url: url)
+            cell.onDeleteTapped = { [weak self] in
+                self?.removeExistingImage(at: adjustedIndex)
+            }
+        } else {
+            let imageIndex = adjustedIndex - existingImageUrls.count
+            let image = selectedImages[imageIndex]
+            cell.configure(image: image)
+            cell.onDeleteTapped = { [weak self] in
+                self?.selectedImages.remove(at: imageIndex)
+            }
         }
         return cell
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        if selectedImages.count < Constant.maxImageCount && indexPath.item == 0 {
+        let totalCount = existingImageUrls.count + selectedImages.count
+        if totalCount < Constant.maxImageCount && indexPath.item == 0 {
             presentImagePicker()
         }
     }
@@ -453,7 +505,7 @@ extension ReviewWriteViewController: PHPickerViewControllerDelegate {
         picker.dismiss(animated: true)
 
         let providers = results.map { $0.itemProvider }
-        let availableSlots = Constant.maxImageCount - selectedImages.count
+        let availableSlots = Constant.maxImageCount - (existingImageUrls.count + selectedImages.count)
         let limitedProviders = providers.prefix(availableSlots)
 
         limitedProviders.forEach { provider in
