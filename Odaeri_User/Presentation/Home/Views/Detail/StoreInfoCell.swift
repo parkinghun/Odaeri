@@ -13,6 +13,9 @@ final class StoreInfoCell: BaseCollectionViewCell {
     var findRouteButtonTapPublisher: AnyPublisher<Void, Never> {
         findRouteButton.tapPublisher()
     }
+    var reviewTapPublisher: AnyPublisher<Void, Never> {
+        reviewTapButton.tapPublisher()
+    }
     private let containerView: UIView = {
         let view = UIView()
         view.backgroundColor = AppColor.gray15
@@ -57,6 +60,12 @@ final class StoreInfoCell: BaseCollectionViewCell {
         label.font = AppFont.body1Regular
         label.textColor = AppColor.gray60
         return label
+    }()
+    
+    private let reviewTapButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.backgroundColor = .clear
+        return button
     }()
 
     private let orderIconImageView: UIImageView = {
@@ -142,6 +151,7 @@ final class StoreInfoCell: BaseCollectionViewCell {
         containerView.addSubview(likeIconLabelView)
         containerView.addSubview(rateIconLabelView)
         containerView.addSubview(rateCountLabel)
+        containerView.addSubview(reviewTapButton)
         containerView.addSubview(orderIconImageView)
         containerView.addSubview(orderCountLabel)
         containerView.addSubview(detailInfoView)
@@ -186,6 +196,13 @@ final class StoreInfoCell: BaseCollectionViewCell {
         rateCountLabel.snp.makeConstraints { make in
             make.leading.equalTo(rateIconLabelView.snp.trailing).offset(AppSpacing.tiny)
             make.centerY.equalTo(rateIconLabelView)
+        }
+        
+        reviewTapButton.snp.makeConstraints { make in
+            make.leading.equalTo(rateIconLabelView.snp.leading).offset(-AppSpacing.tiny)
+            make.trailing.equalTo(rateCountLabel.snp.trailing).offset(AppSpacing.tiny)
+            make.top.equalTo(rateIconLabelView.snp.top).offset(-AppSpacing.tiny)
+            make.bottom.equalTo(rateIconLabelView.snp.bottom).offset(AppSpacing.tiny)
         }
 
         orderIconImageView.snp.makeConstraints { make in

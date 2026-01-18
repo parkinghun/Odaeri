@@ -42,6 +42,7 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
         let menuSelected: AnyPublisher<[MenuEntity], Never>
         let checkoutButtonTapped: AnyPublisher<(store: StoreEntity, selectedMenus: [MenuEntity]), Never>
         let findRouteButtonTapped: AnyPublisher<Void, Never>
+        let reviewTapped: AnyPublisher<Void, Never>
     }
 
     struct Output {
@@ -265,6 +266,18 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
         .sink { [weak self] route, store in
             guard let self = self else { return }
             self.coordinator?.showNavigation(route: route, destination: store)
+        }
+        .store(in: &cancellables)
+
+        Publishers.CombineLatest(
+            input.reviewTapped,
+            storeDetailSubject
+        )
+        .map { _, store in
+            store
+        }
+        .sink { [weak self] store in
+            self?.coordinator?.showStoreReviews(storeId: store.storeId)
         }
         .store(in: &cancellables)
 

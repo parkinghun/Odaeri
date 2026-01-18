@@ -9,7 +9,6 @@ import Foundation
 import Moya
 
 enum StoreReviewAPI {
-    // 파일 업로드 -> MediaUploadAPI 적용, (CommunityPostAPI도 MediaUpload 사용하기
     case createReview(storeId: String, request: StoreReviewRequest)
     case fetchReviews(storeId: String, next: String?, limit: Int?, orderBy: String?)
     case fetchReviewDetail(storeId: String, reviewId: String)

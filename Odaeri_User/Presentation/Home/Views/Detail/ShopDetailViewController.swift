@@ -49,6 +49,7 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
     private let menuSelectedSubject = CurrentValueSubject<[MenuEntity], Never>([])
     private let checkoutTapSubject = PassthroughSubject<(store: StoreEntity, selectedMenus: [MenuEntity]), Never>()
     private let findRouteButtonTapSubject = PassthroughSubject<Void, Never>()
+    private let reviewTapSubject = PassthroughSubject<Void, Never>()
 
     private let checkoutView: UIView = {
         let view = UIView()
@@ -145,7 +146,8 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
             storeLikeToggled: likeTapSubject.eraseToAnyPublisher(),
             menuSelected: menuSelectedSubject.eraseToAnyPublisher(),
             checkoutButtonTapped: checkoutTapSubject.eraseToAnyPublisher(),
-            findRouteButtonTapped: findRouteButtonTapSubject.eraseToAnyPublisher()
+            findRouteButtonTapped: findRouteButtonTapSubject.eraseToAnyPublisher(),
+            reviewTapped: reviewTapSubject.eraseToAnyPublisher()
         )
 
         let output = viewModel.transform(input: input)
@@ -332,6 +334,12 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
             cell.findRouteButtonTapPublisher
                 .sink { [weak self] _ in
                     self?.findRouteButtonTapSubject.send(())
+                }
+                .store(in: &cell.cancellables)
+
+            cell.reviewTapPublisher
+                .sink { [weak self] _ in
+                    self?.reviewTapSubject.send(())
                 }
                 .store(in: &cell.cancellables)
         }

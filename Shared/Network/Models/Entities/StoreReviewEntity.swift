@@ -16,8 +16,12 @@ struct StoreReviewEntity {
     let creator: Creator
     let userTotalReviewCount: Int
     let userTotalRating: Double
-    let createdAt: String
-    let updatedAt: String
+    let createdAt: Date?
+    let updatedAt: Date?
+    
+    var isMe: Bool {
+        creator.userId == UserDefaults.standard.string(forKey: "userId")
+    }
 }
 
 extension StoreReviewEntity {
@@ -30,8 +34,8 @@ extension StoreReviewEntity {
         self.creator = dto.creator
         self.userTotalReviewCount = dto.userTotalReviewCount
         self.userTotalRating = dto.userTotalRating
-        self.createdAt = dto.createdAt
-        self.updatedAt = dto.updatedAt
+        self.createdAt = dto.createdAt.toDate()
+        self.updatedAt = dto.updatedAt.toDate()
     }
 }
 
@@ -43,8 +47,8 @@ struct StoreReviewDetailEntity {
     let reviewImageUrls: [String]
     let orderMenuList: [String]
     let creator: Creator
-    let createdAt: String
-    let updatedAt: String
+    let createdAt: Date?
+    let updatedAt: Date?
 }
 
 extension StoreReviewDetailEntity {
@@ -56,8 +60,8 @@ extension StoreReviewDetailEntity {
         self.reviewImageUrls = dto.reviewImageUrls
         self.orderMenuList = dto.orderMenuList
         self.creator = dto.creator
-        self.createdAt = dto.createdAt
-        self.updatedAt = dto.updatedAt
+        self.createdAt = dto.createdAt.toDate()
+        self.updatedAt = dto.updatedAt.toDate()
     }
 }
 
