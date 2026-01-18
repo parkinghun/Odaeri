@@ -16,14 +16,25 @@ actor TokenRefreshCoordinator {
     private var refreshSubject: PassthroughSubject<Result<Void, Error>, Never>?
     private var retryCount = 0
     private let maxRetryCount = 1
+    private var refreshTask: _Concurrency.Task<Void, Error>?
 
     private init() {}
 
+    func resetRetryCount() {
+        retryCount = 0
+    }
+
     func waitIfRefreshing() async throws {
-        guard isRefreshing else { return }
+        guard isRefreshing else {
+            print("[TokenRefreshCoordinator] waitIfRefreshing: Not refreshing, continuing")
+            return
+        }
+
+        print("[TokenRefreshCoordinator] waitIfRefreshing: Refresh in progress, waiting...")
 
         return try await withCheckedThrowingContinuation { continuation in
             guard let subject = refreshSubject else {
+                print("[TokenRefreshCoordinator] waitIfRefreshing: No subject, resuming")
                 continuation.resume()
                 return
             }
@@ -39,8 +50,10 @@ actor TokenRefreshCoordinator {
 
                     switch result {
                     case .success:
+                        print("[TokenRefreshCoordinator] waitIfRefreshing: Refresh completed, resuming")
                         continuation.resume()
                     case .failure(let error):
+                        print("[TokenRefreshCoordinator] waitIfRefreshing: Refresh failed, throwing error")
                         continuation.resume(throwing: error)
                     }
                     cancellable?.cancel()
@@ -70,7 +83,9 @@ actor TokenRefreshCoordinator {
     private func performRefresh(promise: @escaping (Result<Void, Error>) -> Void) async throws {
         // 이미 갱신 중이면 대기
         if isRefreshing {
+            print("[TokenRefreshCoordinator] Already refreshing, waiting for completion...")
             guard let subject = refreshSubject else {
+                print("[TokenRefreshCoordinator] ERROR: isRefreshing=true but subject is nil")
                 throw NetworkError.unknown(NSError(domain: "TokenRefreshCoordinator", code: -2, userInfo: [NSLocalizedDescriptionKey: "Refresh subject not initialized"]))
             }
 
@@ -78,17 +93,23 @@ actor TokenRefreshCoordinator {
                 var cancellable: AnyCancellable?
                 var didResume = false
 
+                print("[TokenRefreshCoordinator] Subscribing to refresh subject...")
                 cancellable = subject
                     .first()
                     .sink { result in
-                        guard !didResume else { return }
+                        guard !didResume else {
+                            print("[TokenRefreshCoordinator] Continuation already resumed, ignoring")
+                            return
+                        }
                         didResume = true
 
                         switch result {
                         case .success:
+                            print("[TokenRefreshCoordinator] Wait completed successfully")
                             promise(.success(()))
                             continuation.resume()
                         case .failure(let error):
+                            print("[TokenRefreshCoordinator] Wait completed with error: \(error)")
                             promise(.failure(error))
                             continuation.resume(throwing: error)
                         }
@@ -100,6 +121,7 @@ actor TokenRefreshCoordinator {
 
         // 재시도 제한 확인
         if retryCount >= maxRetryCount {
+            print("[TokenRefreshCoordinator] Retry limit exceeded (count: \(retryCount))")
             let error = NetworkError.unknown(NSError(domain: "TokenRefreshCoordinator", code: -3, userInfo: [NSLocalizedDescriptionKey: "Token refresh retry limit exceeded"]))
             await completeRefresh(success: false)
             promise(.failure(error))
@@ -107,6 +129,7 @@ actor TokenRefreshCoordinator {
         }
 
         // 갱신 시작 (subject 먼저 초기화)
+        print("[TokenRefreshCoordinator] Starting new refresh (retry: \(retryCount))")
         await startRefresh()
         retryCount += 1
 
@@ -114,8 +137,10 @@ actor TokenRefreshCoordinator {
             try await performTokenRefresh()
             await completeRefresh(success: true)
             retryCount = 0
+            print("[TokenRefreshCoordinator] Refresh completed successfully, retry count reset")
             promise(.success(()))
         } catch {
+            print("[TokenRefreshCoordinator] Refresh failed: \(error)")
             await completeRefresh(success: false)
             promise(.failure(error))
             throw error
@@ -123,25 +148,59 @@ actor TokenRefreshCoordinator {
     }
 
     private func performTokenRefresh() async throws {
+        print("[TokenRefreshCoordinator] Starting token refresh...")
+
         guard let refreshToken = TokenManager.shared.refreshToken else {
+            print("[TokenRefreshCoordinator] No refresh token found")
             TokenManager.shared.clearTokens()
             let error = NetworkError.refreshTokenExpired
             throw error
         }
 
+        // AuthAPI는 plugins 없이 직접 호출 (순환 참조 방지)
         let authProvider = MoyaProvider<AuthAPI>(plugins: [])
 
         do {
-            let response: RefreshTokenResponse = try await authProvider.request(AuthAPI.refreshToken)
+            // 직접 Moya의 request 메서드 사용 (AuthInterceptor 우회)
+            let response: RefreshTokenResponse = try await withCheckedThrowingContinuation { continuation in
+                authProvider.request(AuthAPI.refreshToken) { result in
+                    switch result {
+                    case .success(let moyaResponse):
+                        do {
+                            // 상태 코드 체크
+                            if moyaResponse.statusCode == 418 {
+                                continuation.resume(throwing: NetworkError.refreshTokenExpired)
+                                return
+                            }
+                            if moyaResponse.statusCode == 401 {
+                                continuation.resume(throwing: NetworkError.unauthorized)
+                                return
+                            }
+                            if !(200...299).contains(moyaResponse.statusCode) {
+                                continuation.resume(throwing: NetworkError.serverError(statusCode: moyaResponse.statusCode, message: "Token refresh failed"))
+                                return
+                            }
+
+                            let decoded = try moyaResponse.map(RefreshTokenResponse.self)
+                            continuation.resume(returning: decoded)
+                        } catch {
+                            continuation.resume(throwing: NetworkError.decodingFailed(error))
+                        }
+                    case .failure(let moyaError):
+                        continuation.resume(throwing: NetworkError.unknown(moyaError))
+                    }
+                }
+            }
 
             TokenManager.shared.saveTokens(
                 accessToken: response.accessToken,
                 refreshToken: response.refreshToken
             )
 
-            print("[TokenRefreshCoordinator] Tokens updated successfully")
+            print("[TokenRefreshCoordinator] Tokens updated successfully - AccessToken: \(response.accessToken.prefix(20))...")
 
         } catch let error as NetworkError {
+            print("[TokenRefreshCoordinator] Token refresh failed with NetworkError: \(error)")
             TokenManager.shared.clearTokens()
 
             let finalError: NetworkError
@@ -159,31 +218,39 @@ actor TokenRefreshCoordinator {
             throw finalError
 
         } catch {
+            print("[TokenRefreshCoordinator] Token refresh failed with error: \(error)")
             TokenManager.shared.clearTokens()
             throw NetworkError.unknown(error)
         }
     }
 
     private func startRefresh() {
+        print("[TokenRefreshCoordinator] startRefresh: Creating subject and setting isRefreshing=true")
         // subject를 먼저 초기화한 후 isRefreshing을 true로 설정
         refreshSubject = PassthroughSubject<Result<Void, Error>, Never>()
         isRefreshing = true
     }
 
     private func completeRefresh(success: Bool) {
+        print("[TokenRefreshCoordinator] completeRefresh: success=\(success)")
+
         defer {
+            print("[TokenRefreshCoordinator] completeRefresh: Cleaning up - isRefreshing=false, subject=nil")
             isRefreshing = false
             refreshSubject = nil
         }
 
         if success {
+            print("[TokenRefreshCoordinator] completeRefresh: Sending success to waiting requests")
             refreshSubject?.send(.success(()))
         } else {
             let error = NetworkError.refreshTokenExpired
+            print("[TokenRefreshCoordinator] completeRefresh: Sending failure to waiting requests")
             refreshSubject?.send(.failure(error))
 
             // 로그아웃 처리
             _Concurrency.Task { @MainActor in
+                print("[TokenRefreshCoordinator] Posting unauthorizedAccess notification and clearing tokens")
                 TokenManager.shared.clearTokens()
                 NotificationCenter.default.post(name: .unauthorizedAccess, object: nil)
             }
