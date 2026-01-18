@@ -7,12 +7,17 @@
 
 import UIKit
 import SnapKit
+import Combine
 
 final class OrderReceiptViewController: UIViewController {
     private let order: OrderListItemEntity
     private let transitionDelegate = OrderReceiptTransitioningDelegate()
 
     var onStoreTapped: ((String) -> Void)?
+    private let reviewActionSubject = PassthroughSubject<OrderListItemEntity, Never>()
+    var reviewActionPublisher: AnyPublisher<OrderListItemEntity, Never> {
+        reviewActionSubject.eraseToAnyPublisher()
+    }
 
     private let scrollView = UIScrollView()
     private let paperView: UIView = {
@@ -111,7 +116,12 @@ final class OrderReceiptViewController: UIViewController {
         button.setTitleColor(AppColor.gray0, for: .normal)
         button.backgroundColor = AppColor.deepSprout
         button.layer.cornerRadius = 12
+        button.addTarget(self, action: #selector(handleReviewAction), for: .touchUpInside)
         return button
+    }
+
+    @objc private func handleReviewAction() {
+        reviewActionSubject.send(order)
     }
 }
 

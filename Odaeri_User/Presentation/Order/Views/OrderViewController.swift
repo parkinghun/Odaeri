@@ -63,6 +63,7 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
     private var currentOrders: [OrderListItemDisplay] = []
     private var pastOrders: [OrderListItemDisplay] = []
     private var lastTabBarInset: CGFloat = 0
+    private var receiptCancellables: Set<AnyCancellable> = []
     private let priceTapSubject = PassthroughSubject<String, Never>()
     private let storeTapSubject = PassthroughSubject<String, Never>()
     
@@ -354,6 +355,18 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
                 self?.storeTapSubject.send(storeId)
             }
         }
+        receiptCancellables.removeAll()
+        viewController.reviewActionPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self, weak viewController] order in
+                guard let self else { return }
+                viewController?.dismiss(animated: true) { [weak self] in
+                    guard let self else { return }
+                    let mode: ReviewWriteMode = order.review == nil ? .create(order: order) : .edit(order: order)
+                    self.viewModel.coordinator?.showReviewWrite(mode: mode)
+                }
+            }
+            .store(in: &receiptCancellables)
         present(viewController, animated: true)
     }
 }

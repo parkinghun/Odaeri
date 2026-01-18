@@ -33,4 +33,10 @@ final class OrderCoordinator: Coordinator {
         let viewController = ShopDetailViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
     }
+
+    func showReviewWrite(mode: ReviewWriteMode) {
+        let viewModel = ReviewWriteViewModel(mode: mode)
+        let viewController = ReviewWriteViewController(viewModel: viewModel)
+        navigationController.pushViewController(viewController, animated: true)
+    }
 }

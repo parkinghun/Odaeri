@@ -7,7 +7,6 @@
 
 import Foundation
 
-// API - 2번 응답
 struct StoreReviewListReponse: Decodable {
     let data: [StoreRevewItemDTO]
     let nextCursot: String?
@@ -44,7 +43,6 @@ struct StoreRevewItemDTO: Decodable {
     }
 }
 
-// API - 1, 3, 4번 응답 공용
 struct StoreReviewResponse: Decodable {
     let reviewID: String
     let content: String
@@ -65,7 +63,6 @@ struct StoreReviewResponse: Decodable {
     }
 }
 
-// API - 6번 응답
 struct ReviewRatingResponse: Decodable {
     let data: [RatingData]
 }
@@ -75,7 +72,6 @@ struct RatingData: Decodable {
     let count: Int
 }
 
-// 리뷰 작성 / 수정 요청
 struct StoreReviewRequest: Codable {
     let content: String
     let rating: Int
@@ -87,5 +83,21 @@ struct StoreReviewRequest: Codable {
         case rating
         case imageUrls = "review_image_urls"
         case orderCode = "order_code"
+    }
+}
+
+extension StoreReviewRequest {
+    init(content: String, rating: Int, imageUrls: [String], orderCode: String) {
+        self.content = content
+        self.rating = rating
+        self.imageUrls = imageUrls
+        self.orderCode = orderCode
+    }
+    
+    init(updateContent content: String, rating: Int, imageUrls: [String]) {
+        self.content = content
+        self.rating = rating
+        self.imageUrls = imageUrls
+        self.orderCode = nil
     }
 }
