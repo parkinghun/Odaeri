@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Moya
 
 enum StoreAPI {
     enum User {
@@ -20,7 +21,7 @@ enum StoreAPI {
     }
 
     enum Admin {
-        case uploadImages(files: [Data])
+        case uploadImages(files: [MultipartFormData])
         case create(request: StoreRequest)
         case update(storeId: String, request: StoreRequest)
     }

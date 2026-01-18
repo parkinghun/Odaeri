@@ -9,7 +9,7 @@ import Foundation
 import Moya
 
 enum MenuAPI {
-    case uploadImage(imageData: Data)
+    case uploadImage(imageData: MultipartFormData)
     case create(storeId: String, request: MenuRequest)
     case update(menuId: String, request: MenuRequest)
 }
@@ -38,17 +38,9 @@ extension MenuAPI: BaseAPI {
     var task: Task {
         switch self {
         case .uploadImage(let imageData):
-            let formData = MultipartFormData(
-                provider: .data(imageData),
-                name: "menu_image",
-                fileName: "menu_image.jpg",
-                mimeType: "image/jpeg"
-            )
-            return .uploadMultipart([formData])
-
+            return .uploadMultipart([imageData])
         case .create(_, let request):
             return .requestJSONEncodable(request)
-
         case .update(_, let request):
             return .requestJSONEncodable(request)
         }

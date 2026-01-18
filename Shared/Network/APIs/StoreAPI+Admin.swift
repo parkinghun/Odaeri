@@ -32,22 +32,9 @@ extension StoreAPI.Admin: BaseAPI {
     var task: Task {
         switch self {
         case .uploadImages(let files):
-            var formData = [MultipartFormData]()
-            for (index, fileData) in files.enumerated() {
-                formData.append(
-                    MultipartFormData(
-                        provider: .data(fileData),
-                        name: "files",
-                        fileName: "store_image_\(index).jpg",
-                        mimeType: "image/jpeg"
-                    )
-                )
-            }
-            return .uploadMultipart(formData)
-
+            return .uploadMultipart(files)
         case .create(let request):
             return .requestJSONEncodable(request)
-
         case .update(_, let request):
             return .requestJSONEncodable(request)
         }

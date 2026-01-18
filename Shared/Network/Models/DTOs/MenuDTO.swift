@@ -14,9 +14,9 @@ struct MenuRequest: Encodable {
     let originInformation: String?
     let price: Int?
     let category: String?
-    let tags: [String]?
+    let tags: [String]
     let menuImageUrl: String?
-    let isSoldOut: Bool?
+    let isSoldOut: Bool
 
     enum CodingKeys: String, CodingKey {
         case name, description, price, category, tags
