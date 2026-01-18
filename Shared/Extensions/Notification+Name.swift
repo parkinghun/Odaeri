@@ -14,6 +14,7 @@ extension Notification.Name {
     static let storeLikeUpdated = Notification.Name("com.odaeri.storeLikeUpdated")
     static let communityPostDidUpdate = Notification.Name("com.odaeri.communityPostDidUpdate")
     static let communityPostInteractionDidUpdate = Notification.Name("com.odaeri.communityPostInteractionDidUpdate")
+    static let reviewCreated = Notification.Name("com.odaeri.reviewCreated")
 }
 
 struct PendingPaymentValidatedInfo {

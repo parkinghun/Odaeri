@@ -25,11 +25,13 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
 
     private let ratingSubject: CurrentValueSubject<Int, Never>
     private let contentSubject = CurrentValueSubject<String, Never>("")
+    private let imagesSubject = CurrentValueSubject<[UIImage], Never>([])
     private let submitSubject = PassthroughSubject<Void, Never>()
 
     private var selectedImages: [UIImage] = [] {
         didSet {
             mediaCollectionView.reloadData()
+            imagesSubject.send(selectedImages)
         }
     }
 
@@ -247,6 +249,7 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
         let input = ReviewWriteViewModel.Input(
             ratingSelected: ratingSubject.eraseToAnyPublisher(),
             contentChanged: contentSubject.eraseToAnyPublisher(),
+            imagesChanged: imagesSubject.eraseToAnyPublisher(),
             submitTapped: submitSubject.eraseToAnyPublisher()
         )
         let output = viewModel.transform(input: input)
@@ -269,6 +272,28 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isEnabled in
                 self?.updateSubmitButton(isEnabled: isEnabled)
+            }
+            .store(in: &cancellables)
+
+        output.reviewCreated
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] review in
+                guard let self = self else { return }
+                print("[ReviewWrite] Review created successfully: \(review.reviewId)")
+                NotificationCenter.default.post(
+                    name: .reviewCreated,
+                    object: nil,
+                    userInfo: ["review": review, "orderCode": self.viewModel.mode.order.orderCode]
+                )
+                print("[ReviewWrite] Notification posted")
+            }
+            .store(in: &cancellables)
+
+        output.error
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] errorMessage in
+                print("[ReviewWrite] Error occurred: \(errorMessage)")
+                self?.showAlert(title: "오류", message: errorMessage)
             }
             .store(in: &cancellables)
     }

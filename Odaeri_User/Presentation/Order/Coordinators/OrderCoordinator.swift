@@ -36,7 +36,12 @@ final class OrderCoordinator: Coordinator {
 
     func showReviewWrite(mode: ReviewWriteMode) {
         let viewModel = ReviewWriteViewModel(mode: mode)
+        viewModel.coordinator = self
         let viewController = ReviewWriteViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
+    }
+
+    func popReviewWrite() {
+        navigationController.popViewController(animated: true)
     }
 }

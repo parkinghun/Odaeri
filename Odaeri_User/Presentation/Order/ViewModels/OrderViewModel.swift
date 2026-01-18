@@ -129,6 +129,7 @@ struct OrderMenuRowDisplay {
 }
 
 struct OrderPastDisplay {
+    let orderCode: String
     let storeId: String
     let storeName: String
     let orderCodeText: String
@@ -180,6 +181,7 @@ private extension OrderViewModel {
         )
 
         let pastDisplay = OrderPastDisplay(
+            orderCode: order.orderCode,
             storeId: order.store.id,
             storeName: order.store.name,
             orderCodeText: order.orderCode,

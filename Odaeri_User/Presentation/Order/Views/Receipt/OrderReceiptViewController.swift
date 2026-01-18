@@ -12,6 +12,7 @@ import Combine
 final class OrderReceiptViewController: UIViewController {
     private let order: OrderListItemEntity
     private let transitionDelegate = OrderReceiptTransitioningDelegate()
+    private var actionButton: UIButton?
 
     var onStoreTapped: ((String) -> Void)?
     private let reviewActionSubject = PassthroughSubject<OrderListItemEntity, Never>()
@@ -79,6 +80,13 @@ final class OrderReceiptViewController: UIViewController {
             $0.leading.trailing.equalToSuperview().inset(AppSpacing.large)
             $0.bottom.equalToSuperview().offset(-AppSpacing.large)
         }
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleReviewCreated(_:)),
+            name: .reviewCreated,
+            object: nil
+        )
     }
 
     private func buildContent() {
@@ -99,10 +107,11 @@ final class OrderReceiptViewController: UIViewController {
         contentStackView.addArrangedSubview(ReceiptDashedLineView())
         contentStackView.addArrangedSubview(timelineSection)
         if order.currentOrderStatus == .pickedUp {
-            let actionButton = makeActionButton()
+            let button = makeActionButton()
+            self.actionButton = button
             contentStackView.addArrangedSubview(ReceiptDashedLineView())
-            contentStackView.addArrangedSubview(actionButton)
-            actionButton.snp.makeConstraints {
+            contentStackView.addArrangedSubview(button)
+            button.snp.makeConstraints {
                 $0.height.equalTo(44)
             }
         }
@@ -122,6 +131,24 @@ final class OrderReceiptViewController: UIViewController {
 
     @objc private func handleReviewAction() {
         reviewActionSubject.send(order)
+    }
+
+    @objc private func handleReviewCreated(_ notification: Notification) {
+        print("[OrderReceipt] Review created notification received")
+        guard let userInfo = notification.userInfo,
+              let orderCode = userInfo["orderCode"] as? String else {
+            print("[OrderReceipt] Missing userInfo data")
+            return
+        }
+
+        print("[OrderReceipt] Review for orderCode: \(orderCode), current: \(order.orderCode)")
+        guard orderCode == order.orderCode else {
+            print("[OrderReceipt] OrderCode mismatch, ignoring")
+            return
+        }
+
+        print("[OrderReceipt] Updating action button text")
+        actionButton?.setTitle("작성한 리뷰 보기", for: .normal)
     }
 }
 

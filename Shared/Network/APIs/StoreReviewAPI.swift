@@ -23,24 +23,28 @@ extension StoreReviewAPI: BaseAPI {
         switch self {
         case .createReview(let storeId, _),
                 .fetchReviews(let storeId, _, _, _):
-            return "/v1/stores/\(storeId)/reviews"
+            return "/stores/\(storeId)/reviews"
             
         case .fetchReviewDetail(let storeId, let reviewId),
                 .updateReview(let storeId, let reviewId, _),
                 .deleteReview(let storeId, let reviewId):
-            return "/v1/stores/\(storeId)/reviews/\(reviewId)"
+            return "/stores/\(storeId)/reviews/\(reviewId)"
             
         case .fetchReviewRatings(let storeId):
-            return "/v1/stores/\(storeId)/reviews/reviews-ratings"
+            return "/stores/\(storeId)/reviews/reviews-ratings"
         }
     }
     
     var method: Moya.Method {
         switch self {
-        case .createReview: return .post
-        case .fetchReviews, .fetchReviewDetail, .fetchReviewRatings: return .get
-        case .updateReview: return .put
-        case .deleteReview: return .delete
+        case .createReview:
+            return .post
+        case .fetchReviews, .fetchReviewDetail, .fetchReviewRatings:
+            return .get
+        case .updateReview:
+            return .put
+        case .deleteReview:
+            return .delete
         }
     }
     

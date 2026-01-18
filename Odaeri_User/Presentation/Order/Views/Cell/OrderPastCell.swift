@@ -9,6 +9,8 @@ import UIKit
 import SnapKit
 
 final class OrderPastCell: BaseCollectionViewCell {
+    private var currentOrderCode: String?
+
     private let containerView: UIView = {
         let view = UIView()
         view.backgroundColor = AppColor.gray0
@@ -169,9 +171,17 @@ final class OrderPastCell: BaseCollectionViewCell {
         storeImageView.addGestureRecognizer(imageTap)
         priceButton.addTarget(self, action: #selector(handlePriceTap), for: .touchUpInside)
         reviewButton.addTarget(self, action: #selector(handleReviewTap), for: .touchUpInside)
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleReviewCreated(_:)),
+            name: .reviewCreated,
+            object: nil
+        )
     }
 
     func configure(with display: OrderPastDisplay) {
+        currentOrderCode = display.orderCode
         storeNameLabel.text = display.storeName
         orderCodeLabel.text = display.orderCodeText
         orderDateLabel.text = display.orderDateText
@@ -190,22 +200,23 @@ final class OrderPastCell: BaseCollectionViewCell {
         if let review = display.review {
             let starImage = AppImage.starFill
                 .resize(to: CGSize(width: 20, height: 20))
-                .withRenderingMode(.alwaysTemplate)
-            
+                .withTintColor(AppColor.brightForsythia, renderingMode: .alwaysOriginal)
+
             config.image = starImage
             config.imagePadding = AppSpacing.smallMedium
             config.imagePlacement = .leading
-            
+
             config.title = review.ratingText
             config.baseForegroundColor = AppColor.gray75
-            reviewButton.tintColor = AppColor.brightForsythia
             reviewButton.layer.borderColor = AppColor.gray30.cgColor
-            
+            reviewButton.isEnabled = false
+
         } else {
             config.image = nil
             config.title = "리뷰 작성"
             config.baseForegroundColor = AppColor.deepSprout
             reviewButton.layer.borderColor = AppColor.deepSprout.cgColor
+            reviewButton.isEnabled = true
         }
 
         reviewButton.configuration = config
@@ -221,5 +232,44 @@ final class OrderPastCell: BaseCollectionViewCell {
 
     @objc private func handleReviewTap() {
         onReviewTapped?()
+    }
+
+    @objc private func handleReviewCreated(_ notification: Notification) {
+        print("[OrderPastCell] Review created notification received")
+        guard let userInfo = notification.userInfo,
+              let review = userInfo["review"] as? StoreReviewDetailEntity,
+              let orderCode = userInfo["orderCode"] as? String else {
+            print("[OrderPastCell] Missing userInfo data")
+            return
+        }
+
+        print("[OrderPastCell] Review for orderCode: \(orderCode), current: \(currentOrderCode ?? "nil")")
+        guard orderCode == currentOrderCode else {
+            print("[OrderPastCell] OrderCode mismatch, ignoring")
+            return
+        }
+
+        var config = reviewButton.configuration ?? UIButton.Configuration.plain()
+
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = AppFont.body1Bold
+            return outgoing
+        }
+
+        let starImage = AppImage.starFill
+            .resize(to: CGSize(width: 20, height: 20))
+            .withTintColor(AppColor.brightForsythia, renderingMode: .alwaysOriginal)
+
+        config.image = starImage
+        config.imagePadding = AppSpacing.smallMedium
+        config.imagePlacement = .leading
+        config.title = "\(review.rating)점"
+        config.baseForegroundColor = AppColor.gray75
+
+        reviewButton.configuration = config
+        reviewButton.layer.borderColor = AppColor.gray30.cgColor
+        reviewButton.isEnabled = false
+        print("[OrderPastCell] Review button updated with rating: \(review.rating)점")
     }
 }
