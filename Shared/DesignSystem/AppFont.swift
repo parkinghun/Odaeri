@@ -25,6 +25,7 @@ enum AppFont {
     static let caption3 = FontFamily.Pretendard.regular.of(size: 8)
     
     static let brandTitle1 = FontFamily.Jalnan.gothic.of(size: 24)
+    static let brandTitle2 = FontFamily.Jalnan.gothic.of(size: 28)
     static let brandBody1 = FontFamily.Jalnan.gothic.of(size: 20)
     static let brandCaption1 = FontFamily.Jalnan.gothic.of(size: 14)
 }
@@ -80,4 +81,3 @@ final class FontPreviewView: UIView {
         stackView.addArrangedSubview(label)
     }
 }
-

@@ -29,9 +29,6 @@ extension Date {
         }
         
         if let hour = components.hour, hour > 0 {
-            if let minute = components.minute, minute > 0 {
-                return "\(hour)시간 \(minute)분 전"
-            }
             return "\(hour)시간 전"
         }
         

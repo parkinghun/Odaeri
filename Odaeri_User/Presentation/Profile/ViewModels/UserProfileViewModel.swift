@@ -42,6 +42,8 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
 
     init(
         targetUserId: String,
+        initialNick: String? = nil,
+        initialProfileImage: String? = nil,
         communityRepository: CommunityPostRepository = CommunityPostRepositoryImpl(),
         chatRepository: ChatRepository = ChatRepositoryImpl(),
         userRepository: UserRepository = UserRepositoryImpl()
@@ -51,8 +53,17 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
         self.chatRepository = chatRepository
         self.userRepository = userRepository
         super.init()
-        updateHeader(from: UserManager.shared.currentUser, isMe: isMe)
-        navigationItemSubject.send(isMe ? .myMenu : .otherMenu)
+        if isMe {
+            updateHeader(from: UserManager.shared.currentUser, isMe: true)
+            navigationItemSubject.send(.myMenu)
+        } else {
+            updateHeader(
+                nick: initialNick ?? "사용자",
+                profileImage: initialProfileImage,
+                isMe: false
+            )
+            navigationItemSubject.send(.otherMenu)
+        }
     }
 
     struct Input {
