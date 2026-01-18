@@ -107,7 +107,9 @@ final class StoreSearchViewController: BaseViewController<StoreSearchViewModel> 
 
         let input = StoreSearchViewModel.Input(
             viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
-            searchButtonTapped: searchButtonTappedSubject.eraseToAnyPublisher()
+            searchButtonTapped: searchButtonTappedSubject
+                .removeDuplicates()
+                .eraseToAnyPublisher()
         )
 
         let output = viewModel.transform(input: input)
