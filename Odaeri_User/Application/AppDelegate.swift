@@ -11,12 +11,8 @@ import FirebaseCore
 import FirebaseMessaging
 import iamport_ios
 import RealmSwift
-import Combine
-
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
-    private let pushService = PushNotificationService()
-    private var cancellables = Set<AnyCancellable>()
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
         Iamport.shared.receivedURL(url)
@@ -132,13 +128,5 @@ extension AppDelegate: MessagingDelegate {
         }
 
         TokenManager.shared.deviceToken = fcmToken
-
-        guard TokenManager.shared.isLoggedIn else {
-            return
-        }
-
-        pushService.registerTokenIfNeeded(token: fcmToken)
-            .sink { _ in }
-            .store(in: &cancellables)
     }
 }

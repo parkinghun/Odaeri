@@ -15,7 +15,6 @@ final class AppCoordinator: Coordinator {
     private let window: UIWindow
     private let tokenManager = TokenManager.shared
     private let userRepository: UserRepository
-    private let pushService = PushNotificationService()
     private var cancellables = Set<AnyCancellable>()
     private var mainCoordinator: MainCoordinator?
     private var pendingChatRoomId: String?
@@ -180,11 +179,6 @@ extension AppCoordinator: AuthCoordinatorDelegate {
 
 extension AppCoordinator: MainCoordinatorDelegate {
     func mainCoordinatorDidLogout(_ coordinator: MainCoordinator) {
-        if let token = TokenManager.shared.deviceToken {
-            pushService.unregisterTokenIfNeeded(token: token)
-                .sink { _ in }
-                .store(in: &cancellables)
-        }
         removeChild(coordinator)
         showAuthFlow()
     }
