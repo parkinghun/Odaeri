@@ -25,6 +25,11 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
 
     private var likeSubjects: [String: PassthroughSubject<Bool, Never>] = [:]
 
+    private var currentCategory: String?
+    private var currentSortType: String = "distance"
+    private var currentIsPicchelin: Bool?
+    private var currentIsPick: Bool?
+
     init(
         storeRepository: StoreRepository = StoreRepositoryImpl(),
         bannerRepository: BannerRepository = BannerRepositoryImpl(),
@@ -45,6 +50,8 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
         let bannerSelected: AnyPublisher<BannerEntity, Never>
         let storeLikeToggled: AnyPublisher<LikeButton.TapEvent, Never>
         let storeSelected: AnyPublisher<String, Never>
+        let sortTypeChanged: AnyPublisher<String, Never>
+        let filterTypeChanged: AnyPublisher<(isPicchelin: Bool?, isPick: Bool?), Never>
     }
 
     struct Output {
@@ -88,8 +95,29 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
         // 카테고리 선택 시 필터링
         input.categorySelected
             .sink { [weak self] category in
-                self?.fetchPopularStores(category: category?.title, subject: popularStoresSubject)
-                self?.fetchMyPickupStores(category: category?.title, subject: myPickupStoresSubject)
+                guard let self = self else { return }
+                self.currentCategory = category?.title
+                self.fetchPopularStores(category: category?.title, subject: popularStoresSubject)
+                self.fetchMyPickupStores(subject: myPickupStoresSubject)
+            }
+            .store(in: &cancellables)
+
+        // 정렬 타입 변경
+        input.sortTypeChanged
+            .sink { [weak self] sortType in
+                guard let self = self else { return }
+                self.currentSortType = sortType
+                self.fetchMyPickupStores(subject: myPickupStoresSubject)
+            }
+            .store(in: &cancellables)
+
+        // 필터 타입 변경
+        input.filterTypeChanged
+            .sink { [weak self] filter in
+                guard let self = self else { return }
+                self.currentIsPicchelin = filter.isPicchelin
+                self.currentIsPick = filter.isPick
+                self.fetchMyPickupStores(subject: myPickupStoresSubject)
             }
             .store(in: &cancellables)
 
@@ -240,21 +268,16 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
     }
 
     private func fetchMyPickupStores(
-        category: String? = nil,
         subject: PassthroughSubject<[StoreEntity], Never>
     ) {
-        // TODO: 실제 위치 정보 사용
-        let defaultLongitude = 126.9780
-        let defaultLatitude = 37.5665
-
         storeRepository.fetchNearbyStores(
-            category: nil,
+            category: currentCategory,
             longitude: nil,
             latitude: nil,
-            distance: nil, // 5km
+            distance: nil,
             next: nil,
             limit: 10,
-            orderBy: "distance"
+            orderBy: currentSortType
         )
         .sink(
             receiveCompletion: { [weak self] completion in
@@ -262,8 +285,19 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
                     self?.errorSubject.send(error.errorDescription)
                 }
             },
-            receiveValue: { result in
-                subject.send(result.stores)
+            receiveValue: { [weak self] result in
+                guard let self = self else { return }
+                var filteredStores = result.stores
+
+                if let isPicchelin = self.currentIsPicchelin, isPicchelin {
+                    filteredStores = filteredStores.filter { $0.isPicchelin }
+                }
+
+                if let isPick = self.currentIsPick, isPick {
+                    filteredStores = filteredStores.filter { $0.isPick }
+                }
+
+                subject.send(filteredStores)
             }
         )
         .store(in: &cancellables)

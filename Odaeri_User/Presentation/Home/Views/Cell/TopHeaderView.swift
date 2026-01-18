@@ -12,6 +12,7 @@ import Combine
 final class TopHeaderView: UICollectionReusableView {
     private let searchBar = SearchBar()
     private let trendingSearchTickerView = TrendingSearchTickerView()
+    var cancellables = Set<AnyCancellable>()
 
     private let searchBarTapSubject = PassthroughSubject<Void, Never>()
     var searchBarTapPublisher: AnyPublisher<Void, Never> {
@@ -31,6 +32,11 @@ final class TopHeaderView: UICollectionReusableView {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        cancellables.removeAll()
     }
 
     private func setupUI() {
@@ -64,8 +70,11 @@ final class TopHeaderView: UICollectionReusableView {
 
     func configure(with keywords: [String]) {
         trendingSearchTickerView.configure(with: keywords)
-        trendingSearchTickerView.onSearchTapped = { [weak self] keyword in
-            self?.keywordSearchTapSubject.send(keyword)
-        }
+
+        trendingSearchTickerView.keywordTappedPublisher
+            .sink { [weak self] keyword in
+                self?.keywordSearchTapSubject.send(keyword)
+            }
+            .store(in: &cancellables)
     }
 }

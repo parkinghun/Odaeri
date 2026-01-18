@@ -7,13 +7,17 @@
 
 import UIKit
 import SnapKit
+import Combine
 
 final class TrendingSearchTickerView: BaseView {
     private var keywords: [String] = []
     private var currentIndex: Int = 0
     private var timer: Timer?
 
-    var onSearchTapped: ((String) -> Void)?
+    private let keywordTappedSubject = PassthroughSubject<String, Never>()
+    var keywordTappedPublisher: AnyPublisher<String, Never> {
+        keywordTappedSubject.eraseToAnyPublisher()
+    }
 
     private let iconImageView: UIImageView = {
         let imageView = UIImageView(image: AppImage.default)
@@ -120,6 +124,6 @@ final class TrendingSearchTickerView: BaseView {
 
     @objc private func keywordTappped() {
         guard !keywords.isEmpty else { return }
-        onSearchTapped?(keywords[currentIndex])
+        keywordTappedSubject.send(keywords[currentIndex])
     }
 }

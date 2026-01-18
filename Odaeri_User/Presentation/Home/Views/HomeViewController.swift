@@ -27,6 +27,7 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     private var dataSource: DataSource?
     private var categoryCell: CategoryCell?
     private var topHeaderView: TopHeaderView?
+    private var shopListHeaderView: ShopListHeaderView?
 
     private var bannerCount: Int = 0
     private let userScrolledBannerSubject = PassthroughSubject<Int, Never>()
@@ -34,11 +35,14 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     private let bannerSelectedSubject = PassthroughSubject<BannerEntity, Never>()
     private let storeSelectedSubject = PassthroughSubject<String, Never>()
     private let searchBarTappedSubject = PassthroughSubject<Void, Never>()
+    private let sortTypeChangedSubject = PassthroughSubject<String, Never>()
+    private let filterTypeChangedSubject = PassthroughSubject<(isPicchelin: Bool?, isPick: Bool?), Never>()
     private var bannerCarouselCell: BannerCarouselCell?
 
     private var currentLocation: CLLocation?
     private var storeCache: [String: StoreEntity] = [:]
     private var lastTabBarInset: CGFloat = 0
+    private var currentKeywords: [String] = []
     
     override func setupUI() {
         super.setupUI()
@@ -88,7 +92,9 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
             userScrolledBanner: userScrolledBannerSubject.eraseToAnyPublisher(),
             bannerSelected: bannerSelectedSubject.eraseToAnyPublisher(),
             storeLikeToggled: likeTapSubject.eraseToAnyPublisher(),
-            storeSelected: storeSelectedSubject.eraseToAnyPublisher()
+            storeSelected: storeSelectedSubject.eraseToAnyPublisher(),
+            sortTypeChanged: sortTypeChangedSubject.eraseToAnyPublisher(),
+            filterTypeChanged: filterTypeChangedSubject.eraseToAnyPublisher()
         )
         
         let output = viewModel.transform(input: input)
@@ -118,7 +124,9 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
         // 인기 검색어 업데이트
         output.popularKeywords
             .sink { [weak self] keywords in
-                self?.topHeaderView?.configure(with: keywords)
+                guard let self = self else { return }
+                self.currentKeywords = keywords
+                self.topHeaderView?.configure(with: keywords)
             }
             .store(in: &cancellables)
         
@@ -545,29 +553,52 @@ private extension HomeViewController {
             elementKind: "TopHeader"
         ) { [weak self] supplementaryView, _, _ in
             guard let self = self else { return }
-            self.topHeaderView = supplementaryView
 
-            // SearchBar 탭 이벤트 바인딩 (throttle로 연속 탭 방지)
+            self.topHeaderView = supplementaryView
+            supplementaryView.configure(with: self.currentKeywords)
+
             supplementaryView.searchBarTapPublisher
                 .throttle(for: .seconds(0.5), scheduler: RunLoop.main, latest: false)
                 .sink { [weak self] _ in
                     self?.searchBarTappedSubject.send()
                 }
-                .store(in: &self.cancellables)
+                .store(in: &supplementaryView.cancellables)
 
-            // Keyword 검색 탭 이벤트 바인딩
             supplementaryView.keywordSearchTapPublisher
                 .throttle(for: .seconds(0.5), scheduler: RunLoop.main, latest: false)
                 .sink { [weak self] keyword in
                     self?.keywordSearchTappedSubject.send(keyword)
                 }
-                .store(in: &self.cancellables)
+                .store(in: &supplementaryView.cancellables)
         }
         
         let shopListHeaderRegistration = UICollectionView.SupplementaryRegistration<ShopListHeaderView>(
             elementKind: UICollectionView.elementKindSectionHeader
-        ) { supplementaryView, elementKind, indexPath in
-            // ShopListHeaderView는 자체적으로 UI 구성
+        ) { [weak self] supplementaryView, elementKind, indexPath in
+            guard let self = self else { return }
+
+            self.shopListHeaderView = supplementaryView
+
+            supplementaryView.sortTypePublisher
+                .sink { [weak self] sortType in
+                    self?.sortTypeChangedSubject.send(sortType.rawValue)
+                }
+                .store(in: &supplementaryView.cancellables)
+
+            supplementaryView.filterTypePublisher
+                .sink { [weak self] filterType in
+                    let filter: (isPicchelin: Bool?, isPick: Bool?)
+                    switch filterType {
+                    case .all:
+                        filter = (nil, nil)
+                    case .picchelin:
+                        filter = (true, nil)
+                    case .myPick:
+                        filter = (nil, true)
+                    }
+                    self?.filterTypeChangedSubject.send(filter)
+                }
+                .store(in: &supplementaryView.cancellables)
         }
         
         let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(

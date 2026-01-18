@@ -10,12 +10,12 @@ import SnapKit
 import Combine
 
 final class ShopListHeaderView: UICollectionReusableView {
-    private var cancellables = Set<AnyCancellable>()
-    enum SortType {
+    var cancellables = Set<AnyCancellable>()
+    enum SortType: String {
         case distance
         case orders
         case reviews
-        
+
         var title: String {
             switch self {
             case .distance: return "거리순"
@@ -24,7 +24,23 @@ final class ShopListHeaderView: UICollectionReusableView {
             }
         }
     }
-    
+
+    enum FilterType {
+        case all
+        case picchelin
+        case myPick
+    }
+
+    private let sortTypeSubject = PassthroughSubject<SortType, Never>()
+    var sortTypePublisher: AnyPublisher<SortType, Never> {
+        sortTypeSubject.eraseToAnyPublisher()
+    }
+
+    private let filterTypeSubject = PassthroughSubject<FilterType, Never>()
+    var filterTypePublisher: AnyPublisher<FilterType, Never> {
+        filterTypeSubject.eraseToAnyPublisher()
+    }
+
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.font = AppFont.body2Bold
@@ -72,7 +88,12 @@ final class ShopListHeaderView: UICollectionReusableView {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        cancellables.removeAll()
+    }
+
     private func setupUI() {
         addSubview(titleLabel)
         addSubview(sortButton)
@@ -104,15 +125,25 @@ final class ShopListHeaderView: UICollectionReusableView {
     private func setupToggleBindings() {
         picchelinToggle.tapPublisher
             .sink { [weak self] isSelected in
-                guard let self = self, isSelected else { return }
-                self.myPickToggle.isSelected = false
+                guard let self = self else { return }
+                if isSelected {
+                    self.myPickToggle.isSelected = false
+                    self.filterTypeSubject.send(.picchelin)
+                } else {
+                    self.filterTypeSubject.send(.all)
+                }
             }
             .store(in: &cancellables)
-        
+
         myPickToggle.tapPublisher
             .sink { [weak self] isSelected in
-                guard let self = self, isSelected else { return }
-                self.picchelinToggle.isSelected = false
+                guard let self = self else { return }
+                if isSelected {
+                    self.picchelinToggle.isSelected = false
+                    self.filterTypeSubject.send(.myPick)
+                } else {
+                    self.filterTypeSubject.send(.all)
+                }
             }
             .store(in: &cancellables)
     }
@@ -126,15 +157,16 @@ final class ShopListHeaderView: UICollectionReusableView {
         case .reviews:
             currentSortType = .distance
         }
-        
+
         guard var updatedConfig = sortButton.configuration else { return }
-        
+
         var titleContainer = AttributeContainer()
         titleContainer.font = AppFont.caption
         titleContainer.foregroundColor = AppColor.blackSprout
-        
+
         updatedConfig.attributedTitle = AttributedString(currentSortType.title, attributes: titleContainer)
-        
+
         sortButton.configuration = updatedConfig
+        sortTypeSubject.send(currentSortType)
     }
 }
