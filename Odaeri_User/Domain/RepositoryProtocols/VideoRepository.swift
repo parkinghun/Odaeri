@@ -9,7 +9,7 @@ import Foundation
 import Combine
 
 protocol VideoRepository {
-    func fetchVideoList(next: String?, limit: Int?) -> AnyPublisher<[VideoEntity], NetworkError>
+    func fetchVideoList(next: String?, limit: Int?) -> AnyPublisher<VideoListResult, NetworkError>
     func getVideoStreamingURL(videoId: String) -> AnyPublisher<VideoStreamEntity, NetworkError>
     func toggleVideoLike(videoId: String, status: Bool) -> AnyPublisher<Void, NetworkError>
 }

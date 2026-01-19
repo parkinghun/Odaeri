@@ -335,6 +335,7 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
                 receiveCompletion: { completion in
                     if case .failure(let error) = completion {
                         failedSubject.send(storeId)
+                        print(#function, error)
                     }
                 },
                 receiveValue: { _ in

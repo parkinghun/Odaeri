@@ -21,9 +21,23 @@ final class StreamingCoordinator: Coordinator {
     }
 
     func start() {
-        let viewModel = StreamingViewModel()
+        let repository = VideoRepositoryImpl()
+        let useCase = DefaultGetVideoListUseCase(repository: repository)
+        let viewModel = StreamingListViewModel(getVideoListUseCase: useCase)
         viewModel.coordinator = self
-        let viewController = StreamingViewController(viewModel: viewModel)
+        let viewController = StreamingListViewController(viewModel: viewModel)
         navigationController.setViewControllers([viewController], animated: false)
+    }
+
+    func showVideoDetail(videoId: String) {
+        let repository = VideoRepositoryImpl()
+        let useCase = DefaultGetVideoStreamURLUseCase(repository: repository)
+        let viewModel = StreamingDetailViewModel(
+            videoId: videoId,
+            getStreamURLUseCase: useCase
+        )
+        let playerManager = StreamingPlayerManager()
+        let viewController = StreamingDetailViewController(viewModel: viewModel, playerManager: playerManager)
+        navigationController.pushViewController(viewController, animated: true)
     }
 }

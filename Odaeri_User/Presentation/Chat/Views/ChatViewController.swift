@@ -21,7 +21,6 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
     private var hasAppliedInitialSnapshot = false
     private var isLoadingMore = false
     private var lastContentHeight: CGFloat = 0
-    private var isInitialScrollLocked = true
 
     private enum Section: Hashable {
         case main
@@ -203,11 +202,8 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
             guard let self = self else { return }
 
             if !self.hasAppliedInitialSnapshot {
+                self.tableView.layoutIfNeeded()
                 self.tableView.setContentOffset(.zero, animated: false)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    self.tableView.setContentOffset(.zero, animated: false)
-                    self.isInitialScrollLocked = false
-                }
             } else if isPagination {
                 let newContentHeight = self.tableView.contentSize.height
                 let heightDifference = newContentHeight - previousContentHeight
@@ -262,11 +258,6 @@ extension ChatViewController: UITableViewDelegate {
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if isInitialScrollLocked {
-            scrollView.contentOffset = CGPoint(x: 0, y: 0)
-            return
-        }
-
         let contentHeight = scrollView.contentSize.height
         let scrollViewHeight = scrollView.bounds.height
         let offsetY = scrollView.contentOffset.y

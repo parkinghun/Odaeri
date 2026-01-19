@@ -33,6 +33,9 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     private let pageSize = 30
     private var detectedGaps: Set<String> = []
 
+    private var updateWorkItem: DispatchWorkItem?
+    private var hasCompletedInitialLoad = false
+
     private enum MessageSendingState {
         case idle
         case uploading
@@ -108,16 +111,16 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             switch changes {
             case let .initial(results):
                 self.isInitialLoading = false
-                self.updateChatItems(from: results)
+                self.updateChatItems(from: results, isInitial: true)
             case let .update(results, _, _, _):
-                self.updateChatItems(from: results)
+                self.updateChatItems(from: results, isInitial: false)
             case let .error(error):
                 print("Realm 메시지 관찰 오류: \(error)")
             }
         }
     }
 
-    private func updateChatItems(from results: Results<ChatMessageObject>) {
+    private func updateChatItems(from results: Results<ChatMessageObject>, isInitial: Bool) {
         let totalCount = results.count
         hasMoreLocalData = totalCount > currentLimit
 
@@ -128,7 +131,21 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         detectAndFillGaps(in: reversedEntities)
 
         let items = ChatMapper.map(reversedEntities, currentUserId: currentUserId)
-        chatItemsSubject.send(items)
+
+        if isInitial || !hasCompletedInitialLoad {
+            updateWorkItem?.cancel()
+
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self = self else { return }
+                self.chatItemsSubject.send(items)
+                self.hasCompletedInitialLoad = true
+            }
+
+            updateWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: workItem)
+        } else {
+            chatItemsSubject.send(items)
+        }
     }
 
     private func detectAndFillGaps(in entities: [ChatEntity]) {
@@ -194,7 +211,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
 
             let messages = RealmChatRepository.shared.observeMessagesDescending(roomId: roomId)
             if let results = messages {
-                updateChatItems(from: results)
+                updateChatItems(from: results, isInitial: false)
             }
 
             isFetchingNextPage = false
@@ -238,13 +255,9 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     }
 
     private func syncMessagesFromServer() {
-        guard !isSyncing else {
-            print("이미 동기화 중: 요청 무시")
-            return
-        }
+        guard !isSyncing else { return }
 
         isSyncing = true
-        print("동기화 시작: \(roomId)")
 
         let latestCreatedAt = RealmChatRepository.shared.latestMessageCreatedAt(roomId: roomId)
         let latestCreatedAtDate = latestCreatedAt.flatMap { DateFormatter.iso8601.date(from: $0) }
@@ -255,16 +268,12 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
                     defer { self?.isSyncing = false }
 
                     if case .failure(let error) = completion {
-                        print("채팅 히스토리 로드 실패: \(error)")
-                        print("동기화 종료 (실패)")
-                    } else {
-                        print("동기화 완료")
+                        print("[ChatViewModel] 채팅 동기화 실패: \(error)")
                     }
                 },
                 receiveValue: { [weak self] entities in
                     guard let self = self else { return }
                     let filtered = self.filterNewMessages(entities, after: latestCreatedAtDate)
-                    print("동기화된 새 메시지: \(filtered.count)개")
                     self.saveMessagesToRealm(filtered)
                 }
             )
@@ -273,11 +282,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
 
     private func saveMessagesToRealm(_ entities: [ChatEntity]) {
         RealmChatRepository.shared.saveMessages(entities)
-            .sink { success in
-                if success {
-                    print("메시지 \(entities.count)개 Realm에 저장 완료")
-                }
-            }
+            .sink { _ in }
             .store(in: &cancellables)
     }
 

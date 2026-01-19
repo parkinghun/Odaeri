@@ -8,6 +8,7 @@
 import UIKit
 import Combine
 import SnapKit
+import SwiftUI
 
 final class UserProfileViewController: BaseViewController<UserProfileViewModel> {
     private let headerView = UserProfileHeaderView()
@@ -173,10 +174,38 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
     }
 
     private func makeMyMenu() -> UIMenu {
+        var actions: [UIMenuElement] = []
+
+        if #available(iOS 16.2, *) {
+            let liveActivityAction = UIAction(
+                title: "라이브 액티비티 테스트",
+                image: UIImage(systemName: "bell.badge.fill")
+            ) { [weak self] _ in
+                self?.showLiveActivityTest()
+            }
+            actions.append(liveActivityAction)
+        }
+
         let logoutAction = UIAction(title: "로그아웃", attributes: .destructive) { [weak self] _ in
             self?.logoutTappedSubject.send(())
         }
-        return UIMenu(children: [logoutAction])
+        actions.append(logoutAction)
+
+        return UIMenu(children: actions)
+    }
+
+    @available(iOS 16.2, *)
+    private func showLiveActivityTest() {
+        let testView = LiveActivityTestView()
+        let hostingController = UIHostingController(rootView: testView)
+        hostingController.modalPresentationStyle = .pageSheet
+
+        if let sheet = hostingController.sheetPresentationController {
+            sheet.detents = [.large()]
+            sheet.prefersGrabberVisible = true
+        }
+
+        present(hostingController, animated: true)
     }
 
     private func rotatedMenuImage() -> UIImage? {

@@ -12,10 +12,13 @@ import Moya
 final class VideoRepositoryImpl: VideoRepository {
     private let provider = ProviderFactory.makeVideoProvider()
 
-    func fetchVideoList(next: String?, limit: Int?) -> AnyPublisher<[VideoEntity], NetworkError> {
+    func fetchVideoList(next: String?, limit: Int?) -> AnyPublisher<VideoListResult, NetworkError> {
         provider.requestPublisher(.fetchVideoList(next: next, limit: limit))
             .map { (response: VideoListResponse) in
-                response.data.map { VideoEntity(from: $0) }
+                VideoListResult(
+                    videos: response.data.map { VideoEntity(from: $0) },
+                    nextCursor: response.nextCursor
+                )
             }
             .eraseToAnyPublisher()
     }
