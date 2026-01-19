@@ -44,6 +44,29 @@ final class MediaUploadManager {
         progressSubject.eraseToAnyPublisher()
     }
 
+    func uploadFromPaths(
+        _ filePaths: [String],
+        config: UploadConfig,
+        roomId: String? = nil,
+        progress: @escaping (Double) -> Void
+    ) -> AnyPublisher<[String], MediaError> {
+        Future<[UploadItem], MediaError> { promise in
+            do {
+                let uploadItems = try Self.convertToUploadItems(from: filePaths)
+                promise(.success(uploadItems))
+            } catch {
+                promise(.failure((error as? MediaError) ?? .unknown))
+            }
+        }
+        .flatMap { [weak self] items -> AnyPublisher<[String], MediaError> in
+            guard let self = self else {
+                return Fail(error: MediaError.unknown).eraseToAnyPublisher()
+            }
+            return self.uploadMedias(items, config: config, roomId: roomId, progress: progress)
+        }
+        .eraseToAnyPublisher()
+    }
+
     func uploadMedias(
         _ items: [UploadItem],
         config: UploadConfig,
@@ -306,5 +329,44 @@ final class MediaUploadManager {
         default:
             return .unknown
         }
+    }
+
+    private static func convertToUploadItems(from fileStrings: [String]) throws -> [UploadItem] {
+        return try fileStrings.map { fileString in
+            let normalizedFileName = normalizeFileName(fileString)
+
+            guard let url = FilePathManager.getFileURL(from: normalizedFileName) else {
+                print("[MediaUploadManager] 파일을 찾을 수 없음: \(fileString)")
+                throw MediaError.invalidURL
+            }
+
+            let fileExtension = url.pathExtension.lowercased()
+
+            if ["jpg", "jpeg", "png", "heic", "heif"].contains(fileExtension) {
+                guard let image = UIImage(contentsOfFile: url.path) else {
+                    print("[MediaUploadManager] 이미지 로드 실패: \(url.path)")
+                    throw MediaError.invalidURL
+                }
+                return .image(image)
+            } else if ["mov", "mp4", "m4v"].contains(fileExtension) {
+                return .video(url)
+            } else {
+                return .file(url)
+            }
+        }
+    }
+
+    private static func normalizeFileName(_ input: String) -> String {
+        if input.hasPrefix("file://") {
+            if let url = URL(string: input) {
+                return url.lastPathComponent
+            }
+        }
+
+        if input.contains("/") {
+            return input.lastPathComponent
+        }
+
+        return input
     }
 }
