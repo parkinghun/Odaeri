@@ -10,7 +10,7 @@ import Foundation
 enum ChatMessageContent: Hashable {
     case text(String)
     case imageGroup([String])
-    case video(String)
+    case video(thumbnailUrl: String, videoUrl: String)
     case file(FileInfo)
 
     struct FileInfo: Hashable {
@@ -18,6 +18,19 @@ enum ChatMessageContent: Hashable {
         let fileName: String
         let fileSize: String?
         let fileType: ChatInputAttachmentItem.FileType
+    }
+}
+
+extension ChatMessageContent {
+    func toMediaItems() -> [MediaItem] {
+        switch self {
+        case .imageGroup(let urls):
+            return urls.map { MediaItem.image(url: $0) }
+        case .video(let thumbnailUrl, let videoUrl):
+            return [MediaItem.video(url: videoUrl, thumbnailUrl: thumbnailUrl)]
+        default:
+            return []
+        }
     }
 }
 
@@ -32,6 +45,9 @@ extension ChatMessageContent {
         if !content.isEmpty {
             result.append(.text(content))
         }
+
+        let fileContents = parseFiles(files: files)
+        result.append(contentsOf: fileContents)
 
         return result
     }
@@ -49,26 +65,42 @@ extension ChatMessageContent {
             let ext = fileExtension(from: file)
 
             if isImageExtension(ext) {
-                var imageUrls: [String] = []
-                var j = i
+                let nextIndex = i + 1
+                let isFollowedByVideo = nextIndex < files.count && isVideoExtension(fileExtension(from: files[nextIndex]))
 
-                while j < files.count && imageUrls.count < 5 {
-                    let currentFile = files[j]
-                    let currentExt = fileExtension(from: currentFile)
+                if isFollowedByVideo {
+                    let thumbnailUrl = file
+                    let videoUrl = files[nextIndex]
+                    result.append(.video(thumbnailUrl: thumbnailUrl, videoUrl: videoUrl))
+                    i += 2
+                } else {
+                    var imageUrls: [String] = []
+                    var j = i
 
-                    if isImageExtension(currentExt) {
-                        imageUrls.append(currentFile)
-                        j += 1
+                    while j < files.count && imageUrls.count < 5 {
+                        let currentFile = files[j]
+                        let currentExt = fileExtension(from: currentFile)
+                        let nextJ = j + 1
+                        let isCurrentFollowedByVideo = nextJ < files.count && isVideoExtension(fileExtension(from: files[nextJ]))
+
+                        if isImageExtension(currentExt) && !isCurrentFollowedByVideo {
+                            imageUrls.append(currentFile)
+                            j += 1
+                        } else {
+                            break
+                        }
+                    }
+
+                    if !imageUrls.isEmpty {
+                        result.append(.imageGroup(imageUrls))
+                        i = j
                     } else {
-                        break
+                        i += 1
                     }
                 }
 
-                result.append(.imageGroup(imageUrls))
-                i = j
-
             } else if isVideoExtension(ext) {
-                result.append(.video(file))
+                result.append(.video(thumbnailUrl: file, videoUrl: file))
                 i += 1
 
             } else {

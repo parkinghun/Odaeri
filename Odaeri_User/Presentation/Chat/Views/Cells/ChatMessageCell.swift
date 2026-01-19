@@ -102,8 +102,6 @@ final class ChatMessageCell: UITableViewCell {
     }
 
     func configure(with model: ChatDisplayModel) {
-        print("ChatMessageCell.configure - chatId: \(model.id)")
-        print("senderType: \(model.senderType), status: \(model.status), hasFiles: \(model.hasFiles)")
 
         nameLabel.text = model.senderName
         timeLabel.text = model.timeText
@@ -130,12 +128,8 @@ final class ChatMessageCell: UITableViewCell {
             profileImageView.image = AppImage.person
         }
 
-        var displayContents = model.contents
-        let fileContents = ChatMessageContent.parseFiles(files: model.files)
-        displayContents.append(contentsOf: fileContents)
-
         configureContents(
-            displayContents,
+            model.contents,
             senderType: model.senderType,
             status: model.status,
             uploadProgress: model.uploadProgress
@@ -147,8 +141,6 @@ final class ChatMessageCell: UITableViewCell {
 
         bubbleView.layer.cornerRadius = Layout.bubbleCornerRadius
 
-        print("bubbleContentStackView.arrangedSubviews.count: \(bubbleContentStackView.arrangedSubviews.count)")
-        print("bubbleView.isHidden: \(bubbleView.isHidden)")
     }
 
     private func configureContents(
@@ -182,13 +174,18 @@ final class ChatMessageCell: UITableViewCell {
                 mediaContentStackView.addArrangedSubview(imageGridView)
                 hasMedia = true
 
-            case .video(let url):
+            case .video(let thumbnailUrl, let videoUrl):
                 let videoView = ChatVideoView()
-                videoView.configure(with: url, status: status, progress: uploadProgress)
+                videoView.configure(
+                    thumbnailUrl: thumbnailUrl,
+                    videoUrl: videoUrl,
+                    status: status,
+                    progress: uploadProgress
+                )
                 constrainMediaWidth(videoView)
                 videoView.onVideoTapped = { [weak self] in
                     guard let self = self else { return }
-                    self.delegate?.chatMessageCell(self, didTapVideo: url)
+                    self.delegate?.chatMessageCell(self, didTapVideo: videoUrl)
                 }
                 videoView.onRetryTapped = { [weak self] in
                     guard let self = self, let messageId = self.currentMessageId else { return }

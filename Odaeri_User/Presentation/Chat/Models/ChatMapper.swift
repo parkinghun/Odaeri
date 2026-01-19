@@ -41,11 +41,6 @@ struct ChatMapper {
                 files: entity.files
             )
 
-            if index == 0 {
-                print("🔍 ChatMapper - contents: \(contents)")
-                print("🔍 content: '\(entity.content)'")
-                print("🔍 files: \(entity.files)")
-            }
 
             let displayModel = ChatDisplayModel(
                 id: entity.chatId,
@@ -64,13 +59,6 @@ struct ChatMapper {
                 groupPosition: groupPosition
             )
 
-            if index == 0 {
-                print("🔍 ChatDisplayModel:")
-                print("  - showProfile: \(displayModel.showProfile)")
-                print("  - showName: \(displayModel.showName)")
-                print("  - showTime: \(displayModel.showTime)")
-                print("  - contents.count: \(displayModel.contents.count)")
-            }
 
             result.append(.message(displayModel))
 

@@ -43,14 +43,15 @@ final class ChatVideoView: UIView {
     }
 
     func configure(
-        with url: String,
+        thumbnailUrl: String,
+        videoUrl: String,
         duration: String? = nil,
         aspectRatio: CGFloat? = nil,
         status: ChatMessageStatus = .sent,
         progress: Float? = nil
     ) {
-        thumbnailImageView.setVideoThumbnail(
-            url: url,
+        thumbnailImageView.setImage(
+            url: thumbnailUrl,
             placeholder: AppImage.default,
             animated: true
         )

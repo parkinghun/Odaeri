@@ -21,6 +21,7 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
     private var hasAppliedInitialSnapshot = false
     private var isLoadingMore = false
     private var lastContentHeight: CGFloat = 0
+    private var isInitialScrollLocked = true
 
     private enum Section: Hashable {
         case main
@@ -80,7 +81,9 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
         output.chatItems
             .receive(on: DispatchQueue.main)
             .sink { [weak self] items in
-                self?.applySnapshot(with: items, shouldScrollToBottom: true)
+                guard let self = self else { return }
+                let shouldScroll = !self.hasAppliedInitialSnapshot || self.isAtBottom()
+                self.applySnapshot(with: items, shouldScrollToBottom: shouldScroll && !self.isLoadingMore)
             }
             .store(in: &cancellables)
 
@@ -184,8 +187,10 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
         }
 
         let isCountIncreased = items.count > lastItemIds.count
-        let isPagination = isLoadingMore || (isCountIncreased && lastItemIds.count > 0 && hasAppliedInitialSnapshot)
-        let shouldAnimate = animatingDifferences && isCountIncreased && hasAppliedInitialSnapshot && !hasFailedMessage && !isPagination
+        let isPagination = isLoadingMore
+        let isNewMessage = isCountIncreased && !isPagination && hasAppliedInitialSnapshot
+        let isInitialLoad = !hasAppliedInitialSnapshot
+        let shouldAnimate = animatingDifferences && isNewMessage && !hasFailedMessage && !isInitialLoad
 
         let previousContentHeight = tableView.contentSize.height
         let previousOffsetY = tableView.contentOffset.y
@@ -195,19 +200,40 @@ final class ChatViewController: BaseViewController<ChatViewModel> {
         snapshot.appendItems(items)
 
         dataSource.apply(snapshot, animatingDifferences: shouldAnimate) { [weak self] in
-            guard let self = self, isPagination else { return }
+            guard let self = self else { return }
 
-            let newContentHeight = self.tableView.contentSize.height
-            let heightDifference = newContentHeight - previousContentHeight
+            if !self.hasAppliedInitialSnapshot {
+                self.tableView.setContentOffset(.zero, animated: false)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    self.tableView.setContentOffset(.zero, animated: false)
+                    self.isInitialScrollLocked = false
+                }
+            } else if isPagination {
+                let newContentHeight = self.tableView.contentSize.height
+                let heightDifference = newContentHeight - previousContentHeight
 
-            if heightDifference > 0 {
-                let newOffsetY = previousOffsetY + heightDifference
-                self.tableView.contentOffset = CGPoint(x: 0, y: newOffsetY)
+                if heightDifference > 0 {
+                    let newOffsetY = previousOffsetY + heightDifference
+                    self.tableView.contentOffset = CGPoint(x: 0, y: newOffsetY)
+                }
+            } else if isNewMessage && shouldScrollToBottom {
+                self.scrollToBottom(animated: shouldAnimate)
             }
         }
 
         lastItemIds = currentIds
         hasAppliedInitialSnapshot = true
+    }
+
+    private func isAtBottom() -> Bool {
+        return tableView.contentOffset.y <= 100
+    }
+
+    private func scrollToBottom(animated: Bool) {
+        guard tableView.numberOfRows(inSection: 0) > 0 else { return }
+
+        let indexPath = IndexPath(row: 0, section: 0)
+        tableView.scrollToRow(at: indexPath, at: .top, animated: animated)
     }
 }
 
@@ -236,9 +262,17 @@ extension ChatViewController: UITableViewDelegate {
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        let offsetY = scrollView.contentOffset.y
+        if isInitialScrollLocked {
+            scrollView.contentOffset = CGPoint(x: 0, y: 0)
+            return
+        }
 
-        if offsetY < Layout.paginationThreshold {
+        let contentHeight = scrollView.contentSize.height
+        let scrollViewHeight = scrollView.bounds.height
+        let offsetY = scrollView.contentOffset.y
+        let maxOffsetY = max(0, contentHeight - scrollViewHeight)
+
+        if offsetY >= maxOffsetY - Layout.paginationThreshold {
             checkAndLoadMore()
         }
     }

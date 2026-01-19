@@ -191,6 +191,12 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             isFetchingNextPage = true
             isLoadingMoreSubject.send(true)
             currentLimit += pageSize
+
+            let messages = RealmChatRepository.shared.observeMessagesDescending(roomId: roomId)
+            if let results = messages {
+                updateChatItems(from: results)
+            }
+
             isFetchingNextPage = false
             isLoadingMoreSubject.send(false)
         } else if hasMoreRemoteData {
@@ -458,20 +464,10 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     ) {
         print("[ChatViewModel] 2단계 파이프라인 시작")
         sendingStates[tempId] = .uploading
-        let uploadItems: [UploadItem]
-        do {
-            uploadItems = try convertToUploadItems(from: localFiles)
-        } catch {
-            updateMessageStatus(tempId: tempId, status: .failed)
-            cancelTimeout(for: tempId)
-            cleanupSendingState(for: tempId)
-            print("[ChatViewModel] 파일 준비 실패: \(error)")
-            return
-        }
 
-        print("[ChatViewModel] Step 1: 파일 업로드 (\(uploadItems.count)개)")
-        let uploadCancellable = mediaUploadManager.uploadMedias(
-            uploadItems,
+        print("[ChatViewModel] Step 1: 파일 업로드 (\(localFiles.count)개)")
+        let uploadCancellable = mediaUploadManager.uploadFromPaths(
+            localFiles,
             config: .chatDefault,
             roomId: roomId,
             progress: { [weak self] progress in
@@ -581,34 +577,4 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             FilePathManager.removeFile(fileName: fileName)
         }
     }
-
-    private func convertToUploadItems(from fileStrings: [String]) throws -> [UploadItem] {
-        return try fileStrings.map { fileString in
-            let normalizedFileName = normalizeFileName(fileString)
-
-            guard let url = FilePathManager.getFileURL(from: normalizedFileName) else {
-                print("[ChatViewModel] 파일을 찾을 수 없음")
-                print("  - 입력: \(fileString)")
-                print("  - 정규화: \(normalizedFileName)")
-                throw MediaError.invalidURL
-            }
-
-            return .file(url)
-        }
-    }
-
-    private func normalizeFileName(_ input: String) -> String {
-        if input.hasPrefix("file://") {
-            if let url = URL(string: input) {
-                return url.lastPathComponent
-            }
-        }
-
-        if input.contains("/") {
-            return input.lastPathComponent
-        }
-
-        return input
-    }
-
 }
