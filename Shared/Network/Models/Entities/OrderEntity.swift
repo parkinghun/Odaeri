@@ -7,21 +7,40 @@
 
 import Foundation
 
-enum OrderStatusEntity: String, Codable, CaseIterable {
+enum OrderStatusEntity: String, Codable, CaseIterable, Hashable {
     case pendingApproval = "PENDING_APPROVAL"
     case approved = "APPROVED"
     case inProgress = "IN_PROGRESS"
     case readyForPickup = "READY_FOR_PICKUP"
     case pickedUp = "PICKED_UP"
-    
-    // UI 표시용 텍스트 (필요 시)
+
     var description: String {
         switch self {
-        case .pendingApproval: return "승인 대기"
+        case .pendingApproval: return "접수 중"
         case .approved: return "주문 승인"
         case .inProgress: return "조리 중"
         case .readyForPickup: return "픽업 대기"
         case .pickedUp: return "픽업 완료"
+        }
+    }
+
+    var stepNumber: Int {
+        switch self {
+        case .pendingApproval: return 1
+        case .approved: return 2
+        case .inProgress: return 3
+        case .readyForPickup: return 4
+        case .pickedUp: return 5
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .pendingApproval: return "clock.fill"
+        case .approved: return "checkmark.circle.fill"
+        case .inProgress: return "flame.fill"
+        case .readyForPickup: return "bell.fill"
+        case .pickedUp: return "checkmark.seal.fill"
         }
     }
 }
