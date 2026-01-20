@@ -25,6 +25,8 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
         let emailText: AnyPublisher<String, Never>
         let passwordText: AnyPublisher<String, Never>
         let loginButtonTapped: AnyPublisher<Void, Never>
+        let kakaoLoginTapped: AnyPublisher<Void, Never>
+        let appleLoginTapped: AnyPublisher<Void, Never>
     }
 
     struct Output {
@@ -96,6 +98,22 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
             }
             .store(in: &cancellables)
 
+        input.kakaoLoginTapped
+            .sink { [weak self] _ in
+                self?.performKakaoLogin(completion: {
+                    self?.coordinator?.didFinishLogin()
+                })
+            }
+            .store(in: &cancellables)
+
+        input.appleLoginTapped
+            .sink { [weak self] _ in
+                self?.performAppleLogin(completion: {
+                    self?.coordinator?.didFinishLogin()
+                })
+            }
+            .store(in: &cancellables)
+
         return Output(
             isEmailValid: isEmailValid,
             isPasswordValid: isPasswordValid,
@@ -139,6 +157,75 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
                     let user = UserEntity(from: userResult)
                     UserManager.shared.saveUser(user)
 
+                    completion()
+                }
+            )
+            .store(in: &cancellables)
+    }
+
+    private func performKakaoLogin(completion: @escaping () -> Void) {
+        guard let deviceToken = TokenManager.shared.deviceToken else {
+            loginErrorSubject.send("디바이스 토큰이 없습니다. 앱을 재시작해주세요.")
+            return
+        }
+
+        isLoadingSubject.send(true)
+
+        repository.kakaoLogin(deviceToken: deviceToken)
+            .sink(
+                receiveCompletion: { [weak self] result in
+                    self?.isLoadingSubject.send(false)
+
+                    switch result {
+                    case .finished:
+                        break
+                    case .failure(let error):
+                        if case .userCancelled = error {
+                            break
+                        }
+                        self?.loginErrorSubject.send(error.errorDescription)
+                    }
+                },
+                receiveValue: { _ in
+                    completion()
+                }
+            )
+            .store(in: &cancellables)
+    }
+
+    private func performAppleLogin(completion: @escaping () -> Void) {
+        print("[LoginViewModel] performAppleLogin called")
+
+        guard let deviceToken = TokenManager.shared.deviceToken else {
+            print("[LoginViewModel] ERROR: deviceToken is nil")
+            loginErrorSubject.send("디바이스 토큰이 없습니다. 앱을 재시작해주세요.")
+            return
+        }
+
+        print("[LoginViewModel] deviceToken exists, length: \(deviceToken.count)")
+        isLoadingSubject.send(true)
+
+        repository.appleLogin(deviceToken: deviceToken)
+            .sink(
+                receiveCompletion: { [weak self] result in
+                    self?.isLoadingSubject.send(false)
+
+                    switch result {
+                    case .finished:
+                        print("[LoginViewModel] Apple login completed successfully")
+                    case .failure(let error):
+                        print("[LoginViewModel] Apple login failed with error: \(error)")
+                        print("[LoginViewModel] Error description: \(error.errorDescription)")
+
+                        if case .userCancelled = error {
+                            print("[LoginViewModel] User cancelled login")
+                            break
+                        }
+                        self?.loginErrorSubject.send(error.errorDescription)
+                    }
+                },
+                receiveValue: { userResult in
+                    print("[LoginViewModel] Received userResult: \(userResult.email)")
                     completion()
                 }
             )

@@ -10,8 +10,8 @@ import Combine
 
 protocol UserRepository {
     func emailLogin(email: String, password: String, deviceToken: String) -> AnyPublisher<UserResult, NetworkError>
-    func kakaoLogin(oauthToken: String, deviceToken: String) -> AnyPublisher<UserResult, NetworkError>
-    func appleLogin(idToken: String, deviceToken: String) -> AnyPublisher<UserResult, NetworkError>
+    func kakaoLogin(deviceToken: String) -> AnyPublisher<UserResult, NetworkError>
+    func appleLogin(deviceToken: String) -> AnyPublisher<UserResult, NetworkError>
     func getMyProfile() -> AnyPublisher<UserEntity, NetworkError>
     func logout() -> AnyPublisher<Void, NetworkError>
     func validateEmail(email: String) -> AnyPublisher<Void, NetworkError>

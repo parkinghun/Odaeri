@@ -8,6 +8,7 @@
 import UIKit
 import Combine
 import SnapKit
+import AuthenticationServices
 
 final class LoginViewController: BaseViewController<LoginViewModel> {
     private let titleLabel: UILabel = {
@@ -64,6 +65,36 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
         return button
     }()
 
+    private let socialDividerLeft: UIView = {
+        let view = UIView()
+        view.backgroundColor = AppColor.blackSprout
+        return view
+    }()
+
+    private let socialDividerRight: UIView = {
+        let view = UIView()
+        view.backgroundColor = AppColor.blackSprout
+        return view
+    }()
+
+    private let socialDividerLabel: UILabel = {
+        let label = UILabel()
+        label.text = "소셜 로그인"
+        label.font = AppFont.caption1
+        label.textColor = AppColor.blackSprout
+        return label
+    }()
+
+    private let kakaoLoginButton: UIButton = {
+        let button = UIButton()
+        button.setBackgroundImage(AppImage.kakaoLogin, for: .normal)
+        button.imageView?.contentMode = .scaleAspectFill
+        button.clipsToBounds = true
+        return button
+    }()
+
+    private let appleLoginButton = ASAuthorizationAppleIDButton(type: .signIn, style: .black)
+
     override func setupUI() {
         super.setupUI()
 
@@ -73,6 +104,11 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
         view.addSubview(passwordTextField)
         view.addSubview(passwordValidationLabel)
         view.addSubview(loginButton)
+        view.addSubview(socialDividerLeft)
+        view.addSubview(socialDividerLabel)
+        view.addSubview(socialDividerRight)
+        view.addSubview(kakaoLoginButton)
+        view.addSubview(appleLoginButton)
 
         titleLabel.snp.makeConstraints {
             $0.centerX.equalToSuperview()
@@ -108,6 +144,37 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
             $0.leading.trailing.equalTo(emailTextField)
             $0.height.equalTo(50)
         }
+
+        socialDividerLabel.snp.makeConstraints {
+            $0.top.equalTo(loginButton.snp.bottom).offset(40)
+            $0.centerX.equalToSuperview()
+        }
+
+        socialDividerLeft.snp.makeConstraints {
+            $0.centerY.equalTo(socialDividerLabel)
+            $0.leading.equalTo(emailTextField)
+            $0.trailing.equalTo(socialDividerLabel.snp.leading).offset(-12)
+            $0.height.equalTo(1)
+        }
+
+        socialDividerRight.snp.makeConstraints {
+            $0.centerY.equalTo(socialDividerLabel)
+            $0.leading.equalTo(socialDividerLabel.snp.trailing).offset(12)
+            $0.trailing.equalTo(emailTextField)
+            $0.height.equalTo(1)
+        }
+
+        kakaoLoginButton.snp.makeConstraints {
+            $0.top.equalTo(socialDividerLabel.snp.bottom).offset(16)
+            $0.leading.trailing.equalTo(emailTextField)
+            $0.height.equalTo(48)
+        }
+
+        appleLoginButton.snp.makeConstraints {
+            $0.top.equalTo(kakaoLoginButton.snp.bottom).offset(12)
+            $0.leading.trailing.equalTo(emailTextField)
+            $0.height.equalTo(48)
+        }
     }
 
     override func bind() {
@@ -116,7 +183,9 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
         let input = LoginViewModel.Input(
             emailText: emailTextField.textPublisher.compactMap { $0 }.eraseToAnyPublisher(),
             passwordText: passwordTextField.textPublisher.compactMap { $0 }.eraseToAnyPublisher(),
-            loginButtonTapped: loginButton.tapPublisher()
+            loginButtonTapped: loginButton.tapPublisher(),
+            kakaoLoginTapped: kakaoLoginButton.tapPublisher(),
+            appleLoginTapped: appleLoginButton.tapPublisher()
         )
 
         let output = viewModel.transform(input: input)
