@@ -2,10 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
 	<key>APIKey</key>
 	<string>$(apiKey)</string>
+	<key>KAKAO_NATIVE_APP_KEY</key>
+	<string>$(KAKAO_NATIVE_APP_KEY)</string>
 	<key>BaseURL</key>
 	<string>$(baseURL)</string>
 	<key>CFBundleURLTypes</key>
@@ -23,7 +23,7 @@
 			<string>None</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>Kakao</string>
+				<string>Kakao${KAKAO_NATIVE_APP_KEY}</string>
 			</array>
 		</dict>
 	</array>

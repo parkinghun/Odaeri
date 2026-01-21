@@ -7,6 +7,11 @@
 
 import Foundation
 
+struct VideoListResult {
+    let videos: [VideoEntity]
+    let nextCursor: String?
+}
+
 enum VideoType {
     case hls
     case file
@@ -29,6 +34,13 @@ struct VideoEntity: Hashable, Equatable {
             return .hls
         }
         return .file
+    }
+
+    var durationText: String {
+        let totalSeconds = Int(duration)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%d:%02d", minutes, seconds)
     }
 
     init(

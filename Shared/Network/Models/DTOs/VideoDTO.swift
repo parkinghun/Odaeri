@@ -9,9 +9,11 @@ import Foundation
 
 struct VideoListResponse: Decodable {
     let data: [VideoResponse]
+    let nextCursor: String?
 
     enum CodingKeys: String, CodingKey {
         case data
+        case nextCursor = "next_cursor"
     }
 }
 

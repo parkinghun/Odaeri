@@ -93,7 +93,15 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
         return button
     }()
 
-    private let appleLoginButton = ASAuthorizationAppleIDButton(type: .signIn, style: .black)
+    private let appleLoginButton: UIButton = {
+        let button = UIButton()
+        button.setBackgroundImage(AppImage.appleLogin, for: .normal)
+        button.imageView?.contentMode = .scaleAspectFill
+        button.clipsToBounds = true
+        return button
+    }()
+    
+//    private let appleLoginButton = ASAuthorizationAppleIDButton(type: .signIn, style: .black)
 
     override func setupUI() {
         super.setupUI()

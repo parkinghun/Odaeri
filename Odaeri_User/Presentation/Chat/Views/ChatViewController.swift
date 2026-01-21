@@ -9,7 +9,7 @@ import UIKit
 import Combine
 import SnapKit
 
-final class ChatViewController: BaseViewController<ChatViewModel> {
+final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPresentable {
     override var navigationBarHidden: Bool { false }
     
     private let tableView = UITableView()
@@ -276,7 +276,11 @@ extension ChatViewController: UITableViewDelegate {
 
 extension ChatViewController: ChatMessageCellDelegate {
     func chatMessageCell(_ cell: ChatMessageCell, didTapImageAt index: Int, in urls: [String]) {
-        print("Image tapped at index: \(index), urls: \(urls)")
+        presentImageViewer(
+            imageUrls: urls,
+            initialIndex: index,
+            transitionSource: nil
+        )
     }
     
     func chatMessageCell(_ cell: ChatMessageCell, didTapVideo url: String) {
@@ -299,3 +303,4 @@ extension ChatViewController: ChatMessageCellDelegate {
         viewModel.deleteMessage(messageId: messageId)
     }
 }
+

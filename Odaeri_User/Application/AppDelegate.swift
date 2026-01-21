@@ -11,6 +11,8 @@ import FirebaseCore
 import FirebaseMessaging
 import iamport_ios
 import RealmSwift
+import KakaoSDKCommon
+
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
@@ -20,7 +22,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        configureRealm()
+        configureRealmIfNeeded()
 
         FirebaseApp.configure()
 
@@ -35,29 +37,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         application.registerForRemoteNotifications()
 
         Messaging.messaging().delegate = self
+        
+        let kakaoKey = Bundle.main.value(for: .kakaoNativeAppKey)
+        KakaoSDK.initSDK(appKey: kakaoKey)
 
         return true
     }
 
-    private func configureRealm() {
-        let config = Realm.Configuration(
-            schemaVersion: 1,
-            migrationBlock: { migration, oldSchemaVersion in
-                if oldSchemaVersion < 1 {
-                    migration.enumerateObjects(ofType: ChatRoomObject.className()) { oldObject, newObject in
-                        newObject?["hasUnread"] = false
-                    }
-                }
-            }
-        )
+    private func configureRealmIfNeeded() {
+        guard let userId = UserManager.shared.currentUser?.userId else { return }
 
-        Realm.Configuration.defaultConfiguration = config
+        let provider = RealmConfigurationProvider()
 
         do {
-            _ = try Realm()
-            print("Realm 초기화 성공 (버전: \(config.schemaVersion))")
+            let config = try provider.configuration(for: userId)
+            Realm.Configuration.defaultConfiguration = config
         } catch {
-            print("Realm 초기화 실패: \(error)")
+            print("Realm 설정 실패: \(error)")
         }
     }
     

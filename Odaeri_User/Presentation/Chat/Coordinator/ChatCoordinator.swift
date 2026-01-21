@@ -50,6 +50,19 @@ final class ChatCoordinator: Coordinator {
         navigationController.pushViewController(viewController, animated: true)
     }
 
+    func showImageViewer(
+        from viewController: (UIViewController & ImageViewerPresentable),
+        imageUrls: [String],
+        initialIndex: Int,
+        transitionSource: ImageViewerTransitionSource?
+    ) {
+        viewController.presentImageViewer(
+            imageUrls: imageUrls,
+            initialIndex: initialIndex,
+            transitionSource: transitionSource
+        )
+    }
+
     func finish() {
         childCoordinators.removeAll()
         delegate?.chatCoordinatorDidFinish(self)

@@ -9,20 +9,33 @@ import Foundation
 import RealmSwift
 import Combine
 
+enum RealmError: Error {
+    case missingUserSession
+}
+
 final class RealmChatRepository {
-    static let shared = RealmChatRepository()
+    static let shared = RealmChatRepository(
+        provider: RealmConfigurationProvider(),
+        session: UserManager.shared
+    )
 
     private let realmQueue = DispatchQueue(label: "com.odaeri.realm", qos: .userInitiated)
     private var processingMessageIds: Set<String> = []
+    private let provider: RealmConfigurationProviding
+    private let session: SessionProviding
 
-    private init() {}
+    init(provider: RealmConfigurationProviding, session: SessionProviding) {
+        self.provider = provider
+        self.session = session
+    }
 
     private func getRealm() throws -> Realm {
-        // Realm 파일의 물리적 위치 출력
-        if let url = Realm.Configuration.defaultConfiguration.fileURL {
-            print("✅ Realm Path: \(url.path)")
+        guard let userId = session.currentUserId else {
+            throw RealmError.missingUserSession
         }
-        return try Realm()
+
+        let config = try provider.configuration(for: userId)
+        return try Realm(configuration: config)
     }
 
     @discardableResult

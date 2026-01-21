@@ -209,6 +209,11 @@ final class ImageCacheManager {
         }
     }
 
+    func removeImageFromMemory(for url: String) {
+        let cacheKey = NSString(string: url)
+        memoryCache.removeObject(forKey: cacheKey)
+    }
+
     func cacheImage(_ image: UIImage, forKey key: String) {
         let cacheKey = NSString(string: key)
         let cost = Int(image.jpegData(compressionQuality: 1.0)?.count ?? 0)

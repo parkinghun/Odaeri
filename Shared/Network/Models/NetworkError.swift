@@ -12,6 +12,7 @@ enum NetworkError: Error {
     case noInternetConnection
     case timeout
     case decodingFailed(Error)
+    case userCancelled
 
     case serverError(statusCode: Int, message: String)
 
@@ -31,6 +32,8 @@ enum NetworkError: Error {
             return "요청 시간이 초과되었습니다. 다시 시도해주세요."
         case .decodingFailed(let error):
             return "데이터 처리 중 오류가 발생했습니다: \(error.localizedDescription)"
+        case .userCancelled:
+            return "사용자가 로그인을 취소했습니다."
         case .serverError(let statusCode, let message):
             return "[\(statusCode)] \(message)"
         case .unauthorized:
@@ -85,7 +88,7 @@ enum NetworkError: Error {
             return true
         case .serverError(let statusCode, _):
             return statusCode == 503 || statusCode >= 500
-        case .accessTokenExpired, .invalidRefreshToken, .refreshTokenExpired, .unauthorized:
+        case .accessTokenExpired, .invalidRefreshToken, .refreshTokenExpired, .unauthorized, .userCancelled:
             return false
         case .decodingFailed, .unknown, .invalidRequest:
             return false

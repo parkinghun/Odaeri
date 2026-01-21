@@ -12,6 +12,7 @@ extension Bundle {
         case baseURL = "BaseURL"
         case apiKey = "APIKey"
         case iamportUserCode = "IamPortUserCode"
+        case kakaoNativeAppKey = "KAKAO_NATIVE_APP_KEY"
     }
 
     func value(for key: InfoPlistKey) -> String {

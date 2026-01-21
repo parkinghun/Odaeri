@@ -34,6 +34,7 @@ final class UserManager {
         UserDefaults.standard.set(user.email, forKey: UserDefaultsKey.email)
         UserDefaults.standard.set(user.nick, forKey: UserDefaultsKey.nick)
         UserDefaults.standard.set(user.profileImage, forKey: UserDefaultsKey.profileImage)
+        RealmDefaultConfigurationManager.shared.applyDefaultConfiguration(for: user.userId)
     }
 
     func loadUser() {
@@ -64,5 +65,11 @@ final class UserManager {
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.email)
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.nick)
         UserDefaults.standard.removeObject(forKey: UserDefaultsKey.profileImage)
+    }
+}
+
+extension UserManager: SessionProviding {
+    var currentUserId: String? {
+        currentUser?.userId
     }
 }
