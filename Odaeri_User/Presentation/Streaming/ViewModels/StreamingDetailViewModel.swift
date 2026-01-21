@@ -30,12 +30,14 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
         let progress: AnyPublisher<Float, Never>
         let isPlayingState: AnyPublisher<Bool, Never>
         let showSpeedSettings: AnyPublisher<[Float], Never>
+        let title: AnyPublisher<String, Never>
+        let description: AnyPublisher<String, Never>
     }
 
     var onPlayPauseTriggered: (() -> Void)?
     var onSeekRequested: ((CMTime) -> Void)?
 
-    private let videoId: String
+    private let video: VideoEntity
     private let getStreamURLUseCase: GetVideoStreamURLUseCase
 
     private let streamURLSubject = PassthroughSubject<URL?, Never>()
@@ -46,13 +48,18 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
     private let durationTextSubject = PassthroughSubject<String, Never>()
     private let progressSubject = PassthroughSubject<Float, Never>()
     private let showSpeedSettingsSubject = PassthroughSubject<[Float], Never>()
+    private let titleSubject = CurrentValueSubject<String, Never>("")
+    private let descriptionSubject = CurrentValueSubject<String, Never>("")
 
     private var storedDuration: CMTime = .zero
 
-    init(videoId: String, getStreamURLUseCase: GetVideoStreamURLUseCase) {
-        self.videoId = videoId
+    init(video: VideoEntity, getStreamURLUseCase: GetVideoStreamURLUseCase) {
+        self.video = video
         self.getStreamURLUseCase = getStreamURLUseCase
         super.init()
+
+        titleSubject.send(video.title)
+        descriptionSubject.send(video.description)
     }
 
     func transform(input: Input) -> Output {
@@ -101,7 +108,9 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
             durationText: durationTextSubject.eraseToAnyPublisher(),
             progress: progressSubject.eraseToAnyPublisher(),
             isPlayingState: input.isPlaying,
-            showSpeedSettings: showSpeedSettingsSubject.eraseToAnyPublisher()
+            showSpeedSettings: showSpeedSettingsSubject.eraseToAnyPublisher(),
+            title: titleSubject.eraseToAnyPublisher(),
+            description: descriptionSubject.eraseToAnyPublisher()
         )
     }
 
@@ -110,7 +119,7 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
 
         loadingSubject.send(true)
 
-        getStreamURLUseCase.execute(videoId: videoId)
+        getStreamURLUseCase.execute(videoId: video.videoId)
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { [weak self] completion in

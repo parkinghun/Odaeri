@@ -13,8 +13,37 @@ import SnapKit
 final class StreamingDetailViewController: BaseViewController<StreamingDetailViewModel> {
     private let playerManager: StreamingPlayerManager
 
-    private var playerLayer: AVPlayerLayer?
+    private let videoContainerView = VideoContainerView()
     private let controlView = PlayerControlView()
+
+    private let scrollView: UIScrollView = {
+        let scrollView = UIScrollView()
+        scrollView.backgroundColor = AppColor.gray0
+        return scrollView
+    }()
+
+    private let contentStackView: UIStackView = {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 16
+        return stack
+    }()
+
+    private let titleLabel: UILabel = {
+        let label = UILabel()
+        label.font = AppFont.title1
+        label.textColor = AppColor.gray100
+        label.numberOfLines = 0
+        return label
+    }()
+
+    private let descriptionLabel: UILabel = {
+        let label = UILabel()
+        label.font = AppFont.body2
+        label.textColor = AppColor.gray75
+        label.numberOfLines = 0
+        return label
+    }()
 
     private let fastForwardIndicatorLabel: UILabel = {
         let label = UILabel()
@@ -47,31 +76,50 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        playerLayer?.frame = view.bounds
+        videoContainerView.playerLayer?.frame = videoContainerView.bounds
     }
 
     override func setupUI() {
         super.setupUI()
 
-        view.backgroundColor = AppColor.gray100
+        view.backgroundColor = AppColor.gray0
+
+        view.addSubview(videoContainerView)
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentStackView)
+
+        contentStackView.addArrangedSubview(titleLabel)
+        contentStackView.addArrangedSubview(descriptionLabel)
 
         let player = playerManager.getPlayer()
         let layer = AVPlayerLayer(player: player)
-        layer.videoGravity = .resizeAspect
-        view.layer.addSublayer(layer)
-        playerLayer = layer
+        videoContainerView.attachPlayerLayer(layer)
 
-        view.addSubview(controlView)
-        view.addSubview(fastForwardIndicatorLabel)
+        videoContainerView.addSubview(controlView)
+        videoContainerView.addSubview(fastForwardIndicatorLabel)
+
+        videoContainerView.snp.makeConstraints { make in
+            make.top.leading.trailing.equalTo(view.safeAreaLayoutGuide)
+            make.height.equalTo(videoContainerView.snp.width).multipliedBy(9.0 / 16.0)
+        }
+
+        scrollView.snp.makeConstraints { make in
+            make.top.equalTo(videoContainerView.snp.bottom)
+            make.leading.trailing.bottom.equalTo(view.safeAreaLayoutGuide)
+        }
+
+        contentStackView.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(16)
+            make.width.equalTo(scrollView.snp.width).offset(-32)
+        }
 
         controlView.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+            make.leading.trailing.bottom.equalToSuperview()
             make.height.equalTo(60)
         }
 
         fastForwardIndicatorLabel.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(20)
+            make.top.equalToSuperview().offset(20)
             make.centerX.equalToSuperview()
             make.height.equalTo(40)
             make.width.greaterThanOrEqualTo(150)
@@ -181,6 +229,20 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             .receive(on: DispatchQueue.main)
             .sink { [weak self] errorMessage in
                 self?.showAlert(title: "오류", message: errorMessage)
+            }
+            .store(in: &cancellables)
+
+        output.title
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] title in
+                self?.titleLabel.text = title
+            }
+            .store(in: &cancellables)
+
+        output.description
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] description in
+                self?.descriptionLabel.text = description
             }
             .store(in: &cancellables)
     }
