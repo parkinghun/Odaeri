@@ -11,9 +11,7 @@ class ViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view.
+        title = "관리자 홈"
+        view.backgroundColor = AppColor.gray0
     }
-
-
 }
-
