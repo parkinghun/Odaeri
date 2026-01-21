@@ -14,7 +14,7 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
     private let playerManager: StreamingPlayerManager
 
     private let videoContainerView = VideoContainerView()
-    private let controlView = PlayerControlView()
+    private let controlOverlayView = VideoControlOverlayView()
 
     private let scrollView: UIScrollView = {
         let scrollView = UIScrollView()
@@ -95,7 +95,7 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         let layer = AVPlayerLayer(player: player)
         videoContainerView.attachPlayerLayer(layer)
 
-        videoContainerView.addSubview(controlView)
+        videoContainerView.addSubview(controlOverlayView)
         videoContainerView.addSubview(fastForwardIndicatorLabel)
 
         videoContainerView.snp.makeConstraints { make in
@@ -113,9 +113,8 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             make.width.equalTo(scrollView.snp.width).offset(-32)
         }
 
-        controlView.snp.makeConstraints { make in
-            make.leading.trailing.bottom.equalToSuperview()
-            make.height.equalTo(60)
+        controlOverlayView.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
         }
 
         fastForwardIndicatorLabel.snp.makeConstraints { make in
@@ -169,6 +168,8 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
     override func bind() {
         super.bind()
 
+        let controlView = controlOverlayView.getControlView()
+
         let input = StreamingDetailViewModel.Input(
             viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
             playPauseTapped: controlView.playPauseTappedPublisher,
@@ -193,28 +194,28 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         output.currentTimeText
             .receive(on: DispatchQueue.main)
             .sink { [weak self] text in
-                self?.controlView.updateCurrentTimeText(text)
+                self?.controlOverlayView.getControlView().updateCurrentTimeText(text)
             }
             .store(in: &cancellables)
 
         output.durationText
             .receive(on: DispatchQueue.main)
             .sink { [weak self] text in
-                self?.controlView.updateDurationText(text)
+                self?.controlOverlayView.getControlView().updateDurationText(text)
             }
             .store(in: &cancellables)
 
         output.progress
             .receive(on: DispatchQueue.main)
             .sink { [weak self] progress in
-                self?.controlView.updateProgress(progress)
+                self?.controlOverlayView.getControlView().updateProgress(progress)
             }
             .store(in: &cancellables)
 
         output.isPlayingState
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isPlaying in
-                self?.controlView.updatePlayPauseButton(isPlaying: isPlaying)
+                self?.controlOverlayView.getControlView().updatePlayPauseButton(isPlaying: isPlaying)
             }
             .store(in: &cancellables)
 
@@ -222,6 +223,24 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             .receive(on: DispatchQueue.main)
             .sink { [weak self] speeds in
                 self?.showSpeedSettingsAlert(speeds: speeds)
+            }
+            .store(in: &cancellables)
+
+        controlView.playPauseTappedPublisher
+            .sink { [weak self] in
+                self?.controlOverlayView.resetAutoHideTimer()
+            }
+            .store(in: &cancellables)
+
+        controlView.seekToProgressPublisher
+            .sink { [weak self] _ in
+                self?.controlOverlayView.resetAutoHideTimer()
+            }
+            .store(in: &cancellables)
+
+        controlView.settingsTappedPublisher
+            .sink { [weak self] in
+                self?.controlOverlayView.resetAutoHideTimer()
             }
             .store(in: &cancellables)
 
