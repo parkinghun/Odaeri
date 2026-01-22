@@ -129,6 +129,10 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
         longPress.minimumPressDuration = 0.5
         view.addGestureRecognizer(longPress)
+
+        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        panGesture.delegate = self
+        videoContainerView.addGestureRecognizer(panGesture)
     }
 
     @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
@@ -145,6 +149,27 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         case .ended, .cancelled:
             playerManager.stopFastForward()
             fastForwardIndicatorLabel.isHidden = true
+        default:
+            break
+        }
+    }
+
+    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+        let translation = gesture.translation(in: videoContainerView)
+        let velocity = gesture.velocity(in: videoContainerView)
+
+        switch gesture.state {
+        case .changed:
+            if translation.y < 0 {
+                return
+            }
+        case .ended:
+            let threshold: CGFloat = 100
+            let shouldEnterFullscreen = translation.y < -threshold || velocity.y < -1000
+
+            if shouldEnterFullscreen {
+                enterFullscreen()
+            }
         default:
             break
         }
@@ -244,6 +269,12 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             }
             .store(in: &cancellables)
 
+        controlView.fullscreenTappedPublisher
+            .sink { [weak self] in
+                self?.enterFullscreen()
+            }
+            .store(in: &cancellables)
+
         output.error
             .receive(on: DispatchQueue.main)
             .sink { [weak self] errorMessage in
@@ -281,5 +312,120 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         alert.addAction(cancel)
 
         present(alert, animated: true)
+    }
+
+    private func enterFullscreen() {
+        guard let playerLayer = videoContainerView.detachPlayerLayer() else { return }
+
+        let landscapeVC = LandscapeVideoViewController(viewModel: viewModel)
+        landscapeVC.delegate = self
+        landscapeVC.modalPresentationStyle = .custom
+        landscapeVC.transitioningDelegate = self
+
+        landscapeVC.loadViewIfNeeded()
+        landscapeVC.attachPlayerLayer(playerLayer)
+
+        let landscapeControlView = landscapeVC.getControlOverlayView().getControlView()
+        bindControlViewToViewModel(landscapeControlView)
+        bindViewModelOutputToControlView(landscapeControlView)
+
+        present(landscapeVC, animated: true)
+    }
+
+    private func exitFullscreen(playerLayer: AVPlayerLayer) {
+        videoContainerView.attachPlayerLayer(playerLayer)
+
+        let controlView = controlOverlayView.getControlView()
+        bindControlViewToViewModel(controlView)
+    }
+
+    private func bindControlViewToViewModel(_ controlView: PlayerControlView) {
+        controlView.playPauseTappedPublisher
+            .sink { [weak self] in
+                self?.viewModel.onPlayPauseTriggered?()
+            }
+            .store(in: &cancellables)
+
+        controlView.settingsTappedPublisher
+            .sink { [weak self] in
+                guard let self = self else { return }
+                let speeds: [Float] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
+                self.showSpeedSettingsAlert(speeds: speeds)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func bindViewModelOutputToControlView(_ controlView: PlayerControlView) {
+        let input = StreamingDetailViewModel.Input(
+            viewDidLoad: Empty().eraseToAnyPublisher(),
+            playPauseTapped: Empty().eraseToAnyPublisher(),
+            seekToProgress: Empty().eraseToAnyPublisher(),
+            settingsTapped: Empty().eraseToAnyPublisher(),
+            currentTime: playerManager.currentTimePublisher,
+            duration: playerManager.durationPublisher,
+            isPlaying: playerManager.isPlayingPublisher
+        )
+
+        let output = viewModel.transform(input: input)
+
+        output.currentTimeText
+            .receive(on: DispatchQueue.main)
+            .sink { text in
+                controlView.updateCurrentTimeText(text)
+            }
+            .store(in: &cancellables)
+
+        output.durationText
+            .receive(on: DispatchQueue.main)
+            .sink { text in
+                controlView.updateDurationText(text)
+            }
+            .store(in: &cancellables)
+
+        output.progress
+            .receive(on: DispatchQueue.main)
+            .sink { progress in
+                controlView.updateProgress(progress)
+            }
+            .store(in: &cancellables)
+
+        output.isPlayingState
+            .receive(on: DispatchQueue.main)
+            .sink { isPlaying in
+                controlView.updatePlayPauseButton(isPlaying: isPlaying)
+            }
+            .store(in: &cancellables)
+    }
+}
+
+extension StreamingDetailViewController: LandscapeVideoViewControllerDelegate {
+    func landscapeVideoViewControllerDidFinish(_ viewController: LandscapeVideoViewController, playerLayer: AVPlayerLayer) {
+        exitFullscreen(playerLayer: playerLayer)
+    }
+
+    func getSourceVideoFrame() -> CGRect {
+        return videoContainerView.convert(videoContainerView.bounds, to: nil)
+    }
+}
+
+extension StreamingDetailViewController: UIViewControllerTransitioningDelegate {
+    func animationController(
+        forPresented presented: UIViewController,
+        presenting: UIViewController,
+        source: UIViewController
+    ) -> UIViewControllerAnimatedTransitioning? {
+        guard let landscapeVC = presented as? LandscapeVideoViewController else { return nil }
+        return FullscreenTransitionAnimator(
+            isPresenting: true,
+            sourceViewController: self,
+            destinationViewController: landscapeVC
+        )
+    }
+
+    func animationController(forDismissed dismissed: UIViewController) -> UIViewControllerAnimatedTransitioning? {
+        return FullscreenTransitionAnimator(
+            isPresenting: false,
+            sourceViewController: self
+        )
     }
 }

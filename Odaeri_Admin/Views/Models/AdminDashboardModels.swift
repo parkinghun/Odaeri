@@ -10,7 +10,9 @@ import Foundation
 enum AdminDashboardTab: Int, CaseIterable {
     case inProgress
     case completed
+    case orderLookup
     case sales
+    case storeManagement
 }
 
 enum AdminSortOrder: Int, CaseIterable {

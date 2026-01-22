@@ -11,6 +11,7 @@ import SnapKit
 
 final class AdminDashboardDetailContainerViewController: UIViewController {
     private let orderDetailViewController = AdminOrderDetailViewController()
+    private let storeManagementViewController: AdminStoreManagementDetailViewController
     private let salesViewController = AdminSalesViewController()
     private let statusUpdateSubject = PassthroughSubject<AdminOrderStatusUpdate, Never>()
     private var currentOrder: OrderListItemEntity?
@@ -18,6 +19,23 @@ final class AdminDashboardDetailContainerViewController: UIViewController {
 
     var statusUpdatePublisher: AnyPublisher<AdminOrderStatusUpdate, Never> {
         statusUpdateSubject.eraseToAnyPublisher()
+    }
+
+    var storeManagementSaveStorePublisher: AnyPublisher<AdminStoreFormData, Never> {
+        storeManagementViewController.saveStorePublisher
+    }
+
+    var storeManagementSaveMenuPublisher: AnyPublisher<AdminMenuFormData, Never> {
+        storeManagementViewController.saveMenuPublisher
+    }
+
+    init(storeManagementViewController: AdminStoreManagementDetailViewController = AdminStoreManagementDetailViewController()) {
+        self.storeManagementViewController = storeManagementViewController
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 
     override func viewDidLoad() {
@@ -31,12 +49,17 @@ final class AdminDashboardDetailContainerViewController: UIViewController {
         view.backgroundColor = AppColor.gray0
 
         addChild(orderDetailViewController)
+        addChild(storeManagementViewController)
         addChild(salesViewController)
 
         view.addSubview(orderDetailViewController.view)
+        view.addSubview(storeManagementViewController.view)
         view.addSubview(salesViewController.view)
 
         orderDetailViewController.view.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+        }
+        storeManagementViewController.view.snp.makeConstraints {
             $0.edges.equalToSuperview()
         }
         salesViewController.view.snp.makeConstraints {
@@ -44,10 +67,8 @@ final class AdminDashboardDetailContainerViewController: UIViewController {
         }
 
         orderDetailViewController.didMove(toParent: self)
+        storeManagementViewController.didMove(toParent: self)
         salesViewController.didMove(toParent: self)
-
-        navigationItem.leftBarButtonItem = splitViewController?.displayModeButtonItem
-        navigationItem.leftItemsSupplementBackButton = true
     }
 
     private func bind() {
@@ -60,9 +81,16 @@ final class AdminDashboardDetailContainerViewController: UIViewController {
     }
 
     func show(tab: AdminDashboardTab) {
-        orderDetailViewController.view.isHidden = tab == .sales
+        orderDetailViewController.view.isHidden = tab == .storeManagement || tab == .sales
+        storeManagementViewController.view.isHidden = tab != .storeManagement
         salesViewController.view.isHidden = tab != .sales
-        navigationItem.title = tab == .sales ? "매출 조회" : "주문 상세"
+        if tab == .storeManagement {
+            navigationItem.title = "가게 관리"
+        } else if tab == .sales {
+            navigationItem.title = "매출 조회"
+        } else {
+            navigationItem.title = "주문 상세"
+        }
     }
 
     func updateOrder(_ order: OrderListItemEntity?) {
@@ -70,12 +98,12 @@ final class AdminDashboardDetailContainerViewController: UIViewController {
         orderDetailViewController.configure(order: order)
     }
 
-    func updateSalesSummary(_ summary: AdminSalesSummary) {
-        salesViewController.updateSummary(summary)
+    func updateStoreManagement(store: StoreEntity?, selectedItem: AdminStoreManagementItem) {
+        storeManagementViewController.update(store: store, selectedItem: selectedItem)
     }
 
-    func updateSalesCharts(_ charts: AdminSalesCharts) {
-        salesViewController.updateCharts(charts)
+    func updateSalesOrders(_ orders: [OrderListItemEntity]) {
+        salesViewController.updateOrders(orders)
     }
 
     func showError(message: String) {

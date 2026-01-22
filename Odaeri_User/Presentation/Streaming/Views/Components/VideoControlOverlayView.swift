@@ -102,6 +102,12 @@ final class VideoControlOverlayView: BaseView {
         return controlView
     }
 
+    func setInitiallyHidden() {
+        isVisible = false
+        controlView.alpha = 0
+        cancelAutoHide()
+    }
+
     deinit {
         cancelAutoHide()
     }

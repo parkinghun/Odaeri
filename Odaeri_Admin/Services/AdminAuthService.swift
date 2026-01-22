@@ -29,4 +29,9 @@ final class AdminAuthService {
             }
             .eraseToAnyPublisher()
     }
+
+    func logout() -> AnyPublisher<Void, NetworkError> {
+        provider.requestPublisher(UserAPI.logout)
+            .eraseToAnyPublisher()
+    }
 }

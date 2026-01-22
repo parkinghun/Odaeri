@@ -12,6 +12,7 @@ import SnapKit
 final class AdminSideTabBar: UIViewController {
     private let viewDidLoadSubject = PassthroughSubject<Void, Never>()
     private let selectionSubject = PassthroughSubject<AdminDashboardTab, Never>()
+    private let settingsSubject = PassthroughSubject<Void, Never>()
     private var items: [AdminSideTabBarItem] = []
     private var selectedTab: AdminDashboardTab = .inProgress
     private var tabViews: [AdminSideTabBarItemView] = []
@@ -22,6 +23,10 @@ final class AdminSideTabBar: UIViewController {
 
     var selectionPublisher: AnyPublisher<AdminDashboardTab, Never> {
         selectionSubject.eraseToAnyPublisher()
+    }
+
+    var settingsPublisher: AnyPublisher<Void, Never> {
+        settingsSubject.eraseToAnyPublisher()
     }
 
     private let menuButton: UIButton = {
@@ -68,6 +73,10 @@ final class AdminSideTabBar: UIViewController {
         bottomMenuView.snp.makeConstraints {
             $0.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
             $0.bottom.equalTo(view.safeAreaLayoutGuide).inset(Layout.bottomInset)
+        }
+
+        bottomMenuView.onSettingsTap = { [weak self] in
+            self?.settingsSubject.send(())
         }
     }
 
@@ -200,6 +209,7 @@ private final class AdminSideTabBarItemView: UIControl {
 
 private final class AdminSideTabBarBottomMenuView: UIView {
     private let settingsButton = UIButton(type: .system)
+    var onSettingsTap: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -219,11 +229,16 @@ private final class AdminSideTabBarBottomMenuView: UIView {
         settingsButton.titleLabel?.font = AppFont.body3Bold
         settingsButton.semanticContentAttribute = .forceLeftToRight
         settingsButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -4, bottom: 0, right: 4)
+        settingsButton.addTarget(self, action: #selector(handleSettingsTap), for: .touchUpInside)
 
         addSubview(settingsButton)
         settingsButton.snp.makeConstraints {
             $0.edges.equalToSuperview()
         }
+    }
+
+    @objc private func handleSettingsTap() {
+        onSettingsTap?()
     }
 }
 

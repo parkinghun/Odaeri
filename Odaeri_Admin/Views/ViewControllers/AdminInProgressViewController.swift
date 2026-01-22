@@ -209,6 +209,6 @@ private extension AdminInProgressViewController {
 }
 
 private enum Layout {
-    static let rowHeight: CGFloat = 140
+    static let rowHeight: CGFloat = 156
     static let headerHeight: CGFloat = 52
 }

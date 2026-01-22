@@ -58,6 +58,8 @@ final class AdminOrderCardCell: UITableViewCell {
         orderCodeLabel.textColor = AppColor.gray90
         storeNameLabel.font = AppFont.body2
         storeNameLabel.textColor = AppColor.gray75
+        storeNameLabel.numberOfLines = 2
+        storeNameLabel.lineBreakMode = .byTruncatingTail
         priceLabel.font = AppFont.body2Bold
         priceLabel.textColor = AppColor.gray90
 
@@ -123,7 +125,7 @@ final class AdminOrderCardCell: UITableViewCell {
         actionHandler: (() -> Void)?
     ) {
         orderCodeLabel.text = "주문번호 \(order.orderCode)"
-        storeNameLabel.text = order.store.name
+        storeNameLabel.text = menuSummaryText(for: order)
         priceLabel.text = "\(order.totalPrice.formattedWithSeparator)원"
         statusLabel.text = order.currentOrderStatus.description
         statusLabel.text = statusText(for: order.currentOrderStatus)
@@ -172,6 +174,17 @@ final class AdminOrderCardCell: UITableViewCell {
             return "접수 대기"
         }
         return status.description
+    }
+
+    private func menuSummaryText(for order: OrderListItemEntity) -> String {
+        guard let firstMenu = order.orderMenuList.first?.menu.name else {
+            return "메뉴 정보 없음"
+        }
+        let extraCount = max(order.orderMenuList.count - 1, 0)
+        if extraCount > 0 {
+            return "\(firstMenu) 외 \(extraCount)건"
+        }
+        return firstMenu
     }
 
     private func statusColor(for status: OrderStatusEntity) -> UIColor {
