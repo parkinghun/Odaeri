@@ -120,6 +120,7 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
         collectionView.contentInsetAdjustmentBehavior = .never
         collectionView.alwaysBounceVertical = true
         collectionView.showsVerticalScrollIndicator = false
+        collectionView.isHidden = true
 
         setKeyboardDismissMode(.interactive, for: collectionView)
 
@@ -305,6 +306,7 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
             if !self.hasAppliedInitialSnapshot {
                 self.collectionView.layoutIfNeeded()
                 self.scrollToBottom(animated: false)
+                self.collectionView.isHidden = false
             } else if isPagination {
                 let newContentHeight = self.collectionView.contentSize.height
                 let heightDifference = newContentHeight - previousContentHeight

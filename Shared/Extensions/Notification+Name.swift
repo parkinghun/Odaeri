@@ -10,6 +10,7 @@ import Foundation
 extension Notification.Name {
     static let unauthorizedAccess = Notification.Name("com.odaeri.unauthorizedAccess")
     static let refreshTokenExpired = Notification.Name("com.odaeri.refreshTokenExpired")
+    static let sessionInvalidated = Notification.Name("com.odaeri.sessionInvalidated")
     static let pendingPaymentValidated = Notification.Name("com.odaeri.pendingPaymentValidated")
     static let storeLikeUpdated = Notification.Name("com.odaeri.storeLikeUpdated")
     static let communityPostDidUpdate = Notification.Name("com.odaeri.communityPostDidUpdate")

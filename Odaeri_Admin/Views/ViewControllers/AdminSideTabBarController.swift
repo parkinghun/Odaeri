@@ -29,6 +29,11 @@ final class AdminSideTabBarController: UIViewController {
         super.viewDidLoad()
         setupUI()
         bind()
+        setupNotificationObservers()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     private func setupUI() {
@@ -146,6 +151,50 @@ final class AdminSideTabBarController: UIViewController {
                 self?.dashboardController.showError(message: message)
             }
             .store(in: &cancellables)
+    }
+
+    private func setupNotificationObservers() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSessionInvalidated),
+            name: .sessionInvalidated,
+            object: nil
+        )
+    }
+
+    @objc private func handleSessionInvalidated() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            let alert = UIAlertController(
+                title: "세션 종료",
+                message: "다른 기기에서 로그인되어 세션이 종료되었습니다.\n다시 로그인해주세요.",
+                preferredStyle: .alert
+            )
+
+            alert.addAction(UIAlertAction(title: "확인", style: .default) { [weak self] _ in
+                self?.logout()
+            })
+
+            self.present(alert, animated: true)
+        }
+    }
+
+    private func logout() {
+        TokenManager.shared.clearTokens()
+
+        let loginViewModel = AdminLoginViewModel()
+        let loginViewController = AdminLoginViewController(viewModel: loginViewModel)
+        let navigationController = UINavigationController(rootViewController: loginViewController)
+        navigationController.navigationBar.isHidden = true
+
+        loginViewController.onLoginSuccess = { [weak self] in
+            self?.view.window?.rootViewController = AdminSideTabBarController()
+            self?.view.window?.makeKeyAndVisible()
+        }
+
+        view.window?.rootViewController = navigationController
+        view.window?.makeKeyAndVisible()
     }
 
     private func presentSettings() {
