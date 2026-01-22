@@ -142,6 +142,12 @@ final class LandscapeVideoViewController: BaseViewController<StreamingDetailView
                 self?.controlOverlayView.resetAutoHideTimer()
             }
             .store(in: &cancellables)
+
+        controlView.subtitleTappedPublisher
+            .sink { [weak self] in
+                self?.controlOverlayView.resetAutoHideTimer()
+            }
+            .store(in: &cancellables)
     }
 
     private func handleClose() {

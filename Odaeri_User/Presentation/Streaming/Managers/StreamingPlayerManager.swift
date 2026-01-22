@@ -9,7 +9,11 @@ import AVFoundation
 import Combine
 
 final class StreamingPlayerManager {
-    private let player = AVPlayer()
+    private let player: AVPlayer = {
+        let player = AVPlayer()
+        player.appliesMediaSelectionCriteriaAutomatically = true
+        return player
+    }()
     private var playerItem: AVPlayerItem?
     private var timeObserver: Any?
     private var cancellables = Set<AnyCancellable>()
@@ -22,6 +26,10 @@ final class StreamingPlayerManager {
 
     private var preferredRate: Float = 1.0
     private var isFastForwarding = false
+
+    private(set) lazy var subtitleManager: SubtitleManager = {
+        return SubtitleManager(player: player)
+    }()
 
     var currentTimePublisher: AnyPublisher<CMTime, Never> {
         currentTimeSubject.eraseToAnyPublisher()
@@ -59,6 +67,10 @@ final class StreamingPlayerManager {
         guard let playerItem = playerItem else { return }
 
         playerItem.audioTimePitchAlgorithm = .timeDomain
+
+        if let legibleGroup = playerItem.asset.mediaSelectionGroup(forMediaCharacteristic: .legible) {
+            playerItem.select(nil, in: legibleGroup)
+        }
 
         player.replaceCurrentItem(with: playerItem)
 

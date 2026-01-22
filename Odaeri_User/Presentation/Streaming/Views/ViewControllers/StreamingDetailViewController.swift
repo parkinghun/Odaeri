@@ -269,6 +269,13 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             }
             .store(in: &cancellables)
 
+        controlView.subtitleTappedPublisher
+            .sink { [weak self] in
+                self?.showSubtitleSelectionAlert()
+                self?.controlOverlayView.resetAutoHideTimer()
+            }
+            .store(in: &cancellables)
+
         controlView.fullscreenTappedPublisher
             .sink { [weak self] in
                 self?.enterFullscreen()
@@ -295,6 +302,14 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
                 self?.descriptionLabel.text = description
             }
             .store(in: &cancellables)
+
+        playerManager.subtitleManager.currentSubtitlePublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] currentSubtitle in
+                let isActive = currentSubtitle?.source != .none
+                self?.controlOverlayView.getControlView().updateSubtitleButton(isActive: isActive)
+            }
+            .store(in: &cancellables)
     }
 
     private func showSpeedSettingsAlert(speeds: [Float]) {
@@ -312,6 +327,36 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         alert.addAction(cancel)
 
         present(alert, animated: true)
+    }
+
+    private func showSubtitleSelectionAlert() {
+        let availableSubtitles = playerManager.subtitleManager.availableSubtitlesPublisher
+        let currentSubtitle = playerManager.subtitleManager.currentSubtitlePublisher
+
+        Publishers.CombineLatest(availableSubtitles, currentSubtitle)
+            .first()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] subtitles, current in
+                guard let self = self else { return }
+
+                let alert = UIAlertController(title: "자막", message: nil, preferredStyle: .actionSheet)
+
+                for subtitle in subtitles {
+                    let isSelected = subtitle.id == current?.id
+                    let title = isSelected ? "✓ \(subtitle.name)" : subtitle.name
+
+                    let action = UIAlertAction(title: title, style: .default) { [weak self] _ in
+                        self?.playerManager.subtitleManager.selectSubtitle(subtitle)
+                    }
+                    alert.addAction(action)
+                }
+
+                let cancel = UIAlertAction(title: "취소", style: .cancel)
+                alert.addAction(cancel)
+
+                self.present(alert, animated: true)
+            }
+            .store(in: &cancellables)
     }
 
     private func enterFullscreen() {
@@ -351,6 +396,12 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
                 guard let self = self else { return }
                 let speeds: [Float] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
                 self.showSpeedSettingsAlert(speeds: speeds)
+            }
+            .store(in: &cancellables)
+
+        controlView.subtitleTappedPublisher
+            .sink { [weak self] in
+                self?.showSubtitleSelectionAlert()
             }
             .store(in: &cancellables)
     }
@@ -393,6 +444,14 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             .receive(on: DispatchQueue.main)
             .sink { isPlaying in
                 controlView.updatePlayPauseButton(isPlaying: isPlaying)
+            }
+            .store(in: &cancellables)
+
+        playerManager.subtitleManager.currentSubtitlePublisher
+            .receive(on: DispatchQueue.main)
+            .sink { currentSubtitle in
+                let isActive = currentSubtitle?.source != .none
+                controlView.updateSubtitleButton(isActive: isActive)
             }
             .store(in: &cancellables)
     }
