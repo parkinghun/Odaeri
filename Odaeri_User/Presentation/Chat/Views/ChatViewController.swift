@@ -37,6 +37,7 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     private var didInitialScroll = false
     private var lastPaginationTrigger = "unknown"
     private var keyboardHeight: CGFloat = 0
+    private var previousScrollViewHeight: CGFloat = 0
 
     private enum Section: Hashable {
         case main
@@ -400,10 +401,12 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     }
 
     @objc private func keyboardWillShow(_ notification: Notification) {
-        guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else {
+        guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+              let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double else {
             return
         }
 
+        let previousKeyboardHeight = keyboardHeight
         keyboardHeight = keyboardFrame.height
 
         let contentHeight = collectionView.contentSize.height
@@ -414,8 +417,19 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
         let isNearBottom = currentOffsetY >= maxOffsetY - 100
 
         if isNearBottom {
-            DispatchQueue.main.async {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 self.scrollToBottom(animated: true)
+            }
+            return
+        }
+
+        let keyboardHeightDifference = keyboardHeight - previousKeyboardHeight
+
+        if keyboardHeightDifference > 0 {
+            let adjustedOffsetY = currentOffsetY + keyboardHeightDifference
+
+            UIView.animate(withDuration: duration) {
+                self.collectionView.contentOffset.y = adjustedOffsetY
             }
         }
     }
