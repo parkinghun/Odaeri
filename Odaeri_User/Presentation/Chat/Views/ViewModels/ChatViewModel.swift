@@ -125,12 +125,11 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         hasMoreLocalData = totalCount > currentLimit
 
         let limitedResults = results.prefix(currentLimit)
-        let entities = limitedResults.map { $0.toEntity() }
-        let reversedEntities = Array(entities.reversed())
+        let entities = Array(limitedResults.map { $0.toEntity() })
 
-        detectAndFillGaps(in: reversedEntities)
+        detectAndFillGaps(in: entities)
 
-        let items = ChatMapper.map(reversedEntities, currentUserId: currentUserId)
+        let items = ChatMapper.map(entities, currentUserId: currentUserId)
 
         if isInitial || !hasCompletedInitialLoad {
             updateWorkItem?.cancel()

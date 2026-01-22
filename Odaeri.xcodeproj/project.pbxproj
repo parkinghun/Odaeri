@@ -93,6 +93,9 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				Presentation/Chat/Views/Cells/ChatDateSeparatorCell_Old.swift.backup,
+				Presentation/Chat/Views/Cells/ChatMessageCell_Old.swift.backup,
+				Presentation/Chat/Views/ChatViewController_Old.swift.backup,
 			);
 			target = B55131862EE9559300DBEA27 /* Odaeri_User */;
 		};

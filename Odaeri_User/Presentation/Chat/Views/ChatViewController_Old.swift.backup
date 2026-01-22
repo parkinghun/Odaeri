@@ -11,32 +11,23 @@ import SnapKit
 
 final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPresentable {
     override var navigationBarHidden: Bool { false }
-
-    private lazy var collectionView: UICollectionView = {
-        let layout = ChatCollectionViewLayout()
-        layout.layoutDataProvider = { [weak self] indexPath in
-            self?.getLayoutData(for: indexPath)
-        }
-        let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        return cv
-    }()
-
+    
+    private let tableView = UITableView()
     private let chatInputView = ChatInputView()
-    private let newMessageToastView = UIView()
-    private let toastLabel = UILabel()
-
-    private var dataSource: UICollectionViewDiffableDataSource<Section, ChatItem>!
-    private var chatItems: [ChatItem] = []
+    
+    private var dataSource: UITableViewDiffableDataSource<Section, ChatItem>!
+    private let heightCache = CellHeightCache()
     private var lastItemIds: [String] = []
     private var hasAppliedInitialSnapshot = false
     private var isLoadingMore = false
-    private var lastSentMessageId: String?
+    private var lastContentHeight: CGFloat = 0
 
     private enum Section: Hashable {
         case main
     }
 
     private enum Layout {
+        static let estimatedRowHeight: CGFloat = 75
         static let paginationThreshold: CGFloat = 300
     }
     
@@ -45,9 +36,8 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
         view.backgroundColor = AppColor.gray0
         navigationItem.title = viewModel.title ?? "채팅"
 
-        setupCollectionView()
+        setupTableView()
         setupInputView()
-        setupToastView()
         setupConstraints()
         configureDataSource()
     }
@@ -91,7 +81,8 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
             .receive(on: DispatchQueue.main)
             .sink { [weak self] items in
                 guard let self = self else { return }
-                self.handleNewChatItems(items)
+                let shouldScroll = !self.hasAppliedInitialSnapshot || self.isAtBottom()
+                self.applySnapshot(with: items, shouldScrollToBottom: shouldScroll && !self.isLoadingMore)
             }
             .store(in: &cancellables)
 
@@ -102,11 +93,7 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
             }
             .store(in: &cancellables)
 
-        chatInputView.onSendMessage = { [weak self, weak sendMessageSubject] message, attachments in
-            guard let self = self else { return }
-            let tempId = UUID().uuidString
-            self.lastSentMessageId = tempId
-
+        chatInputView.onSendMessage = { [weak sendMessageSubject] message, attachments in
             let payload = ChatViewModel.SendMessagePayload(content: message, attachments: attachments)
             sendMessageSubject?.send(payload)
         }
@@ -114,169 +101,81 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
         viewDidLoadSubject.send(())
     }
     
-    private func setupCollectionView() {
-        collectionView.backgroundColor = AppColor.gray0
-        collectionView.keyboardDismissMode = .interactive
-        collectionView.contentInsetAdjustmentBehavior = .never
-        collectionView.alwaysBounceVertical = true
-        collectionView.showsVerticalScrollIndicator = false
+    private func setupTableView() {
+        tableView.backgroundColor = AppColor.gray0
+        tableView.separatorStyle = .none
+        tableView.keyboardDismissMode = .interactive
+        tableView.contentInsetAdjustmentBehavior = .never
+        tableView.alwaysBounceVertical = true
+        tableView.showsVerticalScrollIndicator = false
 
-        setKeyboardDismissMode(.interactive, for: collectionView)
+        tableView.transform = CGAffineTransform(scaleX: 1, y: -1)
 
-        collectionView.register(ChatMessageCell.self, forCellWithReuseIdentifier: ChatMessageCell.reuseIdentifier)
-        collectionView.register(ChatDateSeparatorCell.self, forCellWithReuseIdentifier: ChatDateSeparatorCell.reuseIdentifier)
+        tableView.estimatedRowHeight = Layout.estimatedRowHeight
+        tableView.rowHeight = UITableView.automaticDimension
 
-        collectionView.delegate = self
+        setKeyboardDismissMode(.interactive, for: tableView)
 
-        view.addSubview(collectionView)
+        tableView.register(ChatMessageCell.self, forCellReuseIdentifier: ChatMessageCell.reuseIdentifier)
+        tableView.register(ChatDateSeparatorCell.self, forCellReuseIdentifier: ChatDateSeparatorCell.reuseIdentifier)
+
+        tableView.delegate = self
+
+        view.addSubview(tableView)
         view.addSubview(chatInputView)
     }
     
     private func setupInputView() {
         chatInputView.parentViewController = self
     }
-
-    private func setupToastView() {
-        newMessageToastView.backgroundColor = AppColor.blackSprout
-        newMessageToastView.layer.cornerRadius = 16
-        newMessageToastView.clipsToBounds = true
-        newMessageToastView.alpha = 0
-        newMessageToastView.isUserInteractionEnabled = true
-
-        toastLabel.text = "새 메시지"
-        toastLabel.font = AppFont.caption1
-        toastLabel.textColor = AppColor.gray0
-        toastLabel.textAlignment = .center
-
-        newMessageToastView.addSubview(toastLabel)
-        view.addSubview(newMessageToastView)
-
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(toastTapped))
-        newMessageToastView.addGestureRecognizer(tapGesture)
-    }
-
-    @objc private func toastTapped() {
-        hideToast()
-        scrollToBottom(animated: true)
-    }
-
-    private func showToast() {
-        UIView.animate(withDuration: 0.3) {
-            self.newMessageToastView.alpha = 1
-        }
-    }
-
-    private func hideToast() {
-        UIView.animate(withDuration: 0.3) {
-            self.newMessageToastView.alpha = 0
-        }
-    }
-
+    
     private func setupConstraints() {
-        collectionView.snp.makeConstraints {
+        tableView.snp.makeConstraints {
             $0.top.leading.trailing.equalTo(view.safeAreaLayoutGuide)
             $0.bottom.equalTo(chatInputView.snp.top)
         }
-
+        
         chatInputView.snp.makeConstraints {
             $0.leading.trailing.equalToSuperview()
             $0.bottom.equalTo(view.keyboardLayoutGuide.snp.top)
-        }
-
-        toastLabel.snp.makeConstraints {
-            $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16))
-        }
-
-        newMessageToastView.snp.makeConstraints {
-            $0.centerX.equalToSuperview()
-            $0.bottom.equalTo(chatInputView.snp.top).offset(-16)
         }
     }
     
     
     private func configureDataSource() {
-        dataSource = UICollectionViewDiffableDataSource<Section, ChatItem>(
-            collectionView: collectionView
-        ) { [weak self] collectionView, indexPath, item in
+        dataSource = UITableViewDiffableDataSource<Section, ChatItem>(
+            tableView: tableView
+        ) { [weak self] tableView, indexPath, item in
             switch item {
-            case .message:
-                guard let cell = collectionView.dequeueReusableCell(
-                    withReuseIdentifier: ChatMessageCell.reuseIdentifier,
+            case .message(let model):
+                guard let cell = tableView.dequeueReusableCell(
+                    withIdentifier: ChatMessageCell.reuseIdentifier,
                     for: indexPath
                 ) as? ChatMessageCell else {
-                    return UICollectionViewCell()
+                    return UITableViewCell()
                 }
                 cell.delegate = self
+                cell.configure(with: model)
                 return cell
-
-            case .dateSeparator:
-                guard let cell = collectionView.dequeueReusableCell(
-                    withReuseIdentifier: ChatDateSeparatorCell.reuseIdentifier,
+                
+            case .dateSeparator(let separator):
+                guard let cell = tableView.dequeueReusableCell(
+                    withIdentifier: ChatDateSeparatorCell.reuseIdentifier,
                     for: indexPath
                 ) as? ChatDateSeparatorCell else {
-                    return UICollectionViewCell()
+                    return UITableViewCell()
                 }
+                cell.configure(text: separator.text)
                 return cell
             }
         }
     }
-
-    private func getLayoutData(for indexPath: IndexPath) -> ChatCellLayoutData? {
-        guard indexPath.item < chatItems.count else { return nil }
-        let item = chatItems[indexPath.item]
-        let containerWidth = collectionView.bounds.width
-        return ChatMapper.calculateLayout(for: item, containerWidth: containerWidth)
-    }
     
-    private func handleNewChatItems(_ items: [ChatItem]) {
-        let currentIds = items.map { $0.id }
-        let newIds = Set(currentIds).subtracting(Set(lastItemIds))
-
-        let isInitialLoad = !hasAppliedInitialSnapshot
-        let isPagination = isLoadingMore
-        let isNewMessage = !newIds.isEmpty && !isPagination && hasAppliedInitialSnapshot
-        let isAtBottomNow = isAtBottom()
-
-        var shouldScrollToBottom = false
-        var shouldShowToast = false
-
-        if isInitialLoad {
-            shouldScrollToBottom = true
-        } else if isPagination {
-            shouldScrollToBottom = false
-        } else if isNewMessage {
-            if let newItem = items.first(where: { newIds.contains($0.id) }),
-               case .message(let model) = newItem {
-                let isMyMessage = model.senderType == .me
-
-                if isMyMessage {
-                    shouldScrollToBottom = true
-                    lastSentMessageId = nil
-                } else {
-                    if isAtBottomNow {
-                        shouldScrollToBottom = true
-                    } else {
-                        shouldShowToast = true
-                    }
-                }
-            }
-        }
-
-        applySnapshot(with: items, shouldScrollToBottom: shouldScrollToBottom)
-
-        if shouldShowToast {
-            showToast()
-        } else {
-            hideToast()
-        }
-    }
-
     func applySnapshot(
         with items: [ChatItem],
         shouldScrollToBottom: Bool = false,
         animatingDifferences: Bool = true
     ) {
-        chatItems = items
         let currentIds = items.map { $0.id }
 
         let hasFailedMessage = items.contains { item in
@@ -292,8 +191,8 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
         let isInitialLoad = !hasAppliedInitialSnapshot
         let shouldAnimate = animatingDifferences && isNewMessage && !hasFailedMessage && !isInitialLoad
 
-        let previousContentHeight = collectionView.contentSize.height
-        let previousOffsetY = collectionView.contentOffset.y
+        let previousContentHeight = tableView.contentSize.height
+        let previousOffsetY = tableView.contentOffset.y
 
         var snapshot = NSDiffableDataSourceSnapshot<Section, ChatItem>()
         snapshot.appendSections([.main])
@@ -303,15 +202,15 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
             guard let self = self else { return }
 
             if !self.hasAppliedInitialSnapshot {
-                self.collectionView.layoutIfNeeded()
-                self.scrollToBottom(animated: false)
+                self.tableView.layoutIfNeeded()
+                self.tableView.setContentOffset(.zero, animated: false)
             } else if isPagination {
-                let newContentHeight = self.collectionView.contentSize.height
+                let newContentHeight = self.tableView.contentSize.height
                 let heightDifference = newContentHeight - previousContentHeight
 
                 if heightDifference > 0 {
                     let newOffsetY = previousOffsetY + heightDifference
-                    self.collectionView.contentOffset = CGPoint(x: 0, y: newOffsetY)
+                    self.tableView.contentOffset = CGPoint(x: 0, y: newOffsetY)
                 }
             } else if isNewMessage && shouldScrollToBottom {
                 self.scrollToBottom(animated: shouldAnimate)
@@ -323,34 +222,48 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     }
 
     private func isAtBottom() -> Bool {
-        let contentHeight = collectionView.contentSize.height
-        let scrollViewHeight = collectionView.bounds.height
-        let offsetY = collectionView.contentOffset.y
-        let maxOffsetY = max(0, contentHeight - scrollViewHeight)
-
-        return offsetY >= maxOffsetY - 100
+        return tableView.contentOffset.y <= 100
     }
 
     private func scrollToBottom(animated: Bool) {
-        guard collectionView.numberOfItems(inSection: 0) > 0 else { return }
+        guard tableView.numberOfRows(inSection: 0) > 0 else { return }
 
-        let lastItem = collectionView.numberOfItems(inSection: 0) - 1
-        let indexPath = IndexPath(item: lastItem, section: 0)
-        collectionView.scrollToItem(at: indexPath, at: .bottom, animated: animated)
+        let indexPath = IndexPath(row: 0, section: 0)
+        tableView.scrollToRow(at: indexPath, at: .top, animated: animated)
     }
 }
 
-extension ChatViewController: UICollectionViewDelegate {
-    func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
-        if indexPath.item <= 4 {
+extension ChatViewController: UITableViewDelegate {
+    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
+        guard let item = dataSource.itemIdentifier(for: indexPath) else {
+            return Layout.estimatedRowHeight
+        }
+
+        if let cachedHeight = heightCache.height(for: item.id) {
+            return cachedHeight
+        }
+
+        return Layout.estimatedRowHeight
+    }
+
+    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+
+        let height = cell.frame.size.height
+        heightCache.setHeight(height, for: item.id)
+
+        if indexPath.row <= 4 {
             checkAndLoadMore()
         }
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        let contentHeight = scrollView.contentSize.height
+        let scrollViewHeight = scrollView.bounds.height
         let offsetY = scrollView.contentOffset.y
+        let maxOffsetY = max(0, contentHeight - scrollViewHeight)
 
-        if offsetY <= Layout.paginationThreshold {
+        if offsetY >= maxOffsetY - Layout.paginationThreshold {
             checkAndLoadMore()
         }
     }
