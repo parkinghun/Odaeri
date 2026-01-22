@@ -40,6 +40,7 @@ final class ChatMessageCell: BaseCollectionViewCell {
     private var fileView: ChatFileView?
 
     private var currentLayoutData: ChatMessageCellLayoutData?
+    private var currentProfileImageUrl: String?
 
     private enum Layout {
         static let profileSize: CGFloat = 32
@@ -178,10 +179,10 @@ final class ChatMessageCell: BaseCollectionViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
 
-        profileImageView.image = nil
         nameLabel.text = nil
         timeLabel.text = nil
         currentLayoutData = nil
+        currentProfileImageUrl = nil
 
         textView?.isHidden = true
         imageGridView?.isHidden = true
@@ -195,15 +196,22 @@ final class ChatMessageCell: BaseCollectionViewCell {
 
         nameLabel.isHidden = !layoutData.showName
         timeLabel.isHidden = !layoutData.showTime
-        profileImageView.isHidden = !layoutData.showProfile
         profileImageView.isUserInteractionEnabled = layoutData.senderType == .other && layoutData.showProfile
 
+        let imageUrl = layoutData.senderProfileImageUrl
+
         if layoutData.showProfile {
-            if let urlString = layoutData.senderProfileImageUrl {
-                profileImageView.setImage(url: urlString, placeholder: AppImage.person)
-            } else {
-                profileImageView.image = AppImage.person
+            if currentProfileImageUrl != imageUrl || profileImageView.image == nil {
+                currentProfileImageUrl = imageUrl
+                if let urlString = imageUrl {
+                    profileImageView.setImage(url: urlString, placeholder: AppImage.person, animated: false)
+                } else {
+                    profileImageView.image = AppImage.person
+                }
             }
+            profileImageView.isHidden = false
+        } else {
+            profileImageView.isHidden = true
         }
 
         var hasText = false

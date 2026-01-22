@@ -6,8 +6,11 @@
 //
 
 import UIKit
+import QuartzCore
 
 final class ChatCollectionViewLayout: UICollectionViewLayout {
+    private static var lastTimingLogTime: CFTimeInterval = 0
+
     override class var layoutAttributesClass: AnyClass {
         return ChatCollectionViewLayoutAttributes.self
     }
@@ -25,6 +28,13 @@ final class ChatCollectionViewLayout: UICollectionViewLayout {
             return
         }
 
+        guard collectionView.bounds.width > 0 else {
+            return
+        }
+
+#if DEBUG
+        let layoutStart = CACurrentMediaTime()
+#endif
         cachedAttributes.removeAll()
         contentHeight = 0
 
@@ -68,6 +78,15 @@ final class ChatCollectionViewLayout: UICollectionViewLayout {
         }
 
         contentHeight = currentY
+
+#if DEBUG
+        let durationMs = (CACurrentMediaTime() - layoutStart) * 1000
+        let now = CACurrentMediaTime()
+        if durationMs > 30, now - Self.lastTimingLogTime > 1.0 {
+            print("[ChatLayoutTiming] items=\(numberOfItems), durationMs=\(String(format: "%.2f", durationMs))")
+            Self.lastTimingLogTime = now
+        }
+#endif
     }
 
     override var collectionViewContentSize: CGSize {

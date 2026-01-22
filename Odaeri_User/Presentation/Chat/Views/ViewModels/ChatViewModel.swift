@@ -131,19 +131,19 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
 
         let items = ChatMapper.map(entities, currentUserId: currentUserId)
 
-        if isInitial || !hasCompletedInitialLoad {
+        if !hasCompletedInitialLoad {
+            chatItemsSubject.send(items)
+            hasCompletedInitialLoad = true
+        } else {
             updateWorkItem?.cancel()
 
             let workItem = DispatchWorkItem { [weak self] in
                 guard let self = self else { return }
                 self.chatItemsSubject.send(items)
-                self.hasCompletedInitialLoad = true
             }
 
             updateWorkItem = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: workItem)
-        } else {
-            chatItemsSubject.send(items)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
         }
     }
 

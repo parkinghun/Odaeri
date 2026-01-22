@@ -6,12 +6,28 @@
 //
 
 import Foundation
+import QuartzCore
 
 struct ChatMapper {
+    private static var didLogSort = false
+    private static var didLogMapTiming = false
+
     static func map(_ entities: [ChatEntity], currentUserId: String) -> [ChatItem] {
         guard !entities.isEmpty else { return [] }
 
+#if DEBUG
+        let mapStart = CACurrentMediaTime()
+#endif
         let sorted = sortForDisplay(entities)
+#if DEBUG
+        if !didLogSort {
+            let first = sorted.first?.createdAt ?? "nil"
+            let last = sorted.last?.createdAt ?? "nil"
+            let hasFailed = sorted.contains { $0.status == .failed }
+            print("[ChatSort] count=\(sorted.count), first=\(first), last=\(last), hasFailed=\(hasFailed)")
+            didLogSort = true
+        }
+#endif
         let dates = sorted.map { DateFormatter.iso8601.date(from: $0.createdAt) ?? .distantPast }
 
         var result: [ChatItem] = []
@@ -68,6 +84,13 @@ struct ChatMapper {
             result.append(.message(displayModel))
         }
 
+#if DEBUG
+        let durationMs = (CACurrentMediaTime() - mapStart) * 1000
+        if !didLogMapTiming || durationMs > 50 {
+            print("[ChatMapTiming] entities=\(entities.count), items=\(result.count), durationMs=\(String(format: "%.2f", durationMs))")
+            didLogMapTiming = true
+        }
+#endif
         return result
     }
 
