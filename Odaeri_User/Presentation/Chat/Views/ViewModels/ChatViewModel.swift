@@ -127,23 +127,28 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         let limitedResults = results.prefix(currentLimit)
         let entities = Array(limitedResults.map { $0.toEntity() })
 
-        detectAndFillGaps(in: entities)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
 
-        let items = ChatMapper.map(entities, currentUserId: currentUserId)
+            self.detectAndFillGaps(in: entities)
+            let items = ChatMapper.map(entities, currentUserId: self.currentUserId)
 
-        if !hasCompletedInitialLoad {
-            chatItemsSubject.send(items)
-            hasCompletedInitialLoad = true
-        } else {
-            updateWorkItem?.cancel()
+            DispatchQueue.main.async {
+                if !self.hasCompletedInitialLoad {
+                    self.chatItemsSubject.send(items)
+                    self.hasCompletedInitialLoad = true
+                } else {
+                    self.updateWorkItem?.cancel()
 
-            let workItem = DispatchWorkItem { [weak self] in
-                guard let self = self else { return }
-                self.chatItemsSubject.send(items)
+                    let workItem = DispatchWorkItem { [weak self] in
+                        guard let self = self else { return }
+                        self.chatItemsSubject.send(items)
+                    }
+
+                    self.updateWorkItem = workItem
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
+                }
             }
-
-            updateWorkItem = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
         }
     }
 

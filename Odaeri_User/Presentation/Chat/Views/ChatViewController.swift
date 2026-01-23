@@ -31,11 +31,11 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     private var lastItemIds: [String] = []
     private var hasAppliedInitialSnapshot = false
     private var isLoadingMore = false
+    private var pendingPaginationCount: Int?
     private var lastSentMessageId: String?
     private var didLogInitialSnapshot = false
     private var didLogInitialScroll = false
     private var didInitialScroll = false
-    private var lastPaginationTrigger = "unknown"
     private var keyboardHeight: CGFloat = 0
     private var previousScrollViewHeight: CGFloat = 0
 
@@ -101,7 +101,14 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
             .receive(on: DispatchQueue.main)
             .sink { [weak self] items in
                 guard let self = self else { return }
+#if DEBUG
+                let sinkStart = CACurrentMediaTime()
+#endif
                 self.handleNewChatItems(items)
+#if DEBUG
+                let sinkDuration = (CACurrentMediaTime() - sinkStart) * 1000
+                print("[ChatSinkTiming] items=\(items.count), durationMs=\(String(format: "%.2f", sinkDuration))")
+#endif
             }
             .store(in: &cancellables)
 
@@ -236,7 +243,17 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
         guard indexPath.item < chatItems.count else { return nil }
         let item = chatItems[indexPath.item]
         let containerWidth = collectionView.bounds.width
-        return ChatMapper.calculateLayout(for: item, containerWidth: containerWidth)
+#if DEBUG
+        let layoutStart = CACurrentMediaTime()
+#endif
+        let layoutData = ChatMapper.calculateLayout(for: item, containerWidth: containerWidth)
+#if DEBUG
+        let layoutDuration = (CACurrentMediaTime() - layoutStart) * 1000
+        if layoutDuration > 5 {
+            print("[ChatCellLayoutTiming] indexPath=\(indexPath.item), durationMs=\(String(format: "%.2f", layoutDuration))")
+        }
+#endif
+        return layoutData
     }
     
     private func handleNewChatItems(_ items: [ChatItem]) {
@@ -244,7 +261,18 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
         let newIds = Set(currentIds).subtracting(Set(lastItemIds))
 
         let isInitialLoad = !hasAppliedInitialSnapshot
-        let isPagination = isLoadingMore
+        let isPagination: Bool
+
+        if let pendingCount = pendingPaginationCount {
+            isPagination = items.count >= pendingCount
+            if isPagination {
+                pendingPaginationCount = nil
+                print("[ChatPagination] detected: oldCount=\(lastItemIds.count), newCount=\(items.count), pending=\(pendingCount)")
+            }
+        } else {
+            isPagination = isLoadingMore
+        }
+
         let isNewMessage = !newIds.isEmpty && !isPagination && hasAppliedInitialSnapshot
         let isAtBottomNow = isAtBottom()
 
@@ -273,7 +301,7 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
             }
         }
 
-        applySnapshot(with: items, shouldScrollToBottom: shouldScrollToBottom)
+        applySnapshot(with: items, shouldScrollToBottom: shouldScrollToBottom, isPagination: isPagination)
 
         if shouldShowToast {
             showToast()
@@ -285,7 +313,8 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     func applySnapshot(
         with items: [ChatItem],
         shouldScrollToBottom: Bool = false,
-        animatingDifferences: Bool = true
+        animatingDifferences: Bool = true,
+        isPagination: Bool = false
     ) {
 #if DEBUG
         let snapshotStart = CACurrentMediaTime()
@@ -301,10 +330,9 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
         }
 
         let isCountIncreased = items.count > lastItemIds.count
-        let isPagination = isLoadingMore
         let isNewMessage = isCountIncreased && !isPagination && hasAppliedInitialSnapshot
         let isInitialLoad = !hasAppliedInitialSnapshot
-        let shouldAnimate = animatingDifferences && isNewMessage && !hasFailedMessage && !isInitialLoad
+        let shouldAnimate = animatingDifferences && isNewMessage && !hasFailedMessage && !isInitialLoad && !isPagination
 
         let previousContentHeight = collectionView.contentSize.height
         let previousOffsetY = collectionView.contentOffset.y
@@ -313,45 +341,83 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
         snapshot.appendSections([.main])
         snapshot.appendItems(items)
 
-        dataSource.apply(snapshot, animatingDifferences: shouldAnimate) { [weak self] in
-            guard let self = self else { return }
-
-            if !self.hasAppliedInitialSnapshot && items.count > 0 {
-                self.collectionView.isHidden = false
-                self.collectionView.setNeedsLayout()
-                self.collectionView.layoutIfNeeded()
-
-                let contentHeight = self.collectionView.contentSize.height
-                let scrollViewHeight = self.collectionView.bounds.height
-                let maxOffsetY = max(0, contentHeight - scrollViewHeight)
-
-                self.collectionView.contentOffset = CGPoint(x: 0, y: maxOffsetY)
-                self.hasAppliedInitialSnapshot = true
-                self.didInitialScroll = true
-
-                if !self.didLogInitialSnapshot {
-                    print("[ChatSnapshot] initial applied: items=\(items.count), contentSize=\(self.collectionView.contentSize), bounds=\(self.collectionView.bounds.size), offset=\(self.collectionView.contentOffset), isLoadingMore=\(self.isLoadingMore)")
-                    self.didLogInitialSnapshot = true
+        if !shouldAnimate {
+            UIView.performWithoutAnimation {
+                dataSource.apply(snapshot, animatingDifferences: false) { [weak self] in
+                    self?.handleSnapshotCompletion(
+                        items: items,
+                        isPagination: isPagination,
+                        isNewMessage: isNewMessage,
+                        shouldScrollToBottom: shouldScrollToBottom,
+                        shouldAnimate: shouldAnimate,
+                        previousContentHeight: previousContentHeight,
+                        previousOffsetY: previousOffsetY,
+                        snapshotStart: snapshotStart
+                    )
                 }
-            } else if isPagination {
-                let newContentHeight = self.collectionView.contentSize.height
-                let heightDifference = newContentHeight - previousContentHeight
-
-                if heightDifference > 0 {
-                    let newOffsetY = previousOffsetY + heightDifference
-                    self.collectionView.contentOffset = CGPoint(x: 0, y: newOffsetY)
-                }
-            } else if isNewMessage && shouldScrollToBottom {
-                self.scrollToBottom(animated: shouldAnimate)
             }
-
-#if DEBUG
-            let durationMs = (CACurrentMediaTime() - snapshotStart) * 1000
-            print("[ChatSnapshotTiming] items=\(items.count), initial=\(isInitialLoad), pagination=\(isPagination), animate=\(shouldAnimate), durationMs=\(String(format: "%.2f", durationMs))")
-#endif
+        } else {
+            dataSource.apply(snapshot, animatingDifferences: true) { [weak self] in
+                self?.handleSnapshotCompletion(
+                    items: items,
+                    isPagination: isPagination,
+                    isNewMessage: isNewMessage,
+                    shouldScrollToBottom: shouldScrollToBottom,
+                    shouldAnimate: shouldAnimate,
+                    previousContentHeight: previousContentHeight,
+                    previousOffsetY: previousOffsetY,
+                    snapshotStart: snapshotStart
+                )
+            }
         }
 
         lastItemIds = currentIds
+    }
+
+    private func handleSnapshotCompletion(
+        items: [ChatItem],
+        isPagination: Bool,
+        isNewMessage: Bool,
+        shouldScrollToBottom: Bool,
+        shouldAnimate: Bool,
+        previousContentHeight: CGFloat,
+        previousOffsetY: CGFloat,
+        snapshotStart: CFTimeInterval
+    ) {
+        if !hasAppliedInitialSnapshot && items.count > 0 {
+            collectionView.isHidden = false
+            collectionView.setNeedsLayout()
+            collectionView.layoutIfNeeded()
+
+            let contentHeight = collectionView.contentSize.height
+            let scrollViewHeight = collectionView.bounds.height
+            let maxOffsetY = max(0, contentHeight - scrollViewHeight)
+
+            collectionView.contentOffset = CGPoint(x: 0, y: maxOffsetY)
+            hasAppliedInitialSnapshot = true
+            didInitialScroll = true
+
+            if !didLogInitialSnapshot {
+                print("[ChatSnapshot] initial applied: items=\(items.count), contentSize=\(collectionView.contentSize), bounds=\(collectionView.bounds.size), offset=\(collectionView.contentOffset), isLoadingMore=\(isLoadingMore)")
+                didLogInitialSnapshot = true
+            }
+        } else if isPagination {
+            let newContentHeight = collectionView.contentSize.height
+            let heightDifference = newContentHeight - previousContentHeight
+
+            if heightDifference > 0 {
+                let newOffsetY = previousOffsetY + heightDifference
+                collectionView.contentOffset = CGPoint(x: 0, y: newOffsetY)
+            }
+        } else if isNewMessage && shouldScrollToBottom {
+            scrollToBottom(animated: shouldAnimate)
+        }
+
+#if DEBUG
+        let durationMs = (CACurrentMediaTime() - snapshotStart) * 1000
+        let isInitialLoad = !hasAppliedInitialSnapshot
+        print("[ChatSnapshotTiming] items=\(items.count), initial=\(isInitialLoad), pagination=\(isPagination), animate=\(shouldAnimate), durationMs=\(String(format: "%.2f", durationMs))")
+#endif
     }
 
     private func isAtBottom() -> Bool {
@@ -462,13 +528,6 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
 }
 
 extension ChatViewController: UICollectionViewDelegate {
-    func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
-        if indexPath.item <= 4 {
-            lastPaginationTrigger = "willDisplay"
-            checkAndLoadMore()
-        }
-    }
-
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         let offsetY = scrollView.contentOffset.y
 
@@ -477,18 +536,28 @@ extension ChatViewController: UICollectionViewDelegate {
             didLogInitialScroll = true
         }
 
-        if offsetY <= Layout.paginationThreshold {
-            lastPaginationTrigger = "scroll"
-            checkAndLoadMore()
-        }
-    }
-
-    private func checkAndLoadMore() {
         guard hasAppliedInitialSnapshot && didInitialScroll else {
             return
         }
-        guard !isLoadingMore else { return }
-        print("[ChatPagination] trigger=\(lastPaginationTrigger), offsetY=\(collectionView.contentOffset.y), contentHeight=\(collectionView.contentSize.height)")
+
+        guard !isLoadingMore else {
+            return
+        }
+
+        guard pendingPaginationCount == nil else {
+            return
+        }
+
+        guard offsetY <= Layout.paginationThreshold else {
+            return
+        }
+
+        guard scrollView.contentSize.height > scrollView.bounds.height else {
+            return
+        }
+
+        print("[ChatPagination] triggered at offsetY=\(offsetY), contentHeight=\(scrollView.contentSize.height), currentCount=\(chatItems.count), isDecelerating=\(scrollView.isDecelerating)")
+        pendingPaginationCount = chatItems.count + 1
         viewModel.loadMoreMessages()
     }
 }

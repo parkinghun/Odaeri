@@ -34,10 +34,10 @@ final class ChatMessageCell: BaseCollectionViewCell {
     private let deleteButton = UIButton(type: .system)
     private let statusHintLabel = UILabel()
 
-    private var textView: UITextView?
-    private var imageGridView: ChatImageGridView?
-    private var videoView: ChatVideoView?
-    private var fileView: ChatFileView?
+    private let textView = UITextView()
+    private let imageGridView = ChatImageGridView()
+    private let videoView = ChatVideoView()
+    private let fileView = ChatFileView()
 
     private var currentLayoutData: ChatMessageCellLayoutData?
     private var currentProfileImageUrl: String?
@@ -123,6 +123,39 @@ final class ChatMessageCell: BaseCollectionViewCell {
 
         let profileTapGesture = UITapGestureRecognizer(target: self, action: #selector(handleProfileTap))
         profileImageView.addGestureRecognizer(profileTapGesture)
+
+        setupContentViews()
+    }
+
+    private func setupContentViews() {
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.isScrollEnabled = false
+        textView.backgroundColor = .clear
+        textView.dataDetectorTypes = [.link, .phoneNumber]
+        textView.textContainerInset = .zero
+        textView.textContainer.lineFragmentPadding = 0
+        textView.textContainer.lineBreakMode = .byWordWrapping
+        textView.font = AppFont.body2
+        textView.tintColor = AppColor.blackSprout.withAlphaComponent(0.3)
+        textView.linkTextAttributes = [
+            .foregroundColor: AppColor.blackSprout,
+            .underlineStyle: NSUnderlineStyle.single.rawValue
+        ]
+        textView.isHidden = true
+        bubbleView.addSubview(textView)
+
+        imageGridView.translatesAutoresizingMaskIntoConstraints = true
+        imageGridView.isHidden = true
+        contentView.addSubview(imageGridView)
+
+        videoView.translatesAutoresizingMaskIntoConstraints = true
+        videoView.isHidden = true
+        contentView.addSubview(videoView)
+
+        fileView.translatesAutoresizingMaskIntoConstraints = true
+        fileView.isHidden = true
+        contentView.addSubview(fileView)
     }
 
     override func preferredLayoutAttributesFitting(
@@ -160,19 +193,19 @@ final class ChatMessageCell: BaseCollectionViewCell {
         bubbleView.frame = layoutData.bubbleFrame
 
         if let textFrame = layoutData.textFrame {
-            textView?.frame = textFrame
+            textView.frame = textFrame
         }
 
         if let imageGridFrame = layoutData.imageGridFrame {
-            imageGridView?.frame = imageGridFrame
+            imageGridView.frame = imageGridFrame
         }
 
         if let videoFrame = layoutData.videoFrame {
-            videoView?.frame = videoFrame
+            videoView.frame = videoFrame
         }
 
         if let fileFrame = layoutData.fileFrame {
-            fileView?.frame = fileFrame
+            fileView.frame = fileFrame
         }
     }
 
@@ -184,10 +217,10 @@ final class ChatMessageCell: BaseCollectionViewCell {
         currentLayoutData = nil
         currentProfileImageUrl = nil
 
-        textView?.isHidden = true
-        imageGridView?.isHidden = true
-        videoView?.isHidden = true
-        fileView?.isHidden = true
+        textView.isHidden = true
+        imageGridView.isHidden = true
+        videoView.isHidden = true
+        fileView.isHidden = true
     }
 
     private func configure(with layoutData: ChatMessageCellLayoutData) {
@@ -222,73 +255,50 @@ final class ChatMessageCell: BaseCollectionViewCell {
         for content in layoutData.contents {
             switch content {
             case .text(let text):
-                if textView == nil {
-                    let tv = createTextView(senderType: layoutData.senderType)
-                    bubbleView.addSubview(tv)
-                    textView = tv
-                }
-                textView?.text = text
-                textView?.textColor = layoutData.senderType.textColor
-                textView?.textAlignment = layoutData.senderType.textAlignment
-                textView?.isHidden = false
+                textView.text = text
+                textView.textColor = layoutData.senderType.textColor
+                textView.textAlignment = layoutData.senderType.textAlignment
+                textView.isHidden = false
                 hasText = true
 
             case .imageGroup(let urls):
-                if imageGridView == nil {
-                    let grid = ChatImageGridView()
-                    grid.translatesAutoresizingMaskIntoConstraints = true
-                    contentView.addSubview(grid)
-                    imageGridView = grid
-                }
-                imageGridView?.configure(with: urls, status: layoutData.status, progress: layoutData.uploadProgress)
-                imageGridView?.onImageTapped = { [weak self] index in
+                imageGridView.configure(with: urls, status: layoutData.status, progress: layoutData.uploadProgress)
+                imageGridView.onImageTapped = { [weak self] index in
                     guard let self = self else { return }
                     self.delegate?.chatMessageCell(self, didTapImageAt: index, in: urls)
                 }
-                imageGridView?.onRetryTapped = { [weak self] in
+                imageGridView.onRetryTapped = { [weak self] in
                     guard let self = self else { return }
                     self.delegate?.chatMessageCellDidTapRetry(self, messageId: layoutData.messageId)
                 }
-                imageGridView?.isHidden = false
+                imageGridView.isHidden = false
                 hasImageGrid = true
 
             case .video(let thumbnailUrl, let videoUrl):
-                if videoView == nil {
-                    let video = ChatVideoView()
-                    video.translatesAutoresizingMaskIntoConstraints = true
-                    contentView.addSubview(video)
-                    videoView = video
-                }
-                videoView?.configure(
+                videoView.configure(
                     thumbnailUrl: thumbnailUrl,
                     videoUrl: videoUrl,
                     status: layoutData.status,
                     progress: layoutData.uploadProgress
                 )
-                videoView?.onVideoTapped = { [weak self] in
+                videoView.onVideoTapped = { [weak self] in
                     guard let self = self else { return }
                     self.delegate?.chatMessageCell(self, didTapVideo: videoUrl)
                 }
-                videoView?.onRetryTapped = { [weak self] in
+                videoView.onRetryTapped = { [weak self] in
                     guard let self = self else { return }
                     self.delegate?.chatMessageCellDidTapRetry(self, messageId: layoutData.messageId)
                 }
-                videoView?.isHidden = false
+                videoView.isHidden = false
                 hasVideo = true
 
             case .file(let fileInfo):
-                if fileView == nil {
-                    let file = ChatFileView()
-                    file.translatesAutoresizingMaskIntoConstraints = true
-                    contentView.addSubview(file)
-                    fileView = file
-                }
-                fileView?.configure(with: fileInfo)
-                fileView?.onFileTapped = { [weak self] in
+                fileView.configure(with: fileInfo)
+                fileView.onFileTapped = { [weak self] in
                     guard let self = self else { return }
                     self.delegate?.chatMessageCell(self, didTapFile: fileInfo)
                 }
-                fileView?.isHidden = false
+                fileView.isHidden = false
                 hasFile = true
             }
         }
@@ -296,43 +306,17 @@ final class ChatMessageCell: BaseCollectionViewCell {
         bubbleView.isHidden = !hasText
 
         if !hasImageGrid {
-            imageGridView?.isHidden = true
+            imageGridView.isHidden = true
         }
         if !hasVideo {
-            videoView?.isHidden = true
+            videoView.isHidden = true
         }
         if !hasFile {
-            fileView?.isHidden = true
+            fileView.isHidden = true
         }
 
         applyStyle(for: layoutData.senderType)
         configureStatusUI(status: layoutData.status, senderType: layoutData.senderType)
-    }
-
-    private func createTextView(senderType: SenderType) -> UITextView {
-        let textView = UITextView()
-
-        textView.isEditable = false
-        textView.isSelectable = true
-        textView.isScrollEnabled = false
-        textView.backgroundColor = .clear
-        textView.dataDetectorTypes = [.link, .phoneNumber]
-
-        textView.textContainerInset = .zero
-        textView.textContainer.lineFragmentPadding = 0
-        textView.textContainer.lineBreakMode = .byWordWrapping
-
-        textView.font = AppFont.body2
-        textView.textColor = senderType.textColor
-        textView.tintColor = AppColor.blackSprout.withAlphaComponent(0.3)
-        textView.linkTextAttributes = [
-            .foregroundColor: AppColor.blackSprout,
-            .underlineStyle: NSUnderlineStyle.single.rawValue
-        ]
-
-        textView.textAlignment = senderType.textAlignment
-
-        return textView
     }
 
     private func applyStyle(for senderType: SenderType) {

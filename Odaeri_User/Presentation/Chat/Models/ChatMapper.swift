@@ -12,6 +12,36 @@ struct ChatMapper {
     private static var didLogSort = false
     private static var didLogMapTiming = false
 
+    private static let cacheLock = NSLock()
+    private static var dateCache: [String: Date] = [:]
+    private static var timeTextCache: [Date: String] = [:]
+
+    private static func getCachedDate(from isoString: String) -> Date {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+
+        if let cached = dateCache[isoString] {
+            return cached
+        }
+
+        let date = DateFormatter.iso8601.date(from: isoString) ?? .distantPast
+        dateCache[isoString] = date
+        return date
+    }
+
+    private static func getCachedTimeText(from date: Date) -> String {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+
+        if let cached = timeTextCache[date] {
+            return cached
+        }
+
+        let timeText = DateFormatter.timeDisplay.string(from: date)
+        timeTextCache[date] = timeText
+        return timeText
+    }
+
     static func map(_ entities: [ChatEntity], currentUserId: String) -> [ChatItem] {
         guard !entities.isEmpty else { return [] }
 
@@ -28,7 +58,7 @@ struct ChatMapper {
             didLogSort = true
         }
 #endif
-        let dates = sorted.map { DateFormatter.iso8601.date(from: $0.createdAt) ?? .distantPast }
+        let dates = sorted.map { getCachedDate(from: $0.createdAt) }
 
         var result: [ChatItem] = []
 
@@ -68,7 +98,7 @@ struct ChatMapper {
                 id: entity.chatId,
                 content: entity.content,
                 createdAt: createdAt,
-                timeText: DateFormatter.timeDisplay.string(from: createdAt),
+                timeText: getCachedTimeText(from: createdAt),
                 senderName: entity.sender.nick,
                 senderUserId: entity.sender.userId,
                 senderProfileImageUrl: entity.sender.profileImage,
@@ -121,8 +151,8 @@ struct ChatMapper {
                 return !leftFailed
             }
 
-            let leftDate = DateFormatter.iso8601.date(from: lhs.createdAt) ?? .distantPast
-            let rightDate = DateFormatter.iso8601.date(from: rhs.createdAt) ?? .distantPast
+            let leftDate = getCachedDate(from: lhs.createdAt)
+            let rightDate = getCachedDate(from: rhs.createdAt)
             return leftDate < rightDate
         }
     }
