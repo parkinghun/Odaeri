@@ -6,58 +6,39 @@
 //
 
 import Foundation
-import QuartzCore
 
 struct ChatMapper {
-    private static var didLogSort = false
-    private static var didLogMapTiming = false
+    private static let dateCache = NSCache<NSString, NSDate>()
+    private static let timeTextCache = NSCache<NSDate, NSString>()
 
-    private static let cacheLock = NSLock()
-    private static var dateCache: [String: Date] = [:]
-    private static var timeTextCache: [Date: String] = [:]
+    static func getCachedDate(from isoString: String) -> Date {
+        let key = isoString as NSString
 
-    private static func getCachedDate(from isoString: String) -> Date {
-        cacheLock.lock()
-        defer { cacheLock.unlock() }
-
-        if let cached = dateCache[isoString] {
-            return cached
+        if let cached = dateCache.object(forKey: key) {
+            return cached as Date
         }
 
         let date = DateFormatter.iso8601.date(from: isoString) ?? .distantPast
-        dateCache[isoString] = date
+        dateCache.setObject(date as NSDate, forKey: key)
         return date
     }
 
     private static func getCachedTimeText(from date: Date) -> String {
-        cacheLock.lock()
-        defer { cacheLock.unlock() }
+        let key = date as NSDate
 
-        if let cached = timeTextCache[date] {
-            return cached
+        if let cached = timeTextCache.object(forKey: key) {
+            return cached as String
         }
 
         let timeText = DateFormatter.timeDisplay.string(from: date)
-        timeTextCache[date] = timeText
+        timeTextCache.setObject(timeText as NSString, forKey: key)
         return timeText
     }
 
     static func map(_ entities: [ChatEntity], currentUserId: String) -> [ChatItem] {
         guard !entities.isEmpty else { return [] }
 
-#if DEBUG
-        let mapStart = CACurrentMediaTime()
-#endif
         let sorted = sortForDisplay(entities)
-#if DEBUG
-        if !didLogSort {
-            let first = sorted.first?.createdAt ?? "nil"
-            let last = sorted.last?.createdAt ?? "nil"
-            let hasFailed = sorted.contains { $0.status == .failed }
-            print("[ChatSort] count=\(sorted.count), first=\(first), last=\(last), hasFailed=\(hasFailed)")
-            didLogSort = true
-        }
-#endif
         let dates = sorted.map { getCachedDate(from: $0.createdAt) }
 
         var result: [ChatItem] = []
@@ -114,13 +95,6 @@ struct ChatMapper {
             result.append(.message(displayModel))
         }
 
-#if DEBUG
-        let durationMs = (CACurrentMediaTime() - mapStart) * 1000
-        if !didLogMapTiming || durationMs > 50 {
-            print("[ChatMapTiming] entities=\(entities.count), items=\(result.count), durationMs=\(String(format: "%.2f", durationMs))")
-            didLogMapTiming = true
-        }
-#endif
         return result
     }
 
@@ -232,7 +206,7 @@ struct ChatMapper {
         }
 
         let timeDifference = abs(currentDate.timeIntervalSince(previousDate))
-        if timeDifference >= 60 {
+        if timeDifference >= ChatConstants.Timing.messageGroupingInterval {
             return true
         }
 
@@ -259,7 +233,7 @@ struct ChatMapper {
         }
 
         let timeDifference = abs(currentDate.timeIntervalSince(nextDate))
-        if timeDifference >= 60 {
+        if timeDifference >= ChatConstants.Timing.messageGroupingInterval {
             return true
         }
 

@@ -9,19 +9,19 @@ import UIKit
 
 struct ChatLayoutCalculator {
     private enum Layout {
-        static let profileSize: CGFloat = 32
+        static let profileSize: CGFloat = ChatConstants.Layout.profileSize
         static let horizontalSpacing: CGFloat = AppSpacing.small
         static let verticalSpacing: CGFloat = AppSpacing.xSmall
         static let contentInset: CGFloat = AppSpacing.large
-        static let bubbleCornerRadius: CGFloat = 8
+        static let bubbleCornerRadius: CGFloat = ChatConstants.Layout.bubbleCornerRadius
         static let textPadding = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
         static let nameHeight: CGFloat = 16
         static let timeSpacing: CGFloat = 2
-        static let singleImageMaxSize: CGFloat = 240
-        static let gridSize: CGFloat = 240
+        static let singleImageMaxSize: CGFloat = ChatConstants.Layout.singleImageMaxSize
+        static let gridSize: CGFloat = ChatConstants.Layout.gridSize
         static let contentSpacing: CGFloat = 4
-        static let fileHeight: CGFloat = 60
-        static let maxBubbleWidthRatio: CGFloat = 0.7
+        static let fileHeight: CGFloat = ChatConstants.Layout.fileHeight
+        static let maxBubbleWidthRatio: CGFloat = ChatConstants.Layout.maxBubbleWidthRatio
     }
 
     static func calculateMessageLayout(

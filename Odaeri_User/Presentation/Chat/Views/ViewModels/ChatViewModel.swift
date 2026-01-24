@@ -25,12 +25,12 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     private var uploadCancellables: [String: AnyCancellable] = [:]
     private var isSyncing = false
 
-    private var currentLimit = 30
+    private var currentLimit = ChatConstants.Pagination.initialLimit
     private var isInitialLoading = true
     private var isFetchingNextPage = false
     private var hasMoreLocalData = true
     private var hasMoreRemoteData = true
-    private let pageSize = 30
+    private let pageSize = ChatConstants.Pagination.pageSize
     private var detectedGaps: Set<String> = []
 
     private var updateWorkItem: DispatchWorkItem?
@@ -137,6 +137,8 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
                 if !self.hasCompletedInitialLoad {
                     self.chatItemsSubject.send(items)
                     self.hasCompletedInitialLoad = true
+                } else if self.isFetchingNextPage {
+                    self.chatItemsSubject.send(items)
                 } else {
                     self.updateWorkItem?.cancel()
 
@@ -159,15 +161,12 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             let current = entities[i]
             let next = entities[i + 1]
 
-            guard let currentDate = DateFormatter.iso8601.date(from: current.createdAt),
-                  let nextDate = DateFormatter.iso8601.date(from: next.createdAt) else {
-                continue
-            }
+            let currentDate = ChatMapper.getCachedDate(from: current.createdAt)
+            let nextDate = ChatMapper.getCachedDate(from: next.createdAt)
 
             let timeDifference = nextDate.timeIntervalSince(currentDate)
-            let gapThreshold: TimeInterval = 300
 
-            if timeDifference > gapThreshold {
+            if timeDifference > ChatConstants.Timing.gapDetectionThreshold {
                 let gapKey = "\(current.createdAt)-\(next.createdAt)"
                 if !detectedGaps.contains(gapKey) {
                     detectedGaps.insert(gapKey)
