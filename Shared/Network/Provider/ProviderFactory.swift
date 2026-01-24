@@ -65,6 +65,10 @@ enum ProviderFactory {
         return MoyaProvider<MenuAPI>(plugins: makePlugins())
     }
 
+    static func makeMediaUploadProvider() -> MoyaProvider<MediaUploadAPI> {
+        return MoyaProvider<MediaUploadAPI>(plugins: makePlugins())
+    }
+
     private static func makePlugins() -> [PluginType] {
         var plugins: [PluginType] = []
 

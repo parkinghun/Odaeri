@@ -24,6 +24,10 @@ final class TokenManager {
         case deviceToken = "deviceToken"
     }
 
+    private enum UserDefaultsKey {
+        static let sessionInvalidated = "com.odaeri.sessionInvalidated"
+    }
+
     var accessToken: String? {
         get { try? keychain.get(for: TokenKey.accessToken.rawValue) }
         set {
@@ -61,15 +65,34 @@ final class TokenManager {
         return accessToken != nil && refreshToken != nil
     }
 
+    var isSessionInvalidated: Bool {
+        get {
+            UserDefaults.standard.bool(forKey: UserDefaultsKey.sessionInvalidated)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: UserDefaultsKey.sessionInvalidated)
+        }
+    }
+
     func saveTokens(accessToken: String, refreshToken: String) {
         self.accessToken = accessToken
         self.refreshToken = refreshToken
+        isSessionInvalidated = false
     }
 
     func clearTokens() {
         self.accessToken = nil
         self.refreshToken = nil
         UserManager.shared.clearUser()
+    }
+
+    func invalidateSession() {
+        isSessionInvalidated = true
+        clearTokens()
+    }
+
+    func clearSessionInvalidationFlag() {
+        isSessionInvalidated = false
     }
 
     func clearAllTokens() {

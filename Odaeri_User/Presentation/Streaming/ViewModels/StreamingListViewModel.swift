@@ -58,7 +58,10 @@ final class StreamingListViewModel: BaseViewModel, ViewModelType {
 
         input.itemSelected
             .sink { [weak self] videoId in
-                self?.coordinator?.showVideoDetail(videoId: videoId)
+                guard let self = self else { return }
+                if let video = self.videoEntitiesSubject.value.first(where: { $0.videoId == videoId }) {
+                    self.coordinator?.showVideoDetail(video: video)
+                }
             }
             .store(in: &cancellables)
 

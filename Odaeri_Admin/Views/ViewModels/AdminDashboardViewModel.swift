@@ -25,9 +25,9 @@ final class AdminDashboardViewModel {
         let inProgressNew: AnyPublisher<[OrderListItemEntity], Never>
         let inProgressActive: AnyPublisher<[OrderListItemEntity], Never>
         let completedOrders: AnyPublisher<[OrderListItemEntity], Never>
+        let orderLookupOrders: AnyPublisher<[OrderListItemEntity], Never>
+        let salesOrders: AnyPublisher<[OrderListItemEntity], Never>
         let selectedOrder: AnyPublisher<OrderListItemEntity?, Never>
-        let salesSummary: AnyPublisher<AdminSalesSummary, Never>
-        let salesCharts: AnyPublisher<AdminSalesCharts, Never>
         let isLoading: AnyPublisher<Bool, Never>
         let error: AnyPublisher<String, Never>
     }
@@ -39,9 +39,8 @@ final class AdminDashboardViewModel {
     private let inProgressNewSubject = CurrentValueSubject<[OrderListItemEntity], Never>([])
     private let inProgressActiveSubject = CurrentValueSubject<[OrderListItemEntity], Never>([])
     private let completedOrdersSubject = CurrentValueSubject<[OrderListItemEntity], Never>([])
+    private let orderLookupOrdersSubject = CurrentValueSubject<[OrderListItemEntity], Never>([])
     private let selectedOrderSubject = CurrentValueSubject<OrderListItemEntity?, Never>(nil)
-    private let salesSummarySubject = CurrentValueSubject<AdminSalesSummary, Never>(AdminDashboardViewModel.mockSummary())
-    private let salesChartsSubject = CurrentValueSubject<AdminSalesCharts, Never>(AdminDashboardViewModel.mockCharts())
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let errorSubject = PassthroughSubject<String, Never>()
     private var cancellables = Set<AnyCancellable>()
@@ -99,9 +98,9 @@ final class AdminDashboardViewModel {
             inProgressNew: inProgressNewSubject.eraseToAnyPublisher(),
             inProgressActive: inProgressActiveSubject.eraseToAnyPublisher(),
             completedOrders: completedOrdersSubject.eraseToAnyPublisher(),
+            orderLookupOrders: orderLookupOrdersSubject.eraseToAnyPublisher(),
+            salesOrders: ordersSubject.eraseToAnyPublisher(),
             selectedOrder: selectedOrderSubject.eraseToAnyPublisher(),
-            salesSummary: salesSummarySubject.eraseToAnyPublisher(),
-            salesCharts: salesChartsSubject.eraseToAnyPublisher(),
             isLoading: isLoadingSubject.eraseToAnyPublisher(),
             error: errorSubject.eraseToAnyPublisher()
         )
@@ -158,10 +157,12 @@ private extension AdminDashboardViewModel {
         let newOrders = orders.filter { $0.currentOrderStatus == .pendingApproval }
         let activeOrders = orders.filter { isActiveStatus($0.currentOrderStatus) }
         let completedOrders = orders.filter { $0.currentOrderStatus == .pickedUp }
+        let lookupOrders = sortOrders(orders, by: .latest)
 
         inProgressNewSubject.send(sortOrders(newOrders, by: .latest))
         inProgressActiveSubject.send(sortOrders(activeOrders, by: inProgressSortOrder))
         completedOrdersSubject.send(sortOrders(completedOrders, by: completedSortOrder))
+        orderLookupOrdersSubject.send(lookupOrders)
 
         updateSelectedOrderForTab(selectedTabSubject.value)
 
@@ -190,14 +191,14 @@ private extension AdminDashboardViewModel {
         [
             AdminSideTabBarItem(tab: .inProgress, title: "처리중", count: newCount, iconName: "clock.fill"),
             AdminSideTabBarItem(tab: .completed, title: "완료", count: nil, iconName: "checkmark.circle.fill"),
-            AdminSideTabBarItem(tab: .sales, title: "매출조회", count: nil, iconName: "chart.bar.fill")
+            AdminSideTabBarItem(tab: .orderLookup, title: "주문조회", count: nil, iconName: "doc.text.magnifyingglass"),
+            AdminSideTabBarItem(tab: .sales, title: "매출조회", count: nil, iconName: "chart.bar.fill"),
+            AdminSideTabBarItem(tab: .storeManagement, title: "가게관리", count: nil, iconName: "storefront.fill")
         ]
     }
 
     func updateSelectedOrderForTab(_ tab: AdminDashboardTab) {
         switch tab {
-        case .sales:
-            selectedOrderSubject.send(nil)
         case .completed:
             if selectedOrderSubject.value == nil || selectedOrderSubject.value?.currentOrderStatus != .pickedUp {
                 selectedOrderSubject.send(completedOrdersSubject.value.first)
@@ -209,60 +210,13 @@ private extension AdminDashboardViewModel {
             }
             let candidate = inProgressNewSubject.value.first ?? inProgressActiveSubject.value.first
             selectedOrderSubject.send(candidate)
+        case .orderLookup:
+            selectedOrderSubject.send(orderLookupOrdersSubject.value.first)
+        case .sales:
+            selectedOrderSubject.send(nil)
+        case .storeManagement:
+            selectedOrderSubject.send(nil)
         }
     }
 
-    static func mockSummary() -> AdminSalesSummary {
-        AdminSalesSummary(
-            todayRevenue: MockValue.todayRevenue,
-            averageOrderValue: MockValue.averageOrderValue,
-            cancelRate: MockValue.cancelRate,
-            insight: MockValue.insight
-        )
-    }
-
-    static func mockCharts() -> AdminSalesCharts {
-        let hourlySales = [
-            AdminSalesPoint(label: "10시", value: MockValue.hourlySales[0]),
-            AdminSalesPoint(label: "12시", value: MockValue.hourlySales[1]),
-            AdminSalesPoint(label: "14시", value: MockValue.hourlySales[2]),
-            AdminSalesPoint(label: "16시", value: MockValue.hourlySales[3]),
-            AdminSalesPoint(label: "18시", value: MockValue.hourlySales[4]),
-            AdminSalesPoint(label: "20시", value: MockValue.hourlySales[5])
-        ]
-
-        let topMenus = [
-            AdminSalesPoint(label: "카페 라떼", value: MockValue.topMenuSales[0]),
-            AdminSalesPoint(label: "아메리카노", value: MockValue.topMenuSales[1]),
-            AdminSalesPoint(label: "치즈케이크", value: MockValue.topMenuSales[2]),
-            AdminSalesPoint(label: "바닐라 라떼", value: MockValue.topMenuSales[3]),
-            AdminSalesPoint(label: "스콘", value: MockValue.topMenuSales[4])
-        ]
-
-        let weeklyTrend = [
-            AdminSalesPoint(label: "월", value: MockValue.weeklyTrend[0]),
-            AdminSalesPoint(label: "화", value: MockValue.weeklyTrend[1]),
-            AdminSalesPoint(label: "수", value: MockValue.weeklyTrend[2]),
-            AdminSalesPoint(label: "목", value: MockValue.weeklyTrend[3]),
-            AdminSalesPoint(label: "금", value: MockValue.weeklyTrend[4]),
-            AdminSalesPoint(label: "토", value: MockValue.weeklyTrend[5]),
-            AdminSalesPoint(label: "일", value: MockValue.weeklyTrend[6])
-        ]
-
-        return AdminSalesCharts(
-            hourlySales: hourlySales,
-            topMenus: topMenus,
-            weeklyTrend: weeklyTrend
-        )
-    }
-}
-
-private enum MockValue {
-    static let todayRevenue = 384000
-    static let averageOrderValue = 12800
-    static let cancelRate = 2.3
-    static let insight = "지난주 대비 매출이 15% 상승했습니다."
-    static let hourlySales: [Double] = [45, 80, 60, 72, 95, 55]
-    static let topMenuSales: [Double] = [120, 96, 88, 74, 63]
-    static let weeklyTrend: [Double] = [320, 360, 410, 390, 460, 520, 480]
 }

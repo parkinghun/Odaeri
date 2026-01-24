@@ -19,6 +19,22 @@ final class PlayerControlView: UIView {
         return button
     }()
 
+    private let fullscreenButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.tintColor = AppColor.gray0
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
+        button.setImage(UIImage(systemName: "arrow.up.left.and.arrow.down.right", withConfiguration: config), for: .normal)
+        return button
+    }()
+
+    private let subtitleButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.tintColor = AppColor.gray0
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
+        button.setImage(UIImage(systemName: "captions.bubble", withConfiguration: config), for: .normal)
+        return button
+    }()
+
     private let settingsButton: UIButton = {
         let button = UIButton(type: .system)
         button.tintColor = AppColor.gray0
@@ -58,11 +74,15 @@ final class PlayerControlView: UIView {
 
     let playPauseTappedPublisher: AnyPublisher<Void, Never>
     let settingsTappedPublisher: AnyPublisher<Void, Never>
+    let fullscreenTappedPublisher: AnyPublisher<Void, Never>
+    let subtitleTappedPublisher: AnyPublisher<Void, Never>
     let seekToProgressPublisher: AnyPublisher<Float, Never>
 
     override init(frame: CGRect) {
         playPauseTappedPublisher = playPauseButton.tapPublisher().eraseToAnyPublisher()
         settingsTappedPublisher = settingsButton.tapPublisher().eraseToAnyPublisher()
+        fullscreenTappedPublisher = fullscreenButton.tapPublisher().eraseToAnyPublisher()
+        subtitleTappedPublisher = subtitleButton.tapPublisher().eraseToAnyPublisher()
         seekToProgressPublisher = seekSubject.eraseToAnyPublisher()
 
         super.init(frame: frame)
@@ -78,6 +98,8 @@ final class PlayerControlView: UIView {
         backgroundColor = UIColor.black.withAlphaComponent(0.6)
 
         addSubview(playPauseButton)
+        addSubview(fullscreenButton)
+        addSubview(subtitleButton)
         addSubview(settingsButton)
         addSubview(currentTimeLabel)
         addSubview(durationLabel)
@@ -95,6 +117,18 @@ final class PlayerControlView: UIView {
             make.width.height.equalTo(44)
         }
 
+        subtitleButton.snp.makeConstraints { make in
+            make.centerY.equalToSuperview()
+            make.trailing.equalTo(settingsButton.snp.leading).offset(-8)
+            make.width.height.equalTo(44)
+        }
+
+        fullscreenButton.snp.makeConstraints { make in
+            make.centerY.equalToSuperview()
+            make.trailing.equalTo(subtitleButton.snp.leading).offset(-8)
+            make.width.height.equalTo(44)
+        }
+
         currentTimeLabel.snp.makeConstraints { make in
             make.centerY.equalToSuperview()
             make.leading.equalTo(playPauseButton.snp.trailing).offset(12)
@@ -102,7 +136,7 @@ final class PlayerControlView: UIView {
 
         durationLabel.snp.makeConstraints { make in
             make.centerY.equalToSuperview()
-            make.trailing.equalTo(settingsButton.snp.leading).offset(-12)
+            make.trailing.equalTo(fullscreenButton.snp.leading).offset(-12)
         }
 
         progressSlider.snp.makeConstraints { make in
@@ -137,6 +171,13 @@ final class PlayerControlView: UIView {
 
     func updateDurationText(_ text: String) {
         durationLabel.text = text
+    }
+
+    func updateSubtitleButton(isActive: Bool) {
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
+        let imageName = isActive ? "captions.bubble.fill" : "captions.bubble"
+        subtitleButton.setImage(UIImage(systemName: imageName, withConfiguration: config), for: .normal)
+        subtitleButton.tintColor = isActive ? AppColor.brightForsythia : AppColor.gray0
     }
 
     private static func createThumbImage() -> UIImage? {

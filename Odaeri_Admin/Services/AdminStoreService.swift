@@ -73,4 +73,12 @@ final class AdminStoreService {
             }
             .eraseToAnyPublisher()
     }
+
+    func updateStore(storeId: String, request: StoreRequest) -> AnyPublisher<StoreEntity, NetworkError> {
+        adminProvider.requestPublisher(.update(storeId: storeId, request: request))
+            .map { (response: StoreResponse) in
+                StoreEntity(from: response)
+            }
+            .eraseToAnyPublisher()
+    }
 }

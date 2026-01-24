@@ -16,37 +16,18 @@ final class ChatImageGridView: UIView {
     private let progressView = CircularProgressView()
     private let retryButton = UIButton(type: .system)
 
-    private var case1Constraints: [NSLayoutConstraint] = []
-    private var case2Constraints: [NSLayoutConstraint] = []
-    private var case3Constraints: [NSLayoutConstraint] = []
-    private var case4Constraints: [NSLayoutConstraint] = []
-    private var case5Constraints: [NSLayoutConstraint] = []
-
-    private var activeConstraints: [NSLayoutConstraint] = []
+    private var currentImageCount = 0
 
     private enum Layout {
         static let viewCornerRadius: CGFloat = 12
         static let borderWidth: CGFloat = 0.5
-        static let spacing: CGFloat = AppSpacing.tiny
-        static let singleImageMaxHeight: CGFloat = 200
-        static let singleImageMinHeight: CGFloat = 150
-        static let defaultAspectRatio: CGFloat = 4.0 / 3.0
-        static let maxContentWidth: CGFloat = UIScreen.main.bounds.width * 0.7
-
-        static var unitSize: CGFloat {
-            return (maxContentWidth - spacing) / 2
-        }
-
-        static var smallUnitSize: CGFloat {
-            return (maxContentWidth - spacing * 2) / 3
-        }
+        static let spacing: CGFloat = 2
     }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
         createImageViewPool()
-        setupAllConstraints()
     }
 
     required init?(coder: NSCoder) {
@@ -55,18 +36,16 @@ final class ChatImageGridView: UIView {
 
     func configure(
         with urls: [String],
-        aspectRatio: CGFloat? = nil,
         status: ChatMessageStatus = .sent,
         progress: Float? = nil
     ) {
         guard !urls.isEmpty, urls.count <= 5 else { return }
 
-        NSLayoutConstraint.deactivate(activeConstraints)
-        activeConstraints.removeAll()
-
+        currentImageCount = urls.count
         hideAllImageViews()
 
         for (index, url) in urls.enumerated() {
+            guard index < imageViews.count else { break }
             let imageView = imageViews[index]
             imageView.isHidden = false
             imageView.setImage(
@@ -77,8 +56,50 @@ final class ChatImageGridView: UIView {
             )
         }
 
-        activateConstraints(for: urls.count, aspectRatio: aspectRatio)
         updateOverlay(status: status, progress: progress)
+        setNeedsLayout()
+    }
+
+    private func layoutSingleImage(width: CGFloat, height: CGFloat) {
+        imageViews[0].frame = CGRect(x: 0, y: 0, width: width, height: height)
+    }
+
+    private func layoutTwoImages(width: CGFloat, height: CGFloat, spacing: CGFloat) {
+        let halfWidth = (width - spacing) / 2
+
+        imageViews[0].frame = CGRect(x: 0, y: 0, width: halfWidth, height: height)
+        imageViews[1].frame = CGRect(x: halfWidth + spacing, y: 0, width: halfWidth, height: height)
+    }
+
+    private func layoutThreeImages(width: CGFloat, height: CGFloat, spacing: CGFloat) {
+        let halfWidth = (width - spacing) / 2
+        let halfHeight = (height - spacing) / 2
+
+        imageViews[0].frame = CGRect(x: 0, y: 0, width: halfWidth, height: height)
+        imageViews[1].frame = CGRect(x: halfWidth + spacing, y: 0, width: halfWidth, height: halfHeight)
+        imageViews[2].frame = CGRect(x: halfWidth + spacing, y: halfHeight + spacing, width: halfWidth, height: halfHeight)
+    }
+
+    private func layoutFourImages(width: CGFloat, height: CGFloat, spacing: CGFloat) {
+        let halfWidth = (width - spacing) / 2
+        let halfHeight = (height - spacing) / 2
+
+        imageViews[0].frame = CGRect(x: 0, y: 0, width: halfWidth, height: halfHeight)
+        imageViews[1].frame = CGRect(x: halfWidth + spacing, y: 0, width: halfWidth, height: halfHeight)
+        imageViews[2].frame = CGRect(x: 0, y: halfHeight + spacing, width: halfWidth, height: halfHeight)
+        imageViews[3].frame = CGRect(x: halfWidth + spacing, y: halfHeight + spacing, width: halfWidth, height: halfHeight)
+    }
+
+    private func layoutFiveImages(width: CGFloat, height: CGFloat, spacing: CGFloat) {
+        let halfHeight = (height - spacing) / 2
+        let topThirdWidth = (width - spacing * 2) / 3
+        let bottomHalfWidth = (width - spacing) / 2
+
+        imageViews[0].frame = CGRect(x: 0, y: 0, width: topThirdWidth, height: halfHeight)
+        imageViews[1].frame = CGRect(x: topThirdWidth + spacing, y: 0, width: topThirdWidth, height: halfHeight)
+        imageViews[2].frame = CGRect(x: (topThirdWidth + spacing) * 2, y: 0, width: topThirdWidth, height: halfHeight)
+        imageViews[3].frame = CGRect(x: 0, y: halfHeight + spacing, width: bottomHalfWidth, height: halfHeight)
+        imageViews[4].frame = CGRect(x: bottomHalfWidth + spacing, y: halfHeight + spacing, width: bottomHalfWidth, height: halfHeight)
     }
 
     private func setupUI() {
@@ -90,39 +111,62 @@ final class ChatImageGridView: UIView {
 
         addSubview(overlayView)
 
-        overlayView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            overlayView.topAnchor.constraint(equalTo: topAnchor),
-            overlayView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            overlayView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            overlayView.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
-
         overlayView.backgroundColor = AppColor.gray100.withAlphaComponent(0.35)
         overlayView.isHidden = true
 
         overlayView.addSubview(progressView)
         overlayView.addSubview(retryButton)
 
-        progressView.translatesAutoresizingMaskIntoConstraints = false
-        retryButton.translatesAutoresizingMaskIntoConstraints = false
-
-        NSLayoutConstraint.activate([
-            progressView.centerXAnchor.constraint(equalTo: overlayView.centerXAnchor),
-            progressView.centerYAnchor.constraint(equalTo: overlayView.centerYAnchor),
-            progressView.widthAnchor.constraint(equalToConstant: 44),
-            progressView.heightAnchor.constraint(equalToConstant: 44),
-
-            retryButton.centerXAnchor.constraint(equalTo: overlayView.centerXAnchor),
-            retryButton.centerYAnchor.constraint(equalTo: overlayView.centerYAnchor),
-            retryButton.widthAnchor.constraint(equalToConstant: 36),
-            retryButton.heightAnchor.constraint(equalToConstant: 36)
-        ])
-
         retryButton.setImage(UIImage(systemName: "arrow.clockwise"), for: .normal)
         retryButton.tintColor = AppColor.errorRed
         retryButton.isHidden = true
         retryButton.addTarget(self, action: #selector(handleRetryTap), for: .touchUpInside)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        let width = bounds.width
+        let height = bounds.height
+        let spacing = Layout.spacing
+
+        switch currentImageCount {
+        case 1:
+            layoutSingleImage(width: width, height: height)
+
+        case 2:
+            layoutTwoImages(width: width, height: height, spacing: spacing)
+
+        case 3:
+            layoutThreeImages(width: width, height: height, spacing: spacing)
+
+        case 4:
+            layoutFourImages(width: width, height: height, spacing: spacing)
+
+        case 5:
+            layoutFiveImages(width: width, height: height, spacing: spacing)
+
+        default:
+            break
+        }
+
+        overlayView.frame = bounds
+
+        let progressSize: CGFloat = 44
+        progressView.frame = CGRect(
+            x: (width - progressSize) / 2,
+            y: (height - progressSize) / 2,
+            width: progressSize,
+            height: progressSize
+        )
+
+        let retrySize: CGFloat = 36
+        retryButton.frame = CGRect(
+            x: (width - retrySize) / 2,
+            y: (height - retrySize) / 2,
+            width: retrySize,
+            height: retrySize
+        )
     }
 
     private func createImageViewPool() {
@@ -133,7 +177,6 @@ final class ChatImageGridView: UIView {
             imageView.backgroundColor = AppColor.gray15
             imageView.isUserInteractionEnabled = true
             imageView.isHidden = true
-            imageView.translatesAutoresizingMaskIntoConstraints = false
 
             let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleImageTap(_:)))
             imageView.addGestureRecognizer(tapGesture)
@@ -142,189 +185,6 @@ final class ChatImageGridView: UIView {
             addSubview(imageView)
             imageViews.append(imageView)
         }
-    }
-
-    private func setupAllConstraints() {
-        setupCase1Constraints()
-        setupCase2Constraints()
-        setupCase3Constraints()
-        setupCase4Constraints()
-        setupCase5Constraints()
-    }
-
-    private func setupCase1Constraints() {
-        let imageView = imageViews[0]
-
-        let calculatedHeight = Layout.maxContentWidth / Layout.defaultAspectRatio
-        let height = min(calculatedHeight, Layout.singleImageMaxHeight)
-
-        let widthConstraint = imageView.widthAnchor.constraint(equalToConstant: Layout.maxContentWidth)
-        let heightConstraint = imageView.heightAnchor.constraint(equalToConstant: height)
-        let topConstraint = imageView.topAnchor.constraint(equalTo: topAnchor)
-        let leadingConstraint = imageView.leadingAnchor.constraint(equalTo: leadingAnchor)
-        let bottomConstraint = imageView.bottomAnchor.constraint(equalTo: bottomAnchor)
-        let trailingConstraint = imageView.trailingAnchor.constraint(equalTo: trailingAnchor)
-
-        case1Constraints = [widthConstraint, heightConstraint, topConstraint, leadingConstraint, bottomConstraint, trailingConstraint]
-    }
-
-    private func setupCase2Constraints() {
-        let imageView0 = imageViews[0]
-        let imageView1 = imageViews[1]
-        let unitSize = Layout.unitSize
-
-        case2Constraints = [
-            imageView0.topAnchor.constraint(equalTo: topAnchor),
-            imageView0.leadingAnchor.constraint(equalTo: leadingAnchor),
-            imageView0.widthAnchor.constraint(equalToConstant: unitSize),
-            imageView0.heightAnchor.constraint(equalToConstant: unitSize),
-            imageView0.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            imageView1.topAnchor.constraint(equalTo: topAnchor),
-            imageView1.leadingAnchor.constraint(equalTo: imageView0.trailingAnchor, constant: Layout.spacing),
-            imageView1.widthAnchor.constraint(equalToConstant: unitSize),
-            imageView1.heightAnchor.constraint(equalToConstant: unitSize),
-            imageView1.trailingAnchor.constraint(equalTo: trailingAnchor),
-            imageView1.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ]
-    }
-
-    private func setupCase3Constraints() {
-        let imageView0 = imageViews[0]
-        let imageView1 = imageViews[1]
-        let imageView2 = imageViews[2]
-        let unitSize = Layout.unitSize
-        let totalHeight = unitSize * 2 + Layout.spacing
-
-        case3Constraints = [
-            imageView0.topAnchor.constraint(equalTo: topAnchor),
-            imageView0.leadingAnchor.constraint(equalTo: leadingAnchor),
-            imageView0.widthAnchor.constraint(equalToConstant: unitSize),
-            imageView0.heightAnchor.constraint(equalToConstant: totalHeight),
-            imageView0.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            imageView1.topAnchor.constraint(equalTo: topAnchor),
-            imageView1.leadingAnchor.constraint(equalTo: imageView0.trailingAnchor, constant: Layout.spacing),
-            imageView1.widthAnchor.constraint(equalToConstant: unitSize),
-            imageView1.heightAnchor.constraint(equalToConstant: unitSize),
-            imageView1.trailingAnchor.constraint(equalTo: trailingAnchor),
-
-            imageView2.topAnchor.constraint(equalTo: imageView1.bottomAnchor, constant: Layout.spacing),
-            imageView2.leadingAnchor.constraint(equalTo: imageView0.trailingAnchor, constant: Layout.spacing),
-            imageView2.widthAnchor.constraint(equalToConstant: unitSize),
-            imageView2.heightAnchor.constraint(equalToConstant: unitSize),
-            imageView2.trailingAnchor.constraint(equalTo: trailingAnchor),
-            imageView2.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ]
-    }
-
-    private func setupCase4Constraints() {
-        let imageView0 = imageViews[0]
-        let imageView1 = imageViews[1]
-        let imageView2 = imageViews[2]
-        let imageView3 = imageViews[3]
-        let unitSize = Layout.unitSize
-        let totalHeight = unitSize * 2 + Layout.spacing
-
-        case4Constraints = [
-            imageView0.topAnchor.constraint(equalTo: topAnchor),
-            imageView0.leadingAnchor.constraint(equalTo: leadingAnchor),
-            imageView0.widthAnchor.constraint(equalToConstant: unitSize),
-            imageView0.heightAnchor.constraint(equalToConstant: unitSize),
-
-            imageView1.topAnchor.constraint(equalTo: topAnchor),
-            imageView1.leadingAnchor.constraint(equalTo: imageView0.trailingAnchor, constant: Layout.spacing),
-            imageView1.widthAnchor.constraint(equalToConstant: unitSize),
-            imageView1.heightAnchor.constraint(equalToConstant: unitSize),
-            imageView1.trailingAnchor.constraint(equalTo: trailingAnchor),
-
-            imageView2.topAnchor.constraint(equalTo: imageView0.bottomAnchor, constant: Layout.spacing),
-            imageView2.leadingAnchor.constraint(equalTo: leadingAnchor),
-            imageView2.widthAnchor.constraint(equalToConstant: unitSize),
-            imageView2.heightAnchor.constraint(equalToConstant: unitSize),
-            imageView2.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            imageView3.topAnchor.constraint(equalTo: imageView1.bottomAnchor, constant: Layout.spacing),
-            imageView3.leadingAnchor.constraint(equalTo: imageView2.trailingAnchor, constant: Layout.spacing),
-            imageView3.widthAnchor.constraint(equalToConstant: unitSize),
-            imageView3.heightAnchor.constraint(equalToConstant: unitSize),
-            imageView3.trailingAnchor.constraint(equalTo: trailingAnchor),
-            imageView3.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            widthAnchor.constraint(equalToConstant: Layout.maxContentWidth),
-            heightAnchor.constraint(equalToConstant: totalHeight)
-        ]
-    }
-
-    private func setupCase5Constraints() {
-        let imageView0 = imageViews[0]
-        let imageView1 = imageViews[1]
-        let imageView2 = imageViews[2]
-        let imageView3 = imageViews[3]
-        let imageView4 = imageViews[4]
-        let smallSize = Layout.smallUnitSize
-        let unitSize = Layout.unitSize
-        let totalHeight = smallSize + Layout.spacing + unitSize
-
-        case5Constraints = [
-            imageView0.topAnchor.constraint(equalTo: topAnchor),
-            imageView0.leadingAnchor.constraint(equalTo: leadingAnchor),
-            imageView0.widthAnchor.constraint(equalToConstant: smallSize),
-            imageView0.heightAnchor.constraint(equalToConstant: smallSize),
-
-            imageView1.topAnchor.constraint(equalTo: topAnchor),
-            imageView1.leadingAnchor.constraint(equalTo: imageView0.trailingAnchor, constant: Layout.spacing),
-            imageView1.widthAnchor.constraint(equalToConstant: smallSize),
-            imageView1.heightAnchor.constraint(equalToConstant: smallSize),
-
-            imageView2.topAnchor.constraint(equalTo: topAnchor),
-            imageView2.leadingAnchor.constraint(equalTo: imageView1.trailingAnchor, constant: Layout.spacing),
-            imageView2.widthAnchor.constraint(equalToConstant: smallSize),
-            imageView2.heightAnchor.constraint(equalToConstant: smallSize),
-            imageView2.trailingAnchor.constraint(equalTo: trailingAnchor),
-
-            imageView3.topAnchor.constraint(equalTo: imageView0.bottomAnchor, constant: Layout.spacing),
-            imageView3.leadingAnchor.constraint(equalTo: leadingAnchor),
-            imageView3.widthAnchor.constraint(equalToConstant: unitSize),
-            imageView3.heightAnchor.constraint(equalToConstant: unitSize),
-            imageView3.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            imageView4.topAnchor.constraint(equalTo: imageView2.bottomAnchor, constant: Layout.spacing),
-            imageView4.leadingAnchor.constraint(equalTo: imageView3.trailingAnchor, constant: Layout.spacing),
-            imageView4.widthAnchor.constraint(equalToConstant: unitSize),
-            imageView4.heightAnchor.constraint(equalToConstant: unitSize),
-            imageView4.trailingAnchor.constraint(equalTo: trailingAnchor),
-            imageView4.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            widthAnchor.constraint(equalToConstant: Layout.maxContentWidth),
-            heightAnchor.constraint(equalToConstant: totalHeight)
-        ]
-    }
-
-    private func activateConstraints(for count: Int, aspectRatio: CGFloat?) {
-        switch count {
-        case 1:
-            if let aspectRatio = aspectRatio {
-                let calculatedHeight = Layout.maxContentWidth / aspectRatio
-                let clampedHeight = min(max(calculatedHeight, Layout.singleImageMinHeight), Layout.singleImageMaxHeight)
-
-                let heightConstraint = case1Constraints.first { $0.firstAttribute == .height }
-                heightConstraint?.constant = clampedHeight
-            }
-            activeConstraints = case1Constraints
-        case 2:
-            activeConstraints = case2Constraints
-        case 3:
-            activeConstraints = case3Constraints
-        case 4:
-            activeConstraints = case4Constraints
-        case 5:
-            activeConstraints = case5Constraints
-        default:
-            break
-        }
-
-        NSLayoutConstraint.activate(activeConstraints)
     }
 
     @objc private func handleImageTap(_ gesture: UITapGestureRecognizer) {
@@ -356,22 +216,5 @@ final class ChatImageGridView: UIView {
 
     @objc private func handleRetryTap() {
         onRetryTapped?()
-    }
-
-    static func calculateHeight(for imageCount: Int, aspectRatio: CGFloat? = nil) -> CGFloat {
-        switch imageCount {
-        case 1:
-            let ratio = aspectRatio ?? Layout.defaultAspectRatio
-            let calculatedHeight = Layout.maxContentWidth / ratio
-            return min(max(calculatedHeight, Layout.singleImageMinHeight), Layout.singleImageMaxHeight)
-        case 2:
-            return Layout.unitSize
-        case 3, 4:
-            return Layout.unitSize * 2 + Layout.spacing
-        case 5:
-            return Layout.smallUnitSize + Layout.spacing + Layout.unitSize
-        default:
-            return 0
-        }
     }
 }

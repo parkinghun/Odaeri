@@ -29,11 +29,11 @@ final class StreamingCoordinator: Coordinator {
         navigationController.setViewControllers([viewController], animated: false)
     }
 
-    func showVideoDetail(videoId: String) {
+    func showVideoDetail(video: VideoEntity) {
         let repository = VideoRepositoryImpl()
         let useCase = DefaultGetVideoStreamURLUseCase(repository: repository)
         let viewModel = StreamingDetailViewModel(
-            videoId: videoId,
+            video: video,
             getStreamURLUseCase: useCase
         )
         let playerManager = StreamingPlayerManager()

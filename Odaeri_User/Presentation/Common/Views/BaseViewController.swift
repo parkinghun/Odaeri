@@ -130,25 +130,31 @@ class BaseViewController<VM: ViewModelType>: UIViewController, UIGestureRecogniz
     }
 
     func setLoading(_ isLoading: Bool) {
-        if isLoading {
-            view.endEditing(true)
-            loadingIndicator.startAnimating()
-            view.isUserInteractionEnabled = false
-        } else {
-            loadingIndicator.stopAnimating()
-            view.isUserInteractionEnabled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if isLoading {
+                self.view.endEditing(true)
+                self.loadingIndicator.startAnimating()
+                self.view.isUserInteractionEnabled = false
+            } else {
+                self.loadingIndicator.stopAnimating()
+                self.view.isUserInteractionEnabled = true
+            }
         }
     }
-    
+
     func showAlert(title: String, message: String, confirmTitle: String = "확인") {
-        let alert = UIAlertController(
-            title: title,
-            message: message,
-            preferredStyle: .alert
-        )
-        
-        alert.addAction(UIAlertAction(title: confirmTitle, style: .default))
-        present(alert, animated: true)
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let alert = UIAlertController(
+                title: title,
+                message: message,
+                preferredStyle: .alert
+            )
+
+            alert.addAction(UIAlertAction(title: confirmTitle, style: .default))
+            self.present(alert, animated: true)
+        }
     }
     
     deinit {

@@ -10,7 +10,6 @@ import Combine
 import SnapKit
 
 final class AdminSideTabBarController: UIViewController {
-    private let topStatusView = AdminTopStatusView()
     private let sideTabBar = AdminSideTabBar()
     private let dashboardController = AdminDashboardSplitViewController()
     private let viewModel: AdminDashboardViewModel
@@ -30,16 +29,16 @@ final class AdminSideTabBarController: UIViewController {
         super.viewDidLoad()
         setupUI()
         bind()
+        setupNotificationObservers()
     }
 
-    override var prefersStatusBarHidden: Bool {
-        true
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     private func setupUI() {
         view.backgroundColor = AppColor.adminDark
 
-        view.addSubview(topStatusView)
         addChild(sideTabBar)
         addChild(dashboardController)
         view.addSubview(sideTabBar.view)
@@ -53,16 +52,9 @@ final class AdminSideTabBarController: UIViewController {
             $0.width.equalTo(Layout.tabBarWidth)
         }
 
-        topStatusView.snp.makeConstraints {
-            $0.top.equalTo(view.safeAreaLayoutGuide)
-            $0.leading.equalTo(sideTabBar.view.snp.trailing)
-            $0.trailing.equalToSuperview()
-            $0.height.equalTo(Layout.topStatusHeight)
-        }
-
         dashboardController.view.snp.makeConstraints {
             $0.leading.equalTo(sideTabBar.view.snp.trailing)
-            $0.top.equalTo(topStatusView.snp.bottom)
+            $0.top.equalTo(view.safeAreaLayoutGuide)
             $0.bottom.trailing.equalToSuperview()
         }
     }
@@ -71,6 +63,12 @@ final class AdminSideTabBarController: UIViewController {
         sideTabBar.selectionPublisher
             .sink { [weak self] tab in
                 self?.selectedTabSubject.send(tab)
+            }
+            .store(in: &cancellables)
+
+        sideTabBar.settingsPublisher
+            .sink { [weak self] in
+                self?.presentSettings()
             }
             .store(in: &cancellables)
 
@@ -121,6 +119,13 @@ final class AdminSideTabBarController: UIViewController {
             }
             .store(in: &cancellables)
 
+        output.orderLookupOrders
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] orders in
+                self?.dashboardController.updateOrderLookup(orders)
+            }
+            .store(in: &cancellables)
+
         output.selectedOrder
             .receive(on: DispatchQueue.main)
             .sink { [weak self] order in
@@ -128,17 +133,10 @@ final class AdminSideTabBarController: UIViewController {
             }
             .store(in: &cancellables)
 
-        output.salesSummary
+        output.salesOrders
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] summary in
-                self?.dashboardController.updateSalesSummary(summary)
-            }
-            .store(in: &cancellables)
-
-        output.salesCharts
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] charts in
-                self?.dashboardController.updateSalesCharts(charts)
+            .sink { [weak self] orders in
+                self?.dashboardController.updateSalesOrders(orders)
             }
             .store(in: &cancellables)
 
@@ -154,77 +152,62 @@ final class AdminSideTabBarController: UIViewController {
             }
             .store(in: &cancellables)
     }
+
+    private func setupNotificationObservers() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSessionInvalidated),
+            name: .sessionInvalidated,
+            object: nil
+        )
+    }
+
+    @objc private func handleSessionInvalidated() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            let alert = UIAlertController(
+                title: "세션 종료",
+                message: "다른 기기에서 로그인되어 세션이 종료되었습니다.\n다시 로그인해주세요.",
+                preferredStyle: .alert
+            )
+
+            alert.addAction(UIAlertAction(title: "확인", style: .default) { [weak self] _ in
+                self?.logout()
+            })
+
+            self.present(alert, animated: true)
+        }
+    }
+
+    private func logout() {
+        TokenManager.shared.clearTokens()
+
+        let loginViewModel = AdminLoginViewModel()
+        let loginViewController = AdminLoginViewController(viewModel: loginViewModel)
+        let navigationController = UINavigationController(rootViewController: loginViewController)
+        navigationController.navigationBar.isHidden = true
+
+        loginViewController.onLoginSuccess = { [weak self] in
+            self?.view.window?.rootViewController = AdminSideTabBarController()
+            self?.view.window?.makeKeyAndVisible()
+        }
+
+        view.window?.rootViewController = navigationController
+        view.window?.makeKeyAndVisible()
+    }
+
+    private func presentSettings() {
+        let settingsViewController = AdminSettingsViewController()
+        settingsViewController.onStoreIdUpdated = { [weak self] in
+            self?.dashboardController.reloadStoreManagement()
+        }
+        let navigationController = UINavigationController(rootViewController: settingsViewController)
+        navigationController.modalPresentationStyle = .formSheet
+        present(navigationController, animated: true)
+    }
 }
 
 private enum Layout {
     static let tabBarWidth: CGFloat = 90
-    static let topStatusHeight: CGFloat = 36
-}
-
-private final class AdminTopStatusView: UIView {
-    private let statusDot = UIView()
-    private let statusLabel = UILabel()
-    private let timeLabel = UILabel()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupUI()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupUI() {
-        backgroundColor = AppColor.adminDark
-
-        statusDot.layer.cornerRadius = LayoutTopStatus.dotSize / 2
-        statusDot.backgroundColor = LayoutTopStatus.openColor
-
-        statusLabel.font = AppFont.body2Bold
-        statusLabel.textColor = AppColor.gray15
-        statusLabel.text = "영업 중"
-
-        timeLabel.font = AppFont.body2
-        timeLabel.textColor = AppColor.gray60
-        timeLabel.text = timeText()
-
-        let statusStack = UIStackView(arrangedSubviews: [statusDot, statusLabel])
-        statusStack.axis = .horizontal
-        statusStack.alignment = .center
-        statusStack.spacing = LayoutTopStatus.statusSpacing
-
-        let stack = UIStackView(arrangedSubviews: [statusStack, UIView(), timeLabel])
-        stack.axis = .horizontal
-        stack.alignment = .center
-        stack.spacing = LayoutTopStatus.timeSpacing
-
-        addSubview(stack)
-        stack.snp.makeConstraints {
-            $0.leading.trailing.equalToSuperview().inset(LayoutTopStatus.horizontalInset)
-            $0.centerY.equalToSuperview()
-        }
-
-        statusDot.snp.makeConstraints {
-            $0.width.height.equalTo(LayoutTopStatus.dotSize)
-        }
-    }
-
-    private func timeText() -> String {
-        DateFormatter.adminStatus.string(from: Date())
-    }
-
-    func updateStatus(isOpen: Bool) {
-        statusDot.backgroundColor = isOpen ? LayoutTopStatus.openColor : LayoutTopStatus.closedColor
-        statusLabel.text = isOpen ? "영업 중" : "영업 종료"
-    }
-}
-
-private enum LayoutTopStatus {
-    static let dotSize: CGFloat = 6
-    static let statusSpacing: CGFloat = 6
-    static let timeSpacing: CGFloat = 12
-    static let horizontalInset: CGFloat = 12
-    static let openColor = UIColor.systemGreen
-    static let closedColor = UIColor.systemRed
 }

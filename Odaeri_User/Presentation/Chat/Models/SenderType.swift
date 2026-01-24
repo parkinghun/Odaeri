@@ -50,7 +50,7 @@ enum SenderType {
     var textAlignment: NSTextAlignment {
         switch self {
         case .me:
-            return .right
+            return .left
         case .other:
             return .left
         }

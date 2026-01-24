@@ -147,5 +147,5 @@ private final class AdminCompletedSortHeaderView: UIView {
 
 private enum Layout {
     static let headerHeight: CGFloat = 52
-    static let rowHeight: CGFloat = 128
+    static let rowHeight: CGFloat = 152
 }

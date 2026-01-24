@@ -514,6 +514,9 @@ extension MoyaProvider {
         }
 
         if statusCode == 401 {
+            if TokenManager.shared.refreshToken != nil {
+                return .accessTokenExpired
+            }
             return .unauthorized
         }
 

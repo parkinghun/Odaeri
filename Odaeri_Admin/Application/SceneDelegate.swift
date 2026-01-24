@@ -57,6 +57,48 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneWillEnterForeground(_ scene: UIScene) {
         // Called as the scene transitions from the background to the foreground.
         // Use this method to undo the changes made on entering the background.
+        checkSessionInvalidation()
+    }
+
+    private func checkSessionInvalidation() {
+        guard TokenManager.shared.isSessionInvalidated else { return }
+
+        TokenManager.shared.clearSessionInvalidationFlag()
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self,
+                  let windowScene = self.window?.windowScene,
+                  windowScene.activationState == .foregroundActive else { return }
+
+            let alert = UIAlertController(
+                title: "세션 종료",
+                message: "다른 기기에서 로그인되어 세션이 종료되었습니다.\n다시 로그인해주세요.",
+                preferredStyle: .alert
+            )
+
+            alert.addAction(UIAlertAction(title: "확인", style: .default) { [weak self] _ in
+                self?.showLoginScreen()
+            })
+
+            self.window?.rootViewController?.present(alert, animated: true)
+        }
+    }
+
+    private func showLoginScreen() {
+        TokenManager.shared.clearTokens()
+
+        let loginViewModel = AdminLoginViewModel()
+        let loginViewController = AdminLoginViewController(viewModel: loginViewModel)
+        let navigationController = UINavigationController(rootViewController: loginViewController)
+        navigationController.navigationBar.isHidden = true
+
+        loginViewController.onLoginSuccess = { [weak self] in
+            self?.window?.rootViewController = AdminSideTabBarController()
+            self?.window?.makeKeyAndVisible()
+        }
+
+        window?.rootViewController = navigationController
+        window?.makeKeyAndVisible()
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {

@@ -248,11 +248,11 @@ actor TokenRefreshCoordinator {
             print("[TokenRefreshCoordinator] completeRefresh: Sending failure to waiting requests")
             refreshSubject?.send(.failure(error))
 
-            // 로그아웃 처리
+            // 세션 무효화 처리
             _Concurrency.Task { @MainActor in
-                print("[TokenRefreshCoordinator] Posting unauthorizedAccess notification and clearing tokens")
-                TokenManager.shared.clearTokens()
-                NotificationCenter.default.post(name: .unauthorizedAccess, object: nil)
+                print("[TokenRefreshCoordinator] Session invalidated - setting flag and posting notification")
+                TokenManager.shared.invalidateSession()
+                NotificationCenter.default.post(name: .sessionInvalidated, object: nil)
             }
         }
     }
