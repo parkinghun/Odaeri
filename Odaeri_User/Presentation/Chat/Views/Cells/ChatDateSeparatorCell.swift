@@ -6,41 +6,66 @@
 //
 
 import UIKit
-import SnapKit
 
-final class ChatDateSeparatorCell: UITableViewCell {
+final class ChatDateSeparatorCell: BaseCollectionViewCell {
     static let reuseIdentifier = String(describing: ChatDateSeparatorCell.self)
 
-    private let label: UILabel = {
-        let label = UILabel()
-        label.font = AppFont.caption1
-        label.textColor = AppColor.gray60
-        label.textAlignment = .center
-        return label
-    }()
+    private let label = UILabel()
+    private var currentLayoutData: ChatDateSeparatorCellLayoutData?
 
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-        contentView.transform = CGAffineTransform(scaleX: 1, y: -1)
-        setupUI()
+    override init(frame: CGRect) {
+        super.init(frame: frame)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    private func setupUI() {
-        selectionStyle = .none
-        contentView.backgroundColor = AppColor.gray0
-        contentView.addSubview(label)
+    override func setupUI() {
+        super.setupUI()
 
-        label.snp.makeConstraints {
-            $0.top.bottom.equalToSuperview().inset(AppSpacing.small)
-            $0.centerX.equalToSuperview()
-        }
+        contentView.backgroundColor = AppColor.gray0
+
+        label.font = AppFont.caption1
+        label.textColor = AppColor.gray60
+        label.textAlignment = .center
+
+        contentView.addSubview(label)
     }
 
-    func configure(text: String) {
-        label.text = text
+    override func preferredLayoutAttributesFitting(
+        _ layoutAttributes: UICollectionViewLayoutAttributes
+    ) -> UICollectionViewLayoutAttributes {
+        return layoutAttributes
+    }
+
+    override func apply(_ layoutAttributes: UICollectionViewLayoutAttributes) {
+        super.apply(layoutAttributes)
+
+        guard let attrs = layoutAttributes as? ChatCollectionViewLayoutAttributes,
+              case .dateSeparator(let layoutData) = attrs.cellLayoutData else {
+            return
+        }
+
+        currentLayoutData = layoutData
+        configure(with: layoutData)
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+
+        guard let layoutData = currentLayoutData else { return }
+        label.frame = layoutData.labelFrame
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        label.text = nil
+        currentLayoutData = nil
+    }
+
+    private func configure(with layoutData: ChatDateSeparatorCellLayoutData) {
+        label.text = layoutData.text
     }
 }

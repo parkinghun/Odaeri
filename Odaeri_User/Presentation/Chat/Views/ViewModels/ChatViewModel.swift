@@ -25,12 +25,12 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     private var uploadCancellables: [String: AnyCancellable] = [:]
     private var isSyncing = false
 
-    private var currentLimit = 30
+    private var currentLimit = ChatConstants.Pagination.initialLimit
     private var isInitialLoading = true
     private var isFetchingNextPage = false
     private var hasMoreLocalData = true
     private var hasMoreRemoteData = true
-    private let pageSize = 30
+    private let pageSize = ChatConstants.Pagination.pageSize
     private var detectedGaps: Set<String> = []
 
     private var updateWorkItem: DispatchWorkItem?
@@ -125,26 +125,32 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         hasMoreLocalData = totalCount > currentLimit
 
         let limitedResults = results.prefix(currentLimit)
-        let entities = limitedResults.map { $0.toEntity() }
-        let reversedEntities = Array(entities.reversed())
+        let entities = Array(limitedResults.map { $0.toEntity() })
 
-        detectAndFillGaps(in: reversedEntities)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
 
-        let items = ChatMapper.map(reversedEntities, currentUserId: currentUserId)
+            self.detectAndFillGaps(in: entities)
+            let items = ChatMapper.map(entities, currentUserId: self.currentUserId)
 
-        if isInitial || !hasCompletedInitialLoad {
-            updateWorkItem?.cancel()
+            DispatchQueue.main.async {
+                if !self.hasCompletedInitialLoad {
+                    self.chatItemsSubject.send(items)
+                    self.hasCompletedInitialLoad = true
+                } else if self.isFetchingNextPage {
+                    self.chatItemsSubject.send(items)
+                } else {
+                    self.updateWorkItem?.cancel()
 
-            let workItem = DispatchWorkItem { [weak self] in
-                guard let self = self else { return }
-                self.chatItemsSubject.send(items)
-                self.hasCompletedInitialLoad = true
+                    let workItem = DispatchWorkItem { [weak self] in
+                        guard let self = self else { return }
+                        self.chatItemsSubject.send(items)
+                    }
+
+                    self.updateWorkItem = workItem
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
+                }
             }
-
-            updateWorkItem = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: workItem)
-        } else {
-            chatItemsSubject.send(items)
         }
     }
 
@@ -155,15 +161,12 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             let current = entities[i]
             let next = entities[i + 1]
 
-            guard let currentDate = DateFormatter.iso8601.date(from: current.createdAt),
-                  let nextDate = DateFormatter.iso8601.date(from: next.createdAt) else {
-                continue
-            }
+            let currentDate = ChatMapper.getCachedDate(from: current.createdAt)
+            let nextDate = ChatMapper.getCachedDate(from: next.createdAt)
 
             let timeDifference = nextDate.timeIntervalSince(currentDate)
-            let gapThreshold: TimeInterval = 300
 
-            if timeDifference > gapThreshold {
+            if timeDifference > ChatConstants.Timing.gapDetectionThreshold {
                 let gapKey = "\(current.createdAt)-\(next.createdAt)"
                 if !detectedGaps.contains(gapKey) {
                     detectedGaps.insert(gapKey)

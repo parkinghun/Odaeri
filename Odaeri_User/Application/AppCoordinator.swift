@@ -52,6 +52,13 @@ final class AppCoordinator: Coordinator {
             name: .refreshTokenExpired,
             object: nil
         )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSessionInvalidated),
+            name: .sessionInvalidated,
+            object: nil
+        )
     }
 
     @objc private func handleUnauthorizedAccess() {
@@ -81,6 +88,29 @@ final class AppCoordinator: Coordinator {
             self.tokenManager.clearTokens()
             self.navigationController.dismiss(animated: false)
             self.showAuthFlow()
+        }
+    }
+
+    @objc private func handleSessionInvalidated() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            let alert = UIAlertController(
+                title: "세션 종료",
+                message: "다른 기기에서 로그인되어 세션이 종료되었습니다.\n다시 로그인해주세요.",
+                preferredStyle: .alert
+            )
+
+            alert.addAction(UIAlertAction(title: "확인", style: .default) { [weak self] _ in
+                self?.navigationController.dismiss(animated: false)
+                self?.showAuthFlow()
+            })
+
+            if let presented = self.navigationController.presentedViewController {
+                presented.present(alert, animated: true)
+            } else {
+                self.navigationController.present(alert, animated: true)
+            }
         }
     }
 

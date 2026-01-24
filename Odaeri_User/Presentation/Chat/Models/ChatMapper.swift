@@ -8,11 +8,38 @@
 import Foundation
 
 struct ChatMapper {
+    private static let dateCache = NSCache<NSString, NSDate>()
+    private static let timeTextCache = NSCache<NSDate, NSString>()
+
+    static func getCachedDate(from isoString: String) -> Date {
+        let key = isoString as NSString
+
+        if let cached = dateCache.object(forKey: key) {
+            return cached as Date
+        }
+
+        let date = DateFormatter.iso8601.date(from: isoString) ?? .distantPast
+        dateCache.setObject(date as NSDate, forKey: key)
+        return date
+    }
+
+    private static func getCachedTimeText(from date: Date) -> String {
+        let key = date as NSDate
+
+        if let cached = timeTextCache.object(forKey: key) {
+            return cached as String
+        }
+
+        let timeText = DateFormatter.timeDisplay.string(from: date)
+        timeTextCache.setObject(timeText as NSString, forKey: key)
+        return timeText
+    }
+
     static func map(_ entities: [ChatEntity], currentUserId: String) -> [ChatItem] {
         guard !entities.isEmpty else { return [] }
 
         let sorted = sortForDisplay(entities)
-        let dates = sorted.map { DateFormatter.iso8601.date(from: $0.createdAt) ?? .distantPast }
+        let dates = sorted.map { getCachedDate(from: $0.createdAt) }
 
         var result: [ChatItem] = []
 
@@ -41,12 +68,18 @@ struct ChatMapper {
                 files: entity.files
             )
 
+            if shouldInsertDateSeparator(current: createdAt, previous: previousDate) {
+                let dateText = formatDateSeparator(createdAt)
+                let separatorId = "separator_\(createdAt.timeIntervalSince1970)"
+                let separator = ChatItem.DateSeparator(id: separatorId, text: dateText)
+                result.append(.dateSeparator(separator))
+            }
 
             let displayModel = ChatDisplayModel(
                 id: entity.chatId,
                 content: entity.content,
                 createdAt: createdAt,
-                timeText: DateFormatter.timeDisplay.string(from: createdAt),
+                timeText: getCachedTimeText(from: createdAt),
                 senderName: entity.sender.nick,
                 senderUserId: entity.sender.userId,
                 senderProfileImageUrl: entity.sender.profileImage,
@@ -59,18 +92,28 @@ struct ChatMapper {
                 groupPosition: groupPosition
             )
 
-
             result.append(.message(displayModel))
-
-            if shouldInsertDateSeparator(current: createdAt, next: nextDate) {
-                let dateText = formatDateSeparator(createdAt)
-                let separatorId = "separator_\(createdAt.timeIntervalSince1970)"
-                let separator = ChatItem.DateSeparator(id: separatorId, text: dateText)
-                result.append(.dateSeparator(separator))
-            }
         }
 
         return result
+    }
+
+    static func calculateLayout(for item: ChatItem, containerWidth: CGFloat) -> ChatCellLayoutData {
+        switch item {
+        case .message(let displayModel):
+            let layoutData = ChatLayoutCalculator.calculateMessageLayout(
+                displayModel: displayModel,
+                containerWidth: containerWidth
+            )
+            return .message(layoutData)
+
+        case .dateSeparator(let separator):
+            let layoutData = ChatLayoutCalculator.calculateDateSeparatorLayout(
+                text: separator.text,
+                containerWidth: containerWidth
+            )
+            return .dateSeparator(layoutData)
+        }
     }
 
     private static func sortForDisplay(_ entities: [ChatEntity]) -> [ChatEntity] {
@@ -79,22 +122,22 @@ struct ChatMapper {
             let rightFailed = rhs.status == .failed
 
             if leftFailed != rightFailed {
-                return leftFailed
+                return !leftFailed
             }
 
-            let leftDate = DateFormatter.iso8601.date(from: lhs.createdAt) ?? .distantPast
-            let rightDate = DateFormatter.iso8601.date(from: rhs.createdAt) ?? .distantPast
-            return leftDate > rightDate
+            let leftDate = getCachedDate(from: lhs.createdAt)
+            let rightDate = getCachedDate(from: rhs.createdAt)
+            return leftDate < rightDate
         }
     }
 
-    private static func shouldInsertDateSeparator(current: Date, next: Date?) -> Bool {
-        guard let next = next else {
+    private static func shouldInsertDateSeparator(current: Date, previous: Date?) -> Bool {
+        guard let previous = previous else {
             return true
         }
 
         let calendar = Calendar.current
-        return !calendar.isDate(current, inSameDayAs: next)
+        return !calendar.isDate(current, inSameDayAs: previous)
     }
 
     private static func formatDateSeparator(_ date: Date) -> String {
@@ -120,15 +163,15 @@ struct ChatMapper {
         let isFirstInGroup = isFirstMessage(
             current: current,
             currentDate: currentDate,
-            next: next,
-            nextDate: nextDate
+            previous: previous,
+            previousDate: previousDate
         )
 
         let isLastInGroup = isLastMessage(
             current: current,
             currentDate: currentDate,
-            previous: previous,
-            previousDate: previousDate
+            next: next,
+            nextDate: nextDate
         )
 
         switch (isFirstInGroup, isLastInGroup) {
@@ -144,33 +187,6 @@ struct ChatMapper {
     }
 
     private static func isFirstMessage(
-        current: ChatEntity,
-        currentDate: Date,
-        next: ChatEntity?,
-        nextDate: Date?
-    ) -> Bool {
-        guard let next = next, let nextDate = nextDate else {
-            return true
-        }
-
-        if current.sender.userId != next.sender.userId {
-            return true
-        }
-
-        let calendar = Calendar.current
-        if !calendar.isDate(currentDate, inSameDayAs: nextDate) {
-            return true
-        }
-
-        let timeDifference = abs(currentDate.timeIntervalSince(nextDate))
-        if timeDifference >= 60 {
-            return true
-        }
-
-        return false
-    }
-
-    private static func isLastMessage(
         current: ChatEntity,
         currentDate: Date,
         previous: ChatEntity?,
@@ -190,7 +206,34 @@ struct ChatMapper {
         }
 
         let timeDifference = abs(currentDate.timeIntervalSince(previousDate))
-        if timeDifference >= 60 {
+        if timeDifference >= ChatConstants.Timing.messageGroupingInterval {
+            return true
+        }
+
+        return false
+    }
+
+    private static func isLastMessage(
+        current: ChatEntity,
+        currentDate: Date,
+        next: ChatEntity?,
+        nextDate: Date?
+    ) -> Bool {
+        guard let next = next, let nextDate = nextDate else {
+            return true
+        }
+
+        if current.sender.userId != next.sender.userId {
+            return true
+        }
+
+        let calendar = Calendar.current
+        if !calendar.isDate(currentDate, inSameDayAs: nextDate) {
+            return true
+        }
+
+        let timeDifference = abs(currentDate.timeIntervalSince(nextDate))
+        if timeDifference >= ChatConstants.Timing.messageGroupingInterval {
             return true
         }
 

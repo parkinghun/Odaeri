@@ -6,7 +6,7 @@
 //
 
 import UIKit
-import SnapKit
+import Combine
 
 protocol ChatMessageCellDelegate: AnyObject {
     func chatMessageCell(_ cell: ChatMessageCell, didTapImageAt index: Int, in urls: [String])
@@ -17,7 +17,7 @@ protocol ChatMessageCellDelegate: AnyObject {
     func chatMessageCellDidTapDelete(_ cell: ChatMessageCell, messageId: String)
 }
 
-final class ChatMessageCell: UITableViewCell {
+final class ChatMessageCell: BaseCollectionViewCell {
     static let reuseIdentifier = String(describing: ChatMessageCell.self)
 
     weak var delegate: ChatMessageCellDelegate?
@@ -25,7 +25,6 @@ final class ChatMessageCell: UITableViewCell {
     private let profileImageView = UIImageView()
     private let nameLabel = UILabel()
     private let bubbleView = UIView()
-    private let bubbleContentStackView = UIStackView()
     private let timeLabel = UILabel()
     private let statusStackView = UIStackView()
     private let activityIndicator = UIActivityIndicatorView(style: .medium)
@@ -34,220 +33,33 @@ final class ChatMessageCell: UITableViewCell {
     private let retryButton = UIButton(type: .system)
     private let deleteButton = UIButton(type: .system)
     private let statusHintLabel = UILabel()
-    private let mediaContentStackView = UIStackView()
-    private let messageContentGroup = UIStackView()
-    private let horizontalContainerStack = UIStackView()
 
-    private let rootStackView = UIStackView()
-    private let contentStackView = UIStackView()
+    private let textView = UITextView()
+    private let imageGridView = ChatImageGridView()
+    private let videoView = ChatVideoView()
+    private let fileView = ChatFileView()
 
-    private var leadingConstraint: NSLayoutConstraint?
-    private var trailingConstraint: NSLayoutConstraint?
-    private var currentMessageId: String?
-    private var currentStatus: ChatMessageStatus = .sent
-    private var currentUploadProgress: Float?
-    private var currentHasAttachments: Bool = false
-    private var currentHasMedia: Bool = false
-    private var shouldReserveProfileSpace = false
-    private var currentSenderUserId: String?
+    private var currentLayoutData: ChatMessageCellLayoutData?
+    private var currentProfileImageUrl: String?
 
     private enum Layout {
         static let profileSize: CGFloat = 32
         static let bubbleCornerRadius: CGFloat = 8
-        static let horizontalSpacing: CGFloat = AppSpacing.small
-        static let verticalSpacing: CGFloat = AppSpacing.xSmall
-        static let contentInset: CGFloat = AppSpacing.large
-        static let bubbleContentSpacing: CGFloat = 2
-        static let timeSpacingTight: CGFloat = 2
-        static let textPadding = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
-        static let textPaddingTightSide: CGFloat = 2
         static let actionSpacing: CGFloat = 8
         static let actionButtonHeight: CGFloat = 24
-        static let maxContentWidth: CGFloat = UIScreen.main.bounds.width * 0.7
     }
 
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-        contentView.transform = CGAffineTransform(scaleX: 1, y: -1)
-        setupUI()
-        setupConstraints()
+    override init(frame: CGRect) {
+        super.init(frame: frame)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func prepareForReuse() {
-        super.prepareForReuse()
-        profileImageView.image = nil
-        nameLabel.text = nil
-        timeLabel.text = nil
-        currentMessageId = nil
-        currentStatus = .sent
-        currentUploadProgress = nil
-        currentHasAttachments = false
-        currentHasMedia = false
-        shouldReserveProfileSpace = false
-        currentSenderUserId = nil
+    override func setupUI() {
+        super.setupUI()
 
-        bubbleContentStackView.arrangedSubviews.forEach {
-            bubbleContentStackView.removeArrangedSubview($0)
-            $0.removeFromSuperview()
-        }
-
-        mediaContentStackView.arrangedSubviews.forEach {
-            mediaContentStackView.removeArrangedSubview($0)
-            $0.removeFromSuperview()
-        }
-    }
-
-    func configure(with model: ChatDisplayModel) {
-
-        nameLabel.text = model.senderName
-        timeLabel.text = model.timeText
-        currentMessageId = model.id
-        currentStatus = model.status
-        currentUploadProgress = model.uploadProgress
-        currentHasAttachments = model.hasFiles
-
-        nameLabel.isHidden = !model.showName
-        timeLabel.isHidden = !model.showTime
-        shouldReserveProfileSpace = model.senderType == .other
-        currentSenderUserId = model.senderUserId
-        profileImageView.alpha = model.showProfile ? 1 : 0
-        profileImageView.isHidden = false
-        profileImageView.isUserInteractionEnabled = model.senderType == .other && model.showProfile
-
-        if model.showProfile {
-            if let urlString = model.senderProfileImageUrl {
-                profileImageView.setImage(url: urlString, placeholder: AppImage.person)
-            } else {
-                profileImageView.image = AppImage.person
-            }
-        } else {
-            profileImageView.image = AppImage.person
-        }
-
-        configureContents(
-            model.contents,
-            senderType: model.senderType,
-            status: model.status,
-            uploadProgress: model.uploadProgress
-        )
-        configureStatusUI(status: model.status, senderType: model.senderType)
-        applyStyle(for: model.senderType)
-        updateLayout(for: model.senderType)
-        updateProfileSpacing()
-
-        bubbleView.layer.cornerRadius = Layout.bubbleCornerRadius
-
-    }
-
-    private func configureContents(
-        _ contents: [ChatMessageContent],
-        senderType: SenderType,
-        status: ChatMessageStatus,
-        uploadProgress: Float?
-    ) {
-        var hasText = false
-        var hasMedia = false
-
-        for content in contents {
-            switch content {
-            case .text(let text):
-                let textView = createTextView(text: text, senderType: senderType)
-                bubbleContentStackView.addArrangedSubview(textView)
-                hasText = true
-
-            case .imageGroup(let urls):
-                let imageGridView = ChatImageGridView()
-                imageGridView.configure(with: urls, status: status, progress: uploadProgress)
-                constrainMediaWidth(imageGridView)
-                imageGridView.onImageTapped = { [weak self] index in
-                    guard let self = self else { return }
-                    self.delegate?.chatMessageCell(self, didTapImageAt: index, in: urls)
-                }
-                imageGridView.onRetryTapped = { [weak self] in
-                    guard let self = self, let messageId = self.currentMessageId else { return }
-                    self.delegate?.chatMessageCellDidTapRetry(self, messageId: messageId)
-                }
-                mediaContentStackView.addArrangedSubview(imageGridView)
-                hasMedia = true
-
-            case .video(let thumbnailUrl, let videoUrl):
-                let videoView = ChatVideoView()
-                videoView.configure(
-                    thumbnailUrl: thumbnailUrl,
-                    videoUrl: videoUrl,
-                    status: status,
-                    progress: uploadProgress
-                )
-                constrainMediaWidth(videoView)
-                videoView.onVideoTapped = { [weak self] in
-                    guard let self = self else { return }
-                    self.delegate?.chatMessageCell(self, didTapVideo: videoUrl)
-                }
-                videoView.onRetryTapped = { [weak self] in
-                    guard let self = self, let messageId = self.currentMessageId else { return }
-                    self.delegate?.chatMessageCellDidTapRetry(self, messageId: messageId)
-                }
-                mediaContentStackView.addArrangedSubview(videoView)
-                hasMedia = true
-
-            case .file(let fileInfo):
-                let fileView = ChatFileView()
-                fileView.configure(with: fileInfo)
-                constrainMediaWidth(fileView)
-                fileView.onFileTapped = { [weak self] in
-                    guard let self = self else { return }
-                    self.delegate?.chatMessageCell(self, didTapFile: fileInfo)
-                }
-                mediaContentStackView.addArrangedSubview(fileView)
-                hasMedia = true
-            }
-        }
-
-        updateContentLayout(hasText: hasText, hasMedia: hasMedia, senderType: senderType)
-    }
-
-    private func createTextView(text: String, senderType: SenderType) -> UITextView {
-        let textView = UITextView()
-
-        textView.isEditable = false
-        textView.isSelectable = true
-        textView.isScrollEnabled = false
-        textView.backgroundColor = .clear
-        textView.dataDetectorTypes = [.link, .phoneNumber]
-
-        textView.textContainerInset = .zero
-        textView.textContainer.lineFragmentPadding = 0
-        textView.textContainer.lineBreakMode = .byCharWrapping
-
-        textView.font = AppFont.body2
-        textView.textColor = senderType.textColor
-        textView.text = text
-        textView.tintColor = AppColor.blackSprout.withAlphaComponent(0.3)
-        textView.linkTextAttributes = [
-            .foregroundColor: AppColor.blackSprout,
-            .underlineStyle: NSUnderlineStyle.single.rawValue
-        ]
-
-        switch senderType.alignment {
-        case .leading:
-            textView.textAlignment = .left
-        case .trailing:
-            textView.textAlignment = .right
-        }
-
-        textView.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        textView.setContentCompressionResistancePriority(.required, for: .horizontal)
-        textView.setContentCompressionResistancePriority(.required, for: .vertical)
-
-        return textView
-    }
-
-    private func setupUI() {
-        selectionStyle = .none
         contentView.backgroundColor = AppColor.gray0
 
         profileImageView.contentMode = .scaleAspectFill
@@ -262,24 +74,12 @@ final class ChatMessageCell: UITableViewCell {
         bubbleView.clipsToBounds = true
         bubbleView.layer.cornerRadius = Layout.bubbleCornerRadius
 
-        bubbleContentStackView.axis = .vertical
-        bubbleContentStackView.spacing = Layout.bubbleContentSpacing
-        bubbleContentStackView.alignment = .leading
-        bubbleContentStackView.distribution = .fill
-
         timeLabel.font = AppFont.caption2
         timeLabel.textColor = AppColor.gray60
-        timeLabel.setContentHuggingPriority(.required, for: .horizontal)
-        timeLabel.setContentHuggingPriority(.required, for: .vertical)
-        timeLabel.setContentCompressionResistancePriority(.required, for: .vertical)
 
         statusStackView.axis = .horizontal
         statusStackView.alignment = .bottom
         statusStackView.spacing = 4
-        statusStackView.setContentHuggingPriority(.required, for: .horizontal)
-        statusStackView.setContentCompressionResistancePriority(.required, for: .horizontal)
-        statusStackView.setContentHuggingPriority(.required, for: .vertical)
-        statusStackView.setContentCompressionResistancePriority(.required, for: .vertical)
 
         activityIndicator.hidesWhenStopped = true
 
@@ -304,46 +104,16 @@ final class ChatMessageCell: UITableViewCell {
         deleteButton.titleLabel?.font = AppFont.caption1
         deleteButton.setTitleColor(AppColor.gray75, for: .normal)
 
-        rootStackView.axis = .horizontal
-        rootStackView.alignment = .top
-        rootStackView.spacing = Layout.horizontalSpacing
+        contentView.addSubview(profileImageView)
+        contentView.addSubview(nameLabel)
+        contentView.addSubview(bubbleView)
+        contentView.addSubview(timeLabel)
+        contentView.addSubview(statusStackView)
+        contentView.addSubview(statusHintLabel)
+        contentView.addSubview(actionStackView)
 
-        contentStackView.axis = .vertical
-        contentStackView.alignment = .leading
-        contentStackView.spacing = Layout.verticalSpacing
-
-        mediaContentStackView.axis = .vertical
-        mediaContentStackView.alignment = .leading
-        mediaContentStackView.spacing = Layout.bubbleContentSpacing
-
-        messageContentGroup.axis = .vertical
-        messageContentGroup.alignment = .leading
-        messageContentGroup.spacing = Layout.bubbleContentSpacing
-
-        horizontalContainerStack.axis = .horizontal
-        horizontalContainerStack.alignment = .bottom
-        horizontalContainerStack.spacing = Layout.timeSpacingTight
-
-        contentView.addSubview(rootStackView)
-        rootStackView.addArrangedSubview(profileImageView)
-        rootStackView.addArrangedSubview(contentStackView)
-
-        contentStackView.addArrangedSubview(nameLabel)
-        contentStackView.addArrangedSubview(horizontalContainerStack)
-        contentStackView.addArrangedSubview(statusHintLabel)
-        contentStackView.addArrangedSubview(actionStackView)
-
-        bubbleView.addSubview(bubbleContentStackView)
-
-        statusStackView.addArrangedSubview(timeLabel)
         statusStackView.addArrangedSubview(activityIndicator)
         statusStackView.addArrangedSubview(errorIconImageView)
-
-        messageContentGroup.addArrangedSubview(bubbleView)
-        messageContentGroup.addArrangedSubview(mediaContentStackView)
-
-        horizontalContainerStack.addArrangedSubview(statusStackView)
-        horizontalContainerStack.addArrangedSubview(messageContentGroup)
 
         actionStackView.addArrangedSubview(retryButton)
         actionStackView.addArrangedSubview(deleteButton)
@@ -353,134 +123,204 @@ final class ChatMessageCell: UITableViewCell {
 
         let profileTapGesture = UITapGestureRecognizer(target: self, action: #selector(handleProfileTap))
         profileImageView.addGestureRecognizer(profileTapGesture)
+
+        setupContentViews()
     }
 
-    private func setupConstraints() {
-        rootStackView.snp.makeConstraints {
-            $0.top.bottom.equalToSuperview().inset(AppSpacing.small)
+    private func setupContentViews() {
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.isScrollEnabled = false
+        textView.backgroundColor = .clear
+        textView.dataDetectorTypes = [.link, .phoneNumber]
+        textView.textContainerInset = .zero
+        textView.textContainer.lineFragmentPadding = 0
+        textView.textContainer.lineBreakMode = .byWordWrapping
+        textView.font = AppFont.body2
+        textView.tintColor = AppColor.blackSprout.withAlphaComponent(0.3)
+        textView.linkTextAttributes = [
+            .foregroundColor: AppColor.blackSprout,
+            .underlineStyle: NSUnderlineStyle.single.rawValue
+        ]
+        textView.isHidden = true
+        bubbleView.addSubview(textView)
+
+        imageGridView.translatesAutoresizingMaskIntoConstraints = true
+        imageGridView.isHidden = true
+        contentView.addSubview(imageGridView)
+
+        videoView.translatesAutoresizingMaskIntoConstraints = true
+        videoView.isHidden = true
+        contentView.addSubview(videoView)
+
+        fileView.translatesAutoresizingMaskIntoConstraints = true
+        fileView.isHidden = true
+        contentView.addSubview(fileView)
+    }
+
+    override func preferredLayoutAttributesFitting(
+        _ layoutAttributes: UICollectionViewLayoutAttributes
+    ) -> UICollectionViewLayoutAttributes {
+        return layoutAttributes
+    }
+
+    override func apply(_ layoutAttributes: UICollectionViewLayoutAttributes) {
+        super.apply(layoutAttributes)
+
+        guard let attrs = layoutAttributes as? ChatCollectionViewLayoutAttributes,
+              case .message(let layoutData) = attrs.cellLayoutData else {
+            return
         }
 
-        leadingConstraint = rootStackView.leadingAnchor.constraint(
-            equalTo: contentView.leadingAnchor,
-            constant: Layout.contentInset
-        )
-        trailingConstraint = rootStackView.trailingAnchor.constraint(
-            equalTo: contentView.trailingAnchor,
-            constant: -Layout.contentInset
-        )
+        currentLayoutData = layoutData
+        configure(with: layoutData)
+        setNeedsLayout()
+    }
 
-        leadingConstraint?.priority = .required
-        trailingConstraint?.priority = .defaultLow
-        leadingConstraint?.isActive = true
-        trailingConstraint?.isActive = true
+    override func layoutSubviews() {
+        super.layoutSubviews()
 
-        profileImageView.snp.makeConstraints {
-            $0.size.equalTo(Layout.profileSize)
+        guard let layoutData = currentLayoutData else { return }
+
+        profileImageView.frame = layoutData.profileFrame
+        timeLabel.frame = layoutData.timeFrame
+        statusStackView.frame = layoutData.statusFrame
+
+        if let nameFrame = layoutData.nameFrame {
+            nameLabel.frame = nameFrame
         }
 
-        bubbleView.snp.makeConstraints {
-            $0.width.lessThanOrEqualToSuperview().multipliedBy(0.75)
+        bubbleView.frame = layoutData.bubbleFrame
+
+        if let textFrame = layoutData.textFrame {
+            textView.frame = textFrame
         }
 
-        messageContentGroup.snp.makeConstraints {
-            $0.width.lessThanOrEqualToSuperview().multipliedBy(0.75)
+        if let imageGridFrame = layoutData.imageGridFrame {
+            imageGridView.frame = imageGridFrame
         }
 
-        bubbleContentStackView.snp.makeConstraints {
-            $0.edges.equalToSuperview().inset(Layout.textPadding)
+        if let videoFrame = layoutData.videoFrame {
+            videoView.frame = videoFrame
         }
 
-        retryButton.snp.makeConstraints {
-            $0.height.equalTo(Layout.actionButtonHeight)
+        if let fileFrame = layoutData.fileFrame {
+            fileView.frame = fileFrame
+        }
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+
+        nameLabel.text = nil
+        timeLabel.text = nil
+        currentLayoutData = nil
+        currentProfileImageUrl = nil
+
+        textView.isHidden = true
+        imageGridView.isHidden = true
+        videoView.isHidden = true
+        fileView.isHidden = true
+    }
+
+    private func configure(with layoutData: ChatMessageCellLayoutData) {
+        nameLabel.text = layoutData.senderName
+        timeLabel.text = layoutData.timeText
+
+        nameLabel.isHidden = !layoutData.showName
+        timeLabel.isHidden = !layoutData.showTime
+        profileImageView.isUserInteractionEnabled = layoutData.senderType == .other && layoutData.showProfile
+
+        let imageUrl = layoutData.senderProfileImageUrl
+
+        if layoutData.showProfile {
+            if currentProfileImageUrl != imageUrl || profileImageView.image == nil {
+                currentProfileImageUrl = imageUrl
+                if let urlString = imageUrl {
+                    profileImageView.setImage(url: urlString, placeholder: AppImage.person, animated: false)
+                } else {
+                    profileImageView.image = AppImage.person
+                }
+            }
+            profileImageView.isHidden = false
+        } else {
+            profileImageView.isHidden = true
         }
 
-        deleteButton.snp.makeConstraints {
-            $0.height.equalTo(Layout.actionButtonHeight)
+        var hasText = false
+        var hasImageGrid = false
+        var hasVideo = false
+        var hasFile = false
+
+        for content in layoutData.contents {
+            switch content {
+            case .text(let text):
+                textView.text = text
+                textView.textColor = layoutData.senderType.textColor
+                textView.textAlignment = layoutData.senderType.textAlignment
+                textView.isHidden = false
+                hasText = true
+
+            case .imageGroup(let urls):
+                imageGridView.configure(with: urls, status: layoutData.status, progress: layoutData.uploadProgress)
+                imageGridView.onImageTapped = { [weak self] index in
+                    guard let self = self else { return }
+                    self.delegate?.chatMessageCell(self, didTapImageAt: index, in: urls)
+                }
+                imageGridView.onRetryTapped = { [weak self] in
+                    guard let self = self else { return }
+                    self.delegate?.chatMessageCellDidTapRetry(self, messageId: layoutData.messageId)
+                }
+                imageGridView.isHidden = false
+                hasImageGrid = true
+
+            case .video(let thumbnailUrl, let videoUrl):
+                videoView.configure(
+                    thumbnailUrl: thumbnailUrl,
+                    videoUrl: videoUrl,
+                    status: layoutData.status,
+                    progress: layoutData.uploadProgress
+                )
+                videoView.onVideoTapped = { [weak self] in
+                    guard let self = self else { return }
+                    self.delegate?.chatMessageCell(self, didTapVideo: videoUrl)
+                }
+                videoView.onRetryTapped = { [weak self] in
+                    guard let self = self else { return }
+                    self.delegate?.chatMessageCellDidTapRetry(self, messageId: layoutData.messageId)
+                }
+                videoView.isHidden = false
+                hasVideo = true
+
+            case .file(let fileInfo):
+                fileView.configure(with: fileInfo)
+                fileView.onFileTapped = { [weak self] in
+                    guard let self = self else { return }
+                    self.delegate?.chatMessageCell(self, didTapFile: fileInfo)
+                }
+                fileView.isHidden = false
+                hasFile = true
+            }
         }
+
+        bubbleView.isHidden = !hasText
+
+        if !hasImageGrid {
+            imageGridView.isHidden = true
+        }
+        if !hasVideo {
+            videoView.isHidden = true
+        }
+        if !hasFile {
+            fileView.isHidden = true
+        }
+
+        applyStyle(for: layoutData.senderType)
+        configureStatusUI(status: layoutData.status, senderType: layoutData.senderType)
     }
 
     private func applyStyle(for senderType: SenderType) {
         bubbleView.backgroundColor = senderType.bubbleBackgroundColor
-
-        switch senderType.alignment {
-        case .leading:
-            bubbleContentStackView.alignment = .leading
-        case .trailing:
-            bubbleContentStackView.alignment = .trailing
-        }
-    }
-
-    private func updateLayout(for senderType: SenderType) {
-        switch senderType.alignment {
-        case .leading:
-            leadingConstraint?.priority = .required
-            trailingConstraint?.priority = .defaultLow
-            contentStackView.alignment = .leading
-            actionStackView.alignment = .leading
-            mediaContentStackView.alignment = .leading
-            messageContentGroup.alignment = .leading
-            timeLabel.textAlignment = .left
-
-            if horizontalContainerStack.arrangedSubviews.first !== messageContentGroup {
-                horizontalContainerStack.removeArrangedSubview(messageContentGroup)
-                horizontalContainerStack.removeArrangedSubview(statusStackView)
-                horizontalContainerStack.addArrangedSubview(messageContentGroup)
-                horizontalContainerStack.addArrangedSubview(statusStackView)
-            }
-
-        case .trailing:
-            leadingConstraint?.priority = .defaultLow
-            trailingConstraint?.priority = .required
-            contentStackView.alignment = .trailing
-            actionStackView.alignment = .trailing
-            mediaContentStackView.alignment = .trailing
-            messageContentGroup.alignment = .trailing
-            timeLabel.textAlignment = .right
-
-            if horizontalContainerStack.arrangedSubviews.first !== statusStackView {
-                horizontalContainerStack.removeArrangedSubview(statusStackView)
-                horizontalContainerStack.removeArrangedSubview(messageContentGroup)
-                horizontalContainerStack.addArrangedSubview(statusStackView)
-                horizontalContainerStack.addArrangedSubview(messageContentGroup)
-            }
-
-        }
-
-        updateBubblePadding(for: senderType)
-    }
-
-    private func updateContentLayout(
-        hasText: Bool,
-        hasMedia: Bool,
-        senderType: SenderType
-    ) {
-        bubbleView.isHidden = !hasText
-        mediaContentStackView.isHidden = !hasMedia
-        messageContentGroup.isHidden = !hasText && !hasMedia
-        currentHasMedia = hasMedia
-
-        horizontalContainerStack.spacing = Layout.timeSpacingTight
-
-        updateLayout(for: senderType)
-    }
-
-    private func updateProfileSpacing() {
-        let profileSize = shouldReserveProfileSpace ? Layout.profileSize : 0
-        profileImageView.snp.updateConstraints {
-            $0.size.equalTo(profileSize)
-        }
-    }
-
-    private func updateBubblePadding(for senderType: SenderType) {
-        bubbleContentStackView.snp.remakeConstraints {
-            $0.edges.equalToSuperview().inset(Layout.textPadding)
-        }
-    }
-
-    private func constrainMediaWidth(_ view: UIView) {
-        view.snp.makeConstraints {
-            $0.width.equalTo(Layout.maxContentWidth).priority(.high)
-        }
     }
 
     private func configureStatusUI(status: ChatMessageStatus, senderType: SenderType) {
@@ -508,7 +348,7 @@ final class ChatMessageCell: UITableViewCell {
             errorIconImageView.isHidden = false
             timeLabel.textColor = AppColor.errorRed
             actionStackView.isHidden = false
-            statusHintLabel.isHidden = !currentHasAttachments
+            statusHintLabel.isHidden = false
         case .sent:
             actionStackView.isHidden = true
             statusHintLabel.isHidden = true
@@ -516,17 +356,17 @@ final class ChatMessageCell: UITableViewCell {
     }
 
     @objc private func handleRetryTap() {
-        guard let messageId = currentMessageId else { return }
+        guard let messageId = currentLayoutData?.messageId else { return }
         delegate?.chatMessageCellDidTapRetry(self, messageId: messageId)
     }
 
     @objc private func handleDeleteTap() {
-        guard let messageId = currentMessageId else { return }
+        guard let messageId = currentLayoutData?.messageId else { return }
         delegate?.chatMessageCellDidTapDelete(self, messageId: messageId)
     }
 
     @objc private func handleProfileTap() {
-        guard let userId = currentSenderUserId, !userId.isEmpty else { return }
+        guard let userId = currentLayoutData?.senderUserId, !userId.isEmpty else { return }
         delegate?.chatMessageCell(self, didTapProfile: userId)
     }
 }
