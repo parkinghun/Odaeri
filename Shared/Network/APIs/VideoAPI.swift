@@ -12,6 +12,7 @@ enum VideoAPI {
     case fetchVideoList(next: String?, limit: Int?)
     case getVideoStreamingURL(videoId: String)
     case toggleVideoLike(videoId: String, status: Bool)
+    case getSubtitleFile(path: String)
 }
 
 extension VideoAPI: BaseAPI {
@@ -23,12 +24,14 @@ extension VideoAPI: BaseAPI {
             return "/videos/\(videoId)/stream"
         case let .toggleVideoLike(videoId, _):
             return "/videos/\(videoId)/like"
+        case let .getSubtitleFile(path):
+            return path
         }
     }
 
     var method: Moya.Method {
         switch self {
-        case .fetchVideoList, .getVideoStreamingURL:
+        case .fetchVideoList, .getVideoStreamingURL, .getSubtitleFile:
             return .get
         case .toggleVideoLike:
             return .post
@@ -42,7 +45,7 @@ extension VideoAPI: BaseAPI {
             if let next = next { params["next"] = next }
             if let limit = limit { params["limit"] = limit }
             return .requestParameters(parameters: params, encoding: URLEncoding.queryString)
-        case .getVideoStreamingURL:
+        case .getVideoStreamingURL, .getSubtitleFile:
             return .requestPlain
         case let .toggleVideoLike(_, status):
             return .requestCustomJSONEncodable(LikeStatusRequest(likeStatus: status), encoder: .init())
