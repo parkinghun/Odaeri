@@ -177,7 +177,7 @@ final class PlayerControlView: UIView {
         let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
         let imageName = isActive ? "captions.bubble.fill" : "captions.bubble"
         subtitleButton.setImage(UIImage(systemName: imageName, withConfiguration: config), for: .normal)
-        subtitleButton.tintColor = isActive ? AppColor.brightForsythia : AppColor.gray0
+        subtitleButton.tintColor = AppColor.gray0
     }
 
     private static func createThumbImage() -> UIImage? {

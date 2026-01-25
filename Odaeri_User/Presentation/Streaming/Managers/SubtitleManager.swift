@@ -10,20 +10,23 @@ import Combine
 
 final class SubtitleManager {
     private weak var player: AVPlayer?
+    private let videoRepository: VideoRepository
     private var cancellables = Set<AnyCancellable>()
-
-    private static let languageMap: [String: String] = [
-        "ko": "한국어",
-        "en": "English",
-        "ja": "日本語",
-        "zh": "中文",
-        "fr": "Français",
-        "es": "Español",
-        "de": "Deutsch"
-    ]
 
     private let availableSubtitlesSubject = CurrentValueSubject<[SubtitleTrack], Never>([])
     private let currentSubtitleSubject = CurrentValueSubject<SubtitleTrack?, Never>(nil)
+
+    private var externalSubtitles: [String: [SubtitleItem]] = [:]
+    private var currentExternalSubtitles: [SubtitleItem]?
+    private var currentSubtitleIndex: Int = -1
+    private var timeOffset: TimeInterval = 0
+
+    private var externalSubtitleMetadata: [VideoSubtitleEntity] = []
+
+    private let subtitleErrorSubject = PassthroughSubject<String, Never>()
+    private let isLoadingSubtitleSubject = CurrentValueSubject<Bool, Never>(false)
+    private let externalSubtitleDataSubject = CurrentValueSubject<[SubtitleItem]?, Never>(nil)
+    private let currentSubtitleIndexSubject = CurrentValueSubject<Int?, Never>(nil)
 
     var availableSubtitlesPublisher: AnyPublisher<[SubtitleTrack], Never> {
         availableSubtitlesSubject.eraseToAnyPublisher()
@@ -33,8 +36,25 @@ final class SubtitleManager {
         currentSubtitleSubject.eraseToAnyPublisher()
     }
 
-    init(player: AVPlayer) {
+    var subtitleErrorPublisher: AnyPublisher<String, Never> {
+        subtitleErrorSubject.eraseToAnyPublisher()
+    }
+
+    var isLoadingSubtitlePublisher: AnyPublisher<Bool, Never> {
+        isLoadingSubtitleSubject.eraseToAnyPublisher()
+    }
+
+    var externalSubtitleDataPublisher: AnyPublisher<[SubtitleItem]?, Never> {
+        externalSubtitleDataSubject.eraseToAnyPublisher()
+    }
+
+    var currentSubtitleIndexPublisher: AnyPublisher<Int?, Never> {
+        currentSubtitleIndexSubject.eraseToAnyPublisher()
+    }
+
+    init(player: AVPlayer, videoRepository: VideoRepository) {
         self.player = player
+        self.videoRepository = videoRepository
         observePlayerItem()
     }
 
@@ -67,32 +87,34 @@ final class SubtitleManager {
         }
     }
 
+    func setExternalSubtitleInfo(subtitles: [VideoSubtitleEntity]) {
+        self.externalSubtitleMetadata = subtitles
+
+        if let item = player?.currentItem {
+            let tracks = extractSubtitles(from: item)
+            availableSubtitlesSubject.send(tracks)
+        }
+    }
+
     private func extractSubtitles(from item: AVPlayerItem) -> [SubtitleTrack] {
         var tracks: [SubtitleTrack] = []
 
-        let legibleGroup = item.asset.mediaSelectionGroup(forMediaCharacteristic: .legible)
-
-        if let group = legibleGroup {
-            for option in group.options {
-                let languageCode = extractLanguageCode(from: option)
-                let displayName = createDisplayName(for: option, languageCode: languageCode)
-
-                let track = SubtitleTrack(
-                    id: option.displayName,
-                    language: languageCode,
-                    name: displayName,
-                    isDefault: false,
-                    source: .embedded(option)
-                )
-                tracks.append(track)
-            }
+        for subtitleEntity in externalSubtitleMetadata {
+            let track = SubtitleTrack(
+                id: "external_\(subtitleEntity.language)",
+                language: subtitleEntity.language,
+                name: subtitleEntity.name,
+                isDefault: subtitleEntity.isDefault,
+                source: .external(URL(string: subtitleEntity.url)!)
+            )
+            tracks.append(track)
         }
 
         let offTrack = SubtitleTrack(
             id: "off",
             language: "off",
-            name: "자막 끄기",
-            isDefault: true,
+            name: "스크립트 끄기",
+            isDefault: externalSubtitleMetadata.isEmpty,
             source: .none
         )
         tracks.insert(offTrack, at: 0)
@@ -100,56 +122,131 @@ final class SubtitleManager {
         return tracks
     }
 
-    private func extractLanguageCode(from option: AVMediaSelectionOption) -> String {
-        if let extendedTag = option.extendedLanguageTag {
-            let components = extendedTag.split(separator: "-")
-            return String(components.first ?? "unknown").lowercased()
-        }
-        return "unknown"
-    }
-
-    private func createDisplayName(for option: AVMediaSelectionOption, languageCode: String) -> String {
-        if let languageName = Self.languageMap[languageCode] {
-            return languageName
-        }
-
-        if let displayName = option.displayName as String?, !displayName.isEmpty {
-            return displayName
-        }
-
-        return languageCode.uppercased()
-    }
-
     func selectSubtitle(_ track: SubtitleTrack) {
         guard let player = player,
               let item = player.currentItem else { return }
 
-        guard let group = item.asset.mediaSelectionGroup(forMediaCharacteristic: .legible) else {
-            print("[SubtitleManager] No legible media selection group available")
-            return
+        if let group = item.asset.mediaSelectionGroup(forMediaCharacteristic: .legible) {
+            item.select(nil, in: group)
         }
 
         switch track.source {
-        case .embedded(let option):
-            item.select(option, in: group)
+        case .external(let url):
             currentSubtitleSubject.send(track)
-            print("[SubtitleManager] Selected subtitle: \(track.name)")
 
-            if let currentSelection = item.currentMediaSelection.selectedMediaOption(in: group) {
-                print("[SubtitleManager] Current selection confirmed: \(currentSelection.displayName)")
+            if externalSubtitles[track.language] != nil {
+                currentExternalSubtitles = externalSubtitles[track.language]
+                externalSubtitleDataSubject.send(currentExternalSubtitles)
+                print("[SubtitleManager] Using cached external subtitle: \(track.name)")
+            } else {
+                let subtitleMetadata = externalSubtitleMetadata.first(where: { $0.language == track.language })
+                if let path = subtitleMetadata?.url {
+                    addExternalSubtitle(path: path, language: track.language, name: track.name)
+                    print("[SubtitleManager] Loading external subtitle: \(track.name) from \(path)")
+                } else {
+                    print("[SubtitleManager] Cannot find subtitle path for language: \(track.language)")
+                }
             }
 
-        case .external:
-            break
-
         case .none:
-            item.select(nil, in: group)
             currentSubtitleSubject.send(track)
+            currentExternalSubtitles = nil
+            externalSubtitleDataSubject.send(nil)
             print("[SubtitleManager] Subtitles turned off")
+
+        case .embedded:
+            break
         }
     }
 
-    func addExternalSubtitle(url: URL, language: String, name: String) {
+    func updateCurrentSubtitleIndex(time: TimeInterval) {
+        guard let subtitles = currentExternalSubtitles else {
+            currentSubtitleIndexSubject.send(nil)
+            return
+        }
+
+        let adjustedTime = time + timeOffset
+        let newIndex = findSubtitleIndex(at: adjustedTime, in: subtitles)
+
+        if newIndex != currentSubtitleIndex {
+            currentSubtitleIndex = newIndex
+            currentSubtitleIndexSubject.send(newIndex >= 0 ? newIndex : nil)
+        }
+    }
+
+    private func findSubtitleIndex(at time: TimeInterval, in subtitles: [SubtitleItem]) -> Int {
+        guard !subtitles.isEmpty else { return -1 }
+
+        var left = 0
+        var right = subtitles.count - 1
+
+        while left <= right {
+            let mid = (left + right) / 2
+            let subtitle = subtitles[mid]
+
+            if time < subtitle.startTime {
+                right = mid - 1
+            } else if time > subtitle.endTime {
+                left = mid + 1
+            } else {
+                return mid
+            }
+        }
+
+        return -1
+    }
+
+    func adjustTimeOffset(_ offset: TimeInterval) {
+        timeOffset = offset
+    }
+
+    func addExternalSubtitle(path: String, language: String, name: String) {
+        isLoadingSubtitleSubject.send(true)
+
+        videoRepository.getSubtitleFile(path: path)
+            .receive(on: DispatchQueue.global(qos: .userInitiated))
+            .map { vttString in
+                SubtitleParser.parse(vttString)
+            }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] completion in
+                guard let self = self else { return }
+                self.isLoadingSubtitleSubject.send(false)
+
+                switch completion {
+                case .finished:
+                    break
+                case .failure(let error):
+                    let message: String
+                    switch error {
+                    case .unauthorized:
+                        message = "자막 접근 권한이 없습니다"
+                    case .serverError(let statusCode, _):
+                        if statusCode == 403 {
+                            message = "자막 접근 권한이 없습니다"
+                        } else if statusCode == 404 {
+                            message = "자막 파일을 찾을 수 없습니다"
+                        } else {
+                            message = "자막 다운로드 실패 (상태 코드: \(statusCode))"
+                        }
+                    default:
+                        message = "자막 다운로드 실패: \(error.errorDescription)"
+                    }
+                    self.subtitleErrorSubject.send(message)
+                }
+            } receiveValue: { [weak self] subtitles in
+                guard let self = self else { return }
+
+                if subtitles.isEmpty {
+                    self.subtitleErrorSubject.send("자막 파싱에 실패했습니다")
+                } else {
+                    self.externalSubtitles[language] = subtitles
+                    self.currentExternalSubtitles = subtitles
+                    self.externalSubtitleDataSubject.send(subtitles)
+                    print("[SubtitleManager] Parsed \(subtitles.count) subtitle items for language: \(language)")
+                }
+            }
+            .store(in: &cancellables)
     }
 }
 

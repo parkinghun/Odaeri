@@ -7,11 +7,16 @@
 
 import UIKit
 import AVFoundation
+import AVKit
 import Combine
 import SnapKit
 
 final class StreamingDetailViewController: BaseViewController<StreamingDetailViewModel> {
+    private let video: VideoEntity
     private let playerManager: StreamingPlayerManager
+    private weak var pipController: AVPictureInPictureController?
+
+    weak var coordinator: StreamingCoordinator?
 
     private let videoContainerView = VideoContainerView()
     private let controlOverlayView = VideoControlOverlayView()
@@ -37,13 +42,35 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         return label
     }()
 
-    private let descriptionLabel: UILabel = {
-        let label = UILabel()
-        label.font = AppFont.body2
-        label.textColor = AppColor.gray75
-        label.numberOfLines = 0
-        return label
+    private let interactionBar = VideoInteractionBar()
+
+    private let expandableDescription = ExpandableDescriptionView()
+
+    private let subtitleTableView: UITableView = {
+        let tableView = UITableView()
+        tableView.backgroundColor = AppColor.gray0
+        tableView.separatorStyle = .singleLine
+        tableView.separatorInset = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
+        tableView.showsVerticalScrollIndicator = true
+        tableView.register(SubtitleCell.self, forCellReuseIdentifier: SubtitleCell.reuseIdentifier)
+        return tableView
     }()
+
+    private let returnToCurrentButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("현재 자막으로", for: .normal)
+        button.titleLabel?.font = AppFont.body3
+        button.backgroundColor = AppColor.blackSprout
+        button.setTitleColor(AppColor.gray0, for: .normal)
+        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 20, bottom: 8, right: 20)
+        button.isHidden = true
+        return button
+    }()
+
+    private let manualScrollSubject = PassthroughSubject<Void, Never>()
+    private let subtitleCellTappedSubject = PassthroughSubject<Int, Never>()
+    private var subtitles: [SubtitleItem] = []
+    private var currentHighlightedIndex: Int?
 
     private let fastForwardIndicatorLabel: UILabel = {
         let label = UILabel()
@@ -58,10 +85,23 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         return label
     }()
 
+    private let backButton: UIButton = {
+        let button = UIButton(type: .system)
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
+        button.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
+        button.tintColor = AppColor.gray0
+        button.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+        button.layer.cornerRadius = 20
+        button.clipsToBounds = true
+        button.isHidden = true
+        return button
+    }()
+
     private let viewDidLoadSubject = PassthroughSubject<Void, Never>()
     private let hapticGenerator = UIImpactFeedbackGenerator(style: .light)
 
-    init(viewModel: StreamingDetailViewModel, playerManager: StreamingPlayerManager) {
+    init(video: VideoEntity, viewModel: StreamingDetailViewModel, playerManager: StreamingPlayerManager) {
+        self.video = video
         self.playerManager = playerManager
         super.init(viewModel: viewModel)
     }
@@ -70,13 +110,38 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         super.viewDidLoad()
         setupGestures()
         setupCallbacks()
+        setupTableView()
+        setupNotifications()
         viewDidLoadSubject.send(())
         hapticGenerator.prepare()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
+        print("[StreamingDetailViewController] viewWillAppear - PIP active: \(pipController?.isPictureInPictureActive ?? false)")
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        print("[StreamingDetailViewController] viewDidAppear - PIP active: \(pipController?.isPictureInPictureActive ?? false)")
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: animated)
+        print("[StreamingDetailViewController] viewWillDisappear - PIP active: \(pipController?.isPictureInPictureActive ?? false)")
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        print("[StreamingDetailViewController] deinit called")
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         videoContainerView.playerLayer?.frame = videoContainerView.bounds
+        returnToCurrentButton.layer.cornerRadius = returnToCurrentButton.frame.height / 2
     }
 
     override func setupUI() {
@@ -89,17 +154,34 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         scrollView.addSubview(contentStackView)
 
         contentStackView.addArrangedSubview(titleLabel)
-        contentStackView.addArrangedSubview(descriptionLabel)
+        contentStackView.addArrangedSubview(interactionBar)
+        contentStackView.addArrangedSubview(expandableDescription)
+        contentStackView.addArrangedSubview(subtitleTableView)
+
+        view.addSubview(returnToCurrentButton)
+
+        interactionBar.snp.makeConstraints { make in
+            make.height.equalTo(40)
+        }
 
         let player = playerManager.getPlayer()
         let layer = AVPlayerLayer(player: player)
         videoContainerView.attachPlayerLayer(layer)
 
+        if pipController == nil {
+            playerManager.setupPictureInPicture(with: layer)
+            pipController = playerManager.getPIPController()
+            pipController?.delegate = self
+        } else {
+            print("[StreamingDetailViewController] Reusing existing PIP controller")
+        }
+
         videoContainerView.addSubview(controlOverlayView)
         videoContainerView.addSubview(fastForwardIndicatorLabel)
+        videoContainerView.addSubview(backButton)
 
         videoContainerView.snp.makeConstraints { make in
-            make.top.leading.trailing.equalTo(view.safeAreaLayoutGuide)
+            make.top.leading.trailing.equalToSuperview()
             make.height.equalTo(videoContainerView.snp.width).multipliedBy(9.0 / 16.0)
         }
 
@@ -118,10 +200,77 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         }
 
         fastForwardIndicatorLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(20)
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(20)
             make.centerX.equalToSuperview()
             make.height.equalTo(40)
             make.width.greaterThanOrEqualTo(150)
+        }
+
+        backButton.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(16)
+            make.leading.equalToSuperview().offset(16)
+            make.width.height.equalTo(40)
+        }
+
+        subtitleTableView.snp.makeConstraints { make in
+            make.height.equalTo(300)
+        }
+
+        returnToCurrentButton.snp.makeConstraints { make in
+            make.centerX.equalToSuperview()
+            make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-20)
+            make.height.equalTo(36)
+        }
+    }
+
+    private func setupTableView() {
+        subtitleTableView.delegate = self
+        subtitleTableView.dataSource = self
+    }
+
+    private func setupNotifications() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleAppDidEnterBackground() {
+        print("[StreamingDetailViewController] App entering background")
+        startPictureInPictureIfPossible()
+    }
+
+    @objc private func handleAppWillEnterForeground() {
+        print("[StreamingDetailViewController] App entering foreground, PIP active: \(pipController?.isPictureInPictureActive ?? false)")
+    }
+
+    private func startPictureInPictureIfPossible() {
+        guard let pipController = pipController,
+              !pipController.isPictureInPictureActive else {
+            print("[StreamingDetailViewController] Cannot start PIP - already active or controller missing")
+            return
+        }
+
+        let player = playerManager.getPlayer()
+        guard player.rate > 0 else {
+            print("[StreamingDetailViewController] Cannot start PIP - video is not playing")
+            return
+        }
+
+        if pipController.isPictureInPicturePossible {
+            pipController.startPictureInPicture()
+            print("[StreamingDetailViewController] PIP started")
+        } else {
+            print("[StreamingDetailViewController] PIP is not possible at this time")
         }
     }
 
@@ -160,38 +309,105 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
 
         switch gesture.state {
         case .changed:
-            if translation.y < 0 {
-                return
-            }
+            break
         case .ended:
             let threshold: CGFloat = 100
-            let shouldEnterFullscreen = translation.y < -threshold || velocity.y < -1000
 
-            if shouldEnterFullscreen {
+            if translation.y < -threshold || velocity.y < -1000 {
                 enterFullscreen()
+            } else if translation.y > threshold || velocity.y > 1000 {
+                handleBackNavigation()
             }
         default:
             break
         }
     }
 
+    private func handleBackNavigation() {
+        startPictureInPictureIfPossible()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.navigationController?.popViewController(animated: true)
+        }
+    }
+
+    private func seekRelative(seconds: Double) {
+        let player = playerManager.getPlayer()
+        let currentTime = player.currentTime()
+        let newTime = CMTimeAdd(currentTime, CMTime(seconds: seconds, preferredTimescale: 600))
+
+        guard let duration = player.currentItem?.duration else { return }
+
+        let clampedTime: CMTime
+        if newTime < .zero {
+            clampedTime = .zero
+        } else if newTime > duration {
+            clampedTime = duration
+        } else {
+            clampedTime = newTime
+        }
+
+        playerManager.seek(to: clampedTime)
+    }
+
     private func setupCallbacks() {
         viewModel.onPlayPauseTriggered = { [weak self] in
             guard let self = self else { return }
-            if self.playerManager.getPlayer().timeControlStatus == .playing {
+            let player = self.playerManager.getPlayer()
+
+            if player.rate > 0 && player.error == nil {
+                print("[StreamingDetailViewController] Pausing player")
                 self.playerManager.pause()
             } else {
+                print("[StreamingDetailViewController] Playing player")
                 self.playerManager.play()
             }
         }
 
         viewModel.onSeekRequested = { [weak self] time in
-            self?.playerManager.seek(to: time)
+            guard let self = self else { return }
+            self.playerManager.seek(to: time) { [weak self] in
+                self?.playerManager.play()
+            }
         }
     }
 
     override func bind() {
         super.bind()
+
+        backButton.tapPublisher()
+            .sink { [weak self] in
+                self?.handleBackNavigation()
+            }
+            .store(in: &cancellables)
+
+        controlOverlayView.onVisibilityChanged = { [weak self] isVisible in
+            self?.backButton.isHidden = !isVisible
+        }
+
+        controlOverlayView.centerPlayPauseTappedPublisher
+            .sink { [weak self] in
+                print("[StreamingDetailViewController] Center play/pause tapped")
+                self?.viewModel.onPlayPauseTriggered?()
+                self?.controlOverlayView.resetAutoHideTimer()
+            }
+            .store(in: &cancellables)
+
+        controlOverlayView.seekBackwardTappedPublisher
+            .sink { [weak self] in
+                print("[StreamingDetailViewController] Seek backward 10s")
+                self?.seekRelative(seconds: -10)
+                self?.controlOverlayView.resetAutoHideTimer()
+            }
+            .store(in: &cancellables)
+
+        controlOverlayView.seekForwardTappedPublisher
+            .sink { [weak self] in
+                print("[StreamingDetailViewController] Seek forward 10s")
+                self?.seekRelative(seconds: 10)
+                self?.controlOverlayView.resetAutoHideTimer()
+            }
+            .store(in: &cancellables)
 
         let controlView = controlOverlayView.getControlView()
 
@@ -202,7 +418,16 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             settingsTapped: controlView.settingsTappedPublisher,
             currentTime: playerManager.currentTimePublisher,
             duration: playerManager.durationPublisher,
-            isPlaying: playerManager.isPlayingPublisher
+            isPlaying: playerManager.isPlayingPublisher,
+            externalSubtitles: playerManager.subtitleManager.externalSubtitleDataPublisher,
+            currentSubtitleIndex: playerManager.subtitleManager.currentSubtitleIndexPublisher,
+            manualScrollDetected: manualScrollSubject.eraseToAnyPublisher(),
+            returnToCurrentTapped: returnToCurrentButton.tapPublisher(),
+            subtitleCellTapped: subtitleCellTappedSubject.eraseToAnyPublisher(),
+            likeButtonTapped: interactionBar.likeButtonTappedPublisher,
+            shareButtonTapped: interactionBar.shareButtonTappedPublisher,
+            scriptButtonTapped: interactionBar.scriptButtonTappedPublisher,
+            availableSubtitles: playerManager.subtitleManager.availableSubtitlesPublisher
         )
 
         let output = viewModel.transform(input: input)
@@ -241,6 +466,7 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isPlaying in
                 self?.controlOverlayView.getControlView().updatePlayPauseButton(isPlaying: isPlaying)
+                self?.controlOverlayView.updateCenterPlayPauseButton(isPlaying: isPlaying)
             }
             .store(in: &cancellables)
 
@@ -299,7 +525,28 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         output.description
             .receive(on: DispatchQueue.main)
             .sink { [weak self] description in
-                self?.descriptionLabel.text = description
+                self?.expandableDescription.configure(text: description)
+            }
+            .store(in: &cancellables)
+
+        Publishers.CombineLatest(output.isLiked, output.likeCount)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isLiked, likeCount in
+                self?.interactionBar.configure(isLiked: isLiked, likeCount: likeCount, animated: true)
+            }
+            .store(in: &cancellables)
+
+        output.createdAt
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] dateText in
+                print("[StreamingDetailViewController] Created at: \(dateText)")
+            }
+            .store(in: &cancellables)
+
+        output.showScriptMenu
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] tracks in
+                self?.showScriptSelectionAlert(tracks: tracks)
             }
             .store(in: &cancellables)
 
@@ -308,6 +555,55 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             .sink { [weak self] currentSubtitle in
                 let isActive = currentSubtitle?.source != .none
                 self?.controlOverlayView.getControlView().updateSubtitleButton(isActive: isActive)
+            }
+            .store(in: &cancellables)
+
+        output.subtitles
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] subtitles in
+                guard let self = self else { return }
+                self.subtitles = subtitles
+                self.subtitleTableView.reloadData()
+            }
+            .store(in: &cancellables)
+
+        output.indexPathsToReload
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] indexPaths in
+                guard let self = self else { return }
+                self.subtitleTableView.reloadRows(at: indexPaths, with: .none)
+            }
+            .store(in: &cancellables)
+
+        output.scrollToIndex
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] index in
+                guard let self = self else { return }
+                self.currentHighlightedIndex = index
+                let indexPath = IndexPath(row: index, section: 0)
+                self.subtitleTableView.scrollToRow(at: indexPath, at: .middle, animated: true)
+            }
+            .store(in: &cancellables)
+
+        playerManager.subtitleManager.currentSubtitleIndexPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] index in
+                self?.currentHighlightedIndex = index
+            }
+            .store(in: &cancellables)
+
+        output.showReturnButton
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] shouldShow in
+                self?.returnToCurrentButton.isHidden = !shouldShow
+            }
+            .store(in: &cancellables)
+
+        output.streamEntity
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] streamEntity in
+                guard let self = self else { return }
+                self.playerManager.setVideoInfo(subtitles: streamEntity.subtitles)
             }
             .store(in: &cancellables)
     }
@@ -347,6 +643,33 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
 
                     let action = UIAlertAction(title: title, style: .default) { [weak self] _ in
                         self?.playerManager.subtitleManager.selectSubtitle(subtitle)
+                    }
+                    alert.addAction(action)
+                }
+
+                let cancel = UIAlertAction(title: "취소", style: .cancel)
+                alert.addAction(cancel)
+
+                self.present(alert, animated: true)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func showScriptSelectionAlert(tracks: [SubtitleTrack]) {
+        playerManager.subtitleManager.currentSubtitlePublisher
+            .first()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] current in
+                guard let self = self else { return }
+
+                let alert = UIAlertController(title: "스크립트", message: nil, preferredStyle: .actionSheet)
+
+                for track in tracks {
+                    let isSelected = track.id == current?.id
+                    let title = isSelected ? "✓ \(track.name)" : track.name
+
+                    let action = UIAlertAction(title: title, style: .default) { [weak self] _ in
+                        self?.playerManager.subtitleManager.selectSubtitle(track)
                     }
                     alert.addAction(action)
                 }
@@ -414,7 +737,16 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             settingsTapped: Empty().eraseToAnyPublisher(),
             currentTime: playerManager.currentTimePublisher,
             duration: playerManager.durationPublisher,
-            isPlaying: playerManager.isPlayingPublisher
+            isPlaying: playerManager.isPlayingPublisher,
+            externalSubtitles: playerManager.subtitleManager.externalSubtitleDataPublisher,
+            currentSubtitleIndex: playerManager.subtitleManager.currentSubtitleIndexPublisher,
+            manualScrollDetected: Empty().eraseToAnyPublisher(),
+            returnToCurrentTapped: Empty().eraseToAnyPublisher(),
+            subtitleCellTapped: Empty().eraseToAnyPublisher(),
+            likeButtonTapped: Empty().eraseToAnyPublisher(),
+            shareButtonTapped: Empty().eraseToAnyPublisher(),
+            scriptButtonTapped: Empty().eraseToAnyPublisher(),
+            availableSubtitles: playerManager.subtitleManager.availableSubtitlesPublisher
         )
 
         let output = viewModel.transform(input: input)
@@ -467,6 +799,38 @@ extension StreamingDetailViewController: LandscapeVideoViewControllerDelegate {
     }
 }
 
+extension StreamingDetailViewController: UITableViewDataSource {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return subtitles.count
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        guard let cell = tableView.dequeueReusableCell(
+            withIdentifier: SubtitleCell.reuseIdentifier,
+            for: indexPath
+        ) as? SubtitleCell else {
+            return UITableViewCell()
+        }
+
+        let subtitle = subtitles[indexPath.row]
+        let isHighlighted = (indexPath.row == currentHighlightedIndex)
+        cell.configure(with: subtitle, isHighlighted: isHighlighted)
+
+        return cell
+    }
+}
+
+extension StreamingDetailViewController: UITableViewDelegate {
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        manualScrollSubject.send(())
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        subtitleCellTappedSubject.send(indexPath.row)
+    }
+}
+
 extension StreamingDetailViewController: UIViewControllerTransitioningDelegate {
     func animationController(
         forPresented presented: UIViewController,
@@ -486,5 +850,82 @@ extension StreamingDetailViewController: UIViewControllerTransitioningDelegate {
             isPresenting: false,
             sourceViewController: self
         )
+    }
+}
+
+extension StreamingDetailViewController {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return true
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if let panGesture = gestureRecognizer as? UIPanGestureRecognizer {
+            let translation = panGesture.translation(in: videoContainerView)
+            return abs(translation.y) > abs(translation.x)
+        }
+        return true
+    }
+}
+
+extension StreamingDetailViewController: AVPictureInPictureControllerDelegate {
+    func pictureInPictureControllerWillStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+        print("[StreamingDetailViewController] PIP will start")
+    }
+
+    func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+        print("[StreamingDetailViewController] PIP did start")
+        videoContainerView.isHidden = true
+        coordinator?.retainPIPSession(playerManager: playerManager, viewController: self, video: video)
+    }
+
+    func pictureInPictureControllerWillStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+        print("[StreamingDetailViewController] PIP will stop")
+    }
+
+    func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+        print("[StreamingDetailViewController] PIP did stop")
+        videoContainerView.isHidden = false
+        coordinator?.releasePIPSession()
+    }
+
+    func pictureInPictureController(
+        _ pictureInPictureController: AVPictureInPictureController,
+        restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
+    ) {
+        print("[StreamingDetailViewController] Restore user interface for PIP stop")
+        print("[StreamingDetailViewController] VC is in nav stack: \(navigationController?.viewControllers.contains(self) ?? false)")
+
+        coordinator?.restorePIPViewController { [weak self] success in
+            guard let self = self else {
+                completionHandler(false)
+                return
+            }
+
+            DispatchQueue.main.async {
+                self.videoContainerView.isHidden = false
+
+                if let playerLayer = self.videoContainerView.playerLayer {
+                    playerLayer.frame = self.videoContainerView.bounds
+                    print("[StreamingDetailViewController] PlayerLayer repositioned after PIP restoration")
+                }
+
+                completionHandler(success)
+            }
+        }
+    }
+
+    func pictureInPictureController(
+        _ pictureInPictureController: AVPictureInPictureController,
+        failedToStartPictureInPictureWithError error: Error
+    ) {
+        print("[StreamingDetailViewController] ❌ PIP FAILED TO START")
+        print("[StreamingDetailViewController] Error: \(error)")
+        print("[StreamingDetailViewController] Error code: \((error as NSError).code)")
+        print("[StreamingDetailViewController] Error domain: \((error as NSError).domain)")
+        print("[StreamingDetailViewController] Is PIP active: \(pipController?.isPictureInPictureActive ?? false)")
+        print("[StreamingDetailViewController] Is PIP possible: \(pipController?.isPictureInPicturePossible ?? false)")
+        print("[StreamingDetailViewController] Player rate: \(playerManager.getPlayer().rate)")
+
+        showAlert(title: "PIP 오류", message: "Picture in Picture를 시작할 수 없습니다.\n\(error.localizedDescription)")
     }
 }
