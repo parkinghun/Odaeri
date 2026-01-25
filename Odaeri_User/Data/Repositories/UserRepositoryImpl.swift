@@ -173,6 +173,14 @@ final class UserRepositoryImpl: UserRepository {
             .eraseToAnyPublisher()
     }
 
+    func searchUsers(nick: String) -> AnyPublisher<[UserSearchResult], NetworkError> {
+        return provider.requestPublisher(UserAPI.searchUsers(nick: nick))
+            .map { (response: UserSearchResponse) in
+                response.data.map { UserSearchResult(from: $0) }
+            }
+            .eraseToAnyPublisher()
+    }
+
     func validateEmail(email: String) -> AnyPublisher<Void, NetworkError> {
         let request = EmailValidationRequest(email: email)
         return provider.requestPublisher(UserAPI.validateEmail(request: request))

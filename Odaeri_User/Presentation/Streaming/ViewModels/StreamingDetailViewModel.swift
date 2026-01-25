@@ -25,6 +25,7 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
         let subtitleCellTapped: AnyPublisher<Int, Never>
         let likeButtonTapped: AnyPublisher<Void, Never>
         let shareButtonTapped: AnyPublisher<Void, Never>
+        let saveButtonTapped: AnyPublisher<Void, Never>
         let scriptButtonTapped: AnyPublisher<Void, Never>
         let availableSubtitles: AnyPublisher<[SubtitleTrack], Never>
     }
@@ -48,8 +49,10 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
         let streamEntity: AnyPublisher<VideoStreamEntity, Never>
         let likeCount: AnyPublisher<Int, Never>
         let isLiked: AnyPublisher<Bool, Never>
+        let isSaved: AnyPublisher<Bool, Never>
         let showScriptMenu: AnyPublisher<[SubtitleTrack], Never>
         let createdAt: AnyPublisher<String, Never>
+        let showShareSheet: AnyPublisher<Void, Never>
     }
 
     var onPlayPauseTriggered: (() -> Void)?
@@ -58,6 +61,8 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
     private let video: VideoEntity
     private let getStreamURLUseCase: GetVideoStreamURLUseCase
     private let toggleVideoLikeUseCase: ToggleVideoLikeUseCase
+    private let toggleSaveVideoUseCase: ToggleSaveVideoUseCase
+    private let checkVideoSavedUseCase: CheckVideoSavedUseCase
 
     private let streamURLSubject = PassthroughSubject<URL?, Never>()
     private let qualitiesSubject = PassthroughSubject<[VideoStreamQualityEntity], Never>()
@@ -78,8 +83,12 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
 
     private let likeCountSubject = CurrentValueSubject<Int, Never>(0)
     private let isLikedSubject = CurrentValueSubject<Bool, Never>(false)
+    private let isSavedSubject = CurrentValueSubject<Bool, Never>(false)
     private let showScriptMenuSubject = PassthroughSubject<[SubtitleTrack], Never>()
     private let createdAtSubject = CurrentValueSubject<String, Never>("")
+    private let showShareSheetSubject = PassthroughSubject<Void, Never>()
+
+    private let saveToggleSubject = PassthroughSubject<Bool, Never>()
 
     private var availableSubtitleTracks: [SubtitleTrack] = []
 
@@ -88,10 +97,18 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
     private var isManualScrolling = false
     private var isPlaying = false
 
-    init(video: VideoEntity, getStreamURLUseCase: GetVideoStreamURLUseCase, toggleVideoLikeUseCase: ToggleVideoLikeUseCase) {
+    init(
+        video: VideoEntity,
+        getStreamURLUseCase: GetVideoStreamURLUseCase,
+        toggleVideoLikeUseCase: ToggleVideoLikeUseCase,
+        toggleSaveVideoUseCase: ToggleSaveVideoUseCase = DefaultToggleSaveVideoUseCase(),
+        checkVideoSavedUseCase: CheckVideoSavedUseCase = DefaultCheckVideoSavedUseCase()
+    ) {
         self.video = video
         self.getStreamURLUseCase = getStreamURLUseCase
         self.toggleVideoLikeUseCase = toggleVideoLikeUseCase
+        self.toggleSaveVideoUseCase = toggleSaveVideoUseCase
+        self.checkVideoSavedUseCase = checkVideoSavedUseCase
         super.init()
 
         titleSubject.send(video.title)
@@ -102,6 +119,8 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
         if let createdAt = video.createdAt {
             createdAtSubject.send(createdAt.toRelativeTime)
         }
+
+        checkInitialSaveState()
     }
 
     func transform(input: Input) -> Output {
@@ -225,7 +244,23 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
 
         input.shareButtonTapped
             .sink { [weak self] _ in
-                print("[StreamingDetailViewModel] Share button tapped")
+                self?.showShareSheetSubject.send(())
+            }
+            .store(in: &cancellables)
+
+        input.saveButtonTapped
+            .sink { [weak self] _ in
+                guard let self = self else { return }
+                let newState = !self.isSavedSubject.value
+                self.isSavedSubject.send(newState)
+                self.saveToggleSubject.send(newState)
+            }
+            .store(in: &cancellables)
+
+        saveToggleSubject
+            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+            .sink { [weak self] isSaved in
+                self?.handleSaveToggle(isSaved: isSaved)
             }
             .store(in: &cancellables)
 
@@ -261,8 +296,10 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
             streamEntity: streamEntitySubject.eraseToAnyPublisher(),
             likeCount: likeCountSubject.eraseToAnyPublisher(),
             isLiked: isLikedSubject.eraseToAnyPublisher(),
+            isSaved: isSavedSubject.eraseToAnyPublisher(),
             showScriptMenu: showScriptMenuSubject.eraseToAnyPublisher(),
-            createdAt: createdAtSubject.eraseToAnyPublisher()
+            createdAt: createdAtSubject.eraseToAnyPublisher(),
+            showShareSheet: showShareSheetSubject.eraseToAnyPublisher()
         )
     }
 
@@ -375,6 +412,32 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
                     print("[StreamingDetailViewModel] Like toggle succeeded")
                 }
             )
+            .store(in: &cancellables)
+    }
+
+    private func checkInitialSaveState() {
+        checkVideoSavedUseCase.execute(videoId: video.videoId)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isSaved in
+                self?.isSavedSubject.send(isSaved)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func handleSaveToggle(isSaved: Bool) {
+        let previousState = isSavedSubject.value
+
+        toggleSaveVideoUseCase.execute(videoId: video.videoId, isSaved: isSaved)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] success in
+                if !success {
+                    print("[StreamingDetailViewModel] Save toggle failed")
+                    self?.isSavedSubject.send(previousState)
+                    self?.errorSubject.send("저장 처리에 실패했습니다")
+                } else {
+                    print("[StreamingDetailViewModel] Save toggle succeeded: \(isSaved)")
+                }
+            }
             .store(in: &cancellables)
     }
 }

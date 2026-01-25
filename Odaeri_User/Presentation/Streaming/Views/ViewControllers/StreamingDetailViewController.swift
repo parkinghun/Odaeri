@@ -119,23 +119,19 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
-        print("[StreamingDetailViewController] viewWillAppear - PIP active: \(pipController?.isPictureInPictureActive ?? false)")
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        print("[StreamingDetailViewController] viewDidAppear - PIP active: \(pipController?.isPictureInPictureActive ?? false)")
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         navigationController?.setNavigationBarHidden(false, animated: animated)
-        print("[StreamingDetailViewController] viewWillDisappear - PIP active: \(pipController?.isPictureInPictureActive ?? false)")
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
-        print("[StreamingDetailViewController] deinit called")
     }
 
     override func viewDidLayoutSubviews() {
@@ -172,8 +168,6 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             playerManager.setupPictureInPicture(with: layer)
             pipController = playerManager.getPIPController()
             pipController?.delegate = self
-        } else {
-            print("[StreamingDetailViewController] Reusing existing PIP controller")
         }
 
         videoContainerView.addSubview(controlOverlayView)
@@ -181,7 +175,8 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         videoContainerView.addSubview(backButton)
 
         videoContainerView.snp.makeConstraints { make in
-            make.top.leading.trailing.equalToSuperview()
+            make.top.equalTo(view.safeAreaLayoutGuide)
+            make.leading.trailing.equalToSuperview()
             make.height.equalTo(videoContainerView.snp.width).multipliedBy(9.0 / 16.0)
         }
 
@@ -245,32 +240,25 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
     }
 
     @objc private func handleAppDidEnterBackground() {
-        print("[StreamingDetailViewController] App entering background")
         startPictureInPictureIfPossible()
     }
 
     @objc private func handleAppWillEnterForeground() {
-        print("[StreamingDetailViewController] App entering foreground, PIP active: \(pipController?.isPictureInPictureActive ?? false)")
     }
 
     private func startPictureInPictureIfPossible() {
         guard let pipController = pipController,
               !pipController.isPictureInPictureActive else {
-            print("[StreamingDetailViewController] Cannot start PIP - already active or controller missing")
             return
         }
 
         let player = playerManager.getPlayer()
         guard player.rate > 0 else {
-            print("[StreamingDetailViewController] Cannot start PIP - video is not playing")
             return
         }
 
         if pipController.isPictureInPicturePossible {
             pipController.startPictureInPicture()
-            print("[StreamingDetailViewController] PIP started")
-        } else {
-            print("[StreamingDetailViewController] PIP is not possible at this time")
         }
     }
 
@@ -356,10 +344,8 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             let player = self.playerManager.getPlayer()
 
             if player.rate > 0 && player.error == nil {
-                print("[StreamingDetailViewController] Pausing player")
                 self.playerManager.pause()
             } else {
-                print("[StreamingDetailViewController] Playing player")
                 self.playerManager.play()
             }
         }
@@ -387,7 +373,6 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
 
         controlOverlayView.centerPlayPauseTappedPublisher
             .sink { [weak self] in
-                print("[StreamingDetailViewController] Center play/pause tapped")
                 self?.viewModel.onPlayPauseTriggered?()
                 self?.controlOverlayView.resetAutoHideTimer()
             }
@@ -395,7 +380,6 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
 
         controlOverlayView.seekBackwardTappedPublisher
             .sink { [weak self] in
-                print("[StreamingDetailViewController] Seek backward 10s")
                 self?.seekRelative(seconds: -10)
                 self?.controlOverlayView.resetAutoHideTimer()
             }
@@ -403,7 +387,6 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
 
         controlOverlayView.seekForwardTappedPublisher
             .sink { [weak self] in
-                print("[StreamingDetailViewController] Seek forward 10s")
                 self?.seekRelative(seconds: 10)
                 self?.controlOverlayView.resetAutoHideTimer()
             }
@@ -426,6 +409,7 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             subtitleCellTapped: subtitleCellTappedSubject.eraseToAnyPublisher(),
             likeButtonTapped: interactionBar.likeButtonTappedPublisher,
             shareButtonTapped: interactionBar.shareButtonTappedPublisher,
+            saveButtonTapped: interactionBar.saveButtonTappedPublisher,
             scriptButtonTapped: interactionBar.scriptButtonTappedPublisher,
             availableSubtitles: playerManager.subtitleManager.availableSubtitlesPublisher
         )
@@ -536,10 +520,10 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             }
             .store(in: &cancellables)
 
-        output.createdAt
+        output.isSaved
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] dateText in
-                print("[StreamingDetailViewController] Created at: \(dateText)")
+            .sink { [weak self] isSaved in
+                self?.interactionBar.updateSaveButton(isSaved: isSaved)
             }
             .store(in: &cancellables)
 
@@ -547,6 +531,19 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             .receive(on: DispatchQueue.main)
             .sink { [weak self] tracks in
                 self?.showScriptSelectionAlert(tracks: tracks)
+            }
+            .store(in: &cancellables)
+
+        output.showShareSheet
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in
+                guard let self = self else { return }
+                let payload = ShareCardPayload(
+                    title: self.video.title,
+                    thumbnailUrl: self.video.thumbnailUrl,
+                    videoId: self.video.videoId
+                )
+                self.coordinator?.presentShareSheet(from: self, payload: payload)
             }
             .store(in: &cancellables)
 
@@ -692,6 +689,7 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
 
         landscapeVC.loadViewIfNeeded()
         landscapeVC.attachPlayerLayer(playerLayer)
+        landscapeVC.setPlayerManager(playerManager)
 
         let landscapeControlView = landscapeVC.getControlOverlayView().getControlView()
         bindControlViewToViewModel(landscapeControlView)
@@ -745,6 +743,7 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             subtitleCellTapped: Empty().eraseToAnyPublisher(),
             likeButtonTapped: Empty().eraseToAnyPublisher(),
             shareButtonTapped: Empty().eraseToAnyPublisher(),
+            saveButtonTapped: Empty().eraseToAnyPublisher(),
             scriptButtonTapped: Empty().eraseToAnyPublisher(),
             availableSubtitles: playerManager.subtitleManager.availableSubtitlesPublisher
         )
@@ -869,21 +868,17 @@ extension StreamingDetailViewController {
 
 extension StreamingDetailViewController: AVPictureInPictureControllerDelegate {
     func pictureInPictureControllerWillStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-        print("[StreamingDetailViewController] PIP will start")
     }
 
     func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-        print("[StreamingDetailViewController] PIP did start")
         videoContainerView.isHidden = true
         coordinator?.retainPIPSession(playerManager: playerManager, viewController: self, video: video)
     }
 
     func pictureInPictureControllerWillStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-        print("[StreamingDetailViewController] PIP will stop")
     }
 
     func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
-        print("[StreamingDetailViewController] PIP did stop")
         videoContainerView.isHidden = false
         coordinator?.releasePIPSession()
     }
@@ -892,9 +887,6 @@ extension StreamingDetailViewController: AVPictureInPictureControllerDelegate {
         _ pictureInPictureController: AVPictureInPictureController,
         restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
     ) {
-        print("[StreamingDetailViewController] Restore user interface for PIP stop")
-        print("[StreamingDetailViewController] VC is in nav stack: \(navigationController?.viewControllers.contains(self) ?? false)")
-
         coordinator?.restorePIPViewController { [weak self] success in
             guard let self = self else {
                 completionHandler(false)
@@ -906,7 +898,6 @@ extension StreamingDetailViewController: AVPictureInPictureControllerDelegate {
 
                 if let playerLayer = self.videoContainerView.playerLayer {
                     playerLayer.frame = self.videoContainerView.bounds
-                    print("[StreamingDetailViewController] PlayerLayer repositioned after PIP restoration")
                 }
 
                 completionHandler(success)
@@ -918,14 +909,6 @@ extension StreamingDetailViewController: AVPictureInPictureControllerDelegate {
         _ pictureInPictureController: AVPictureInPictureController,
         failedToStartPictureInPictureWithError error: Error
     ) {
-        print("[StreamingDetailViewController] ❌ PIP FAILED TO START")
-        print("[StreamingDetailViewController] Error: \(error)")
-        print("[StreamingDetailViewController] Error code: \((error as NSError).code)")
-        print("[StreamingDetailViewController] Error domain: \((error as NSError).domain)")
-        print("[StreamingDetailViewController] Is PIP active: \(pipController?.isPictureInPictureActive ?? false)")
-        print("[StreamingDetailViewController] Is PIP possible: \(pipController?.isPictureInPicturePossible ?? false)")
-        print("[StreamingDetailViewController] Player rate: \(playerManager.getPlayer().rate)")
-
         showAlert(title: "PIP 오류", message: "Picture in Picture를 시작할 수 없습니다.\n\(error.localizedDescription)")
     }
 }

@@ -13,35 +13,65 @@ final class VideoInteractionBar: UIView {
 
     let likeButtonTappedPublisher: AnyPublisher<Void, Never>
     let shareButtonTappedPublisher: AnyPublisher<Void, Never>
+    let saveButtonTappedPublisher: AnyPublisher<Void, Never>
     let scriptButtonTappedPublisher: AnyPublisher<Void, Never>
 
     private let likeButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+        var config = UIButton.Configuration.plain()
+        let imageConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
+        config.image = AppImage.likeEmpty.withConfiguration(imageConfig)
+        config.imagePadding = 4
+        config.baseForegroundColor = AppColor.gray75
+        config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
+        config.background.backgroundColor = AppColor.gray15
+        config.background.cornerRadius = 8
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = AppFont.body3
+            return outgoing
+        }
+        button.configuration = config
         return button
-    }()
-
-    private let likeCountLabel: UILabel = {
-        let label = UILabel()
-        label.font = AppFont.body2
-        label.textColor = AppColor.gray75
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
     }()
 
     private let shareButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
         var config = UIButton.Configuration.plain()
-        config.image = UIImage(systemName: "square.and.arrow.up")
+        let imageConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .regular)
+        config.image = AppImage.share.withConfiguration(imageConfig)
         config.imagePadding = 4
         config.baseForegroundColor = AppColor.gray75
         config.title = "공유"
-        config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
+        config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
+        config.background.backgroundColor = AppColor.gray15
+        config.background.cornerRadius = 8
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
             var outgoing = incoming
-            outgoing.font = AppFont.body2
+            outgoing.font = AppFont.body3
+            return outgoing
+        }
+        button.configuration = config
+        return button
+    }()
+
+    private let saveButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        var config = UIButton.Configuration.plain()
+        let imageConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .regular)
+        config.image = AppImage.save.withConfiguration(imageConfig)
+        config.imagePadding = 4
+        config.baseForegroundColor = AppColor.gray75
+        config.title = "저장"
+        config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
+        config.background.backgroundColor = AppColor.gray15
+        config.background.cornerRadius = 8
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = AppFont.body3
             return outgoing
         }
         button.configuration = config
@@ -52,45 +82,50 @@ final class VideoInteractionBar: UIView {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
         var config = UIButton.Configuration.plain()
-        config.image = UIImage(systemName: "text.alignleft")
+        let imageConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .regular)
+        config.image = AppImage.script.withConfiguration(imageConfig)
         config.imagePadding = 4
         config.baseForegroundColor = AppColor.gray75
         config.title = "스크립트"
-        config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
+        config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
+        config.background.backgroundColor = AppColor.gray15
+        config.background.cornerRadius = 8
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
             var outgoing = incoming
-            outgoing.font = AppFont.body2
+            outgoing.font = AppFont.body3
             return outgoing
         }
         button.configuration = config
         return button
     }()
 
-    private let likesStackView: UIStackView = {
+    private let buttonsStackView: UIStackView = {
         let stack = UIStackView()
         stack.axis = .horizontal
-        stack.spacing = 6
+        stack.spacing = 8
+        stack.distribution = .fillProportionally
         stack.alignment = .center
         stack.translatesAutoresizingMaskIntoConstraints = false
         return stack
     }()
 
-    private let buttonsStackView: UIStackView = {
-        let stack = UIStackView()
-        stack.axis = .horizontal
-        stack.spacing = 16
-        stack.distribution = .fillEqually
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        return stack
+    private let emptyView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return view
     }()
 
     override init(frame: CGRect) {
         let likeButtonSubject = PassthroughSubject<Void, Never>()
         let shareButtonSubject = PassthroughSubject<Void, Never>()
+        let saveButtonSubject = PassthroughSubject<Void, Never>()
         let scriptButtonSubject = PassthroughSubject<Void, Never>()
 
         likeButtonTappedPublisher = likeButtonSubject.eraseToAnyPublisher()
         shareButtonTappedPublisher = shareButtonSubject.eraseToAnyPublisher()
+        saveButtonTappedPublisher = saveButtonSubject.eraseToAnyPublisher()
         scriptButtonTappedPublisher = scriptButtonSubject.eraseToAnyPublisher()
 
         super.init(frame: frame)
@@ -110,6 +145,13 @@ final class VideoInteractionBar: UIView {
             }
             .store(in: &cancellables)
 
+        saveButton.tapPublisher()
+            .sink { _ in
+                print("[VideoInteractionBar] Save button tapped")
+                saveButtonSubject.send(())
+            }
+            .store(in: &cancellables)
+
         scriptButton.tapPublisher()
             .sink { _ in
                 print("[VideoInteractionBar] Script button tapped")
@@ -125,37 +167,48 @@ final class VideoInteractionBar: UIView {
     private func setupViews() {
         isUserInteractionEnabled = true
 
-        likesStackView.addArrangedSubview(likeButton)
-        likesStackView.addArrangedSubview(likeCountLabel)
+        likeButton.setContentHuggingPriority(.required, for: .horizontal)
+        likeButton.setContentCompressionResistancePriority(.required, for: .horizontal)
 
+        shareButton.setContentHuggingPriority(.required, for: .horizontal)
+        shareButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        saveButton.setContentHuggingPriority(.required, for: .horizontal)
+        saveButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        scriptButton.setContentHuggingPriority(.required, for: .horizontal)
+        scriptButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        buttonsStackView.addArrangedSubview(likeButton)
         buttonsStackView.addArrangedSubview(shareButton)
+        buttonsStackView.addArrangedSubview(saveButton)
         buttonsStackView.addArrangedSubview(scriptButton)
+        buttonsStackView.addArrangedSubview(emptyView)
 
-        addSubview(likesStackView)
         addSubview(buttonsStackView)
 
-        NSLayoutConstraint.activate([
-            likesStackView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            likesStackView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            likesStackView.topAnchor.constraint(equalTo: topAnchor),
-            likesStackView.bottomAnchor.constraint(equalTo: bottomAnchor),
+        let saveButtonWidthConstraint = saveButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 70)
+        saveButtonWidthConstraint.priority = .defaultHigh
 
+        NSLayoutConstraint.activate([
+            buttonsStackView.leadingAnchor.constraint(equalTo: leadingAnchor),
             buttonsStackView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            buttonsStackView.centerYAnchor.constraint(equalTo: centerYAnchor),
             buttonsStackView.topAnchor.constraint(equalTo: topAnchor),
             buttonsStackView.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            likeButton.widthAnchor.constraint(equalToConstant: 24),
-            likeButton.heightAnchor.constraint(equalToConstant: 24)
+            saveButtonWidthConstraint
         ])
     }
 
     func configure(isLiked: Bool, likeCount: Int, animated: Bool = false) {
+        var config = likeButton.configuration
+        let imageConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
         let image = isLiked ? AppImage.likeFill : AppImage.likeEmpty
         let color = isLiked ? AppColor.blackSprout : AppColor.gray75
-        likeButton.setImage(image, for: .normal)
-        likeButton.tintColor = color
-        likeCountLabel.text = "\(likeCount)"
+
+        config?.image = image.withConfiguration(imageConfig)
+        config?.baseForegroundColor = color
+        config?.title = "\(likeCount)"
+        likeButton.configuration = config
 
         if animated {
             UIView.animate(withDuration: 0.15, delay: 0, options: .curveEaseInOut) {
@@ -166,5 +219,18 @@ final class VideoInteractionBar: UIView {
                 }
             }
         }
+    }
+
+    func updateSaveButton(isSaved: Bool) {
+        var config = saveButton.configuration
+        config?.title = isSaved ? "저장됨" : "저장"
+        saveButton.configuration = config
+    }
+
+    func updateScriptButton(hasScript: Bool) {
+        scriptButton.isEnabled = hasScript
+        var config = scriptButton.configuration
+        config?.baseForegroundColor = hasScript ? AppColor.gray75 : AppColor.gray45
+        scriptButton.configuration = config
     }
 }

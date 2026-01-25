@@ -12,6 +12,7 @@ enum ChatMessageContent: Hashable {
     case imageGroup([String])
     case video(thumbnailUrl: String, videoUrl: String)
     case file(FileInfo)
+    case shareCard(ShareCardPayload)
 
     struct FileInfo: Hashable {
         let url: String
@@ -42,7 +43,9 @@ extension ChatMessageContent {
     ) -> [ChatMessageContent] {
         var result: [ChatMessageContent] = []
 
-        if !content.isEmpty {
+        if let payload = ShareCardMessageFormatter.parse(content: content) {
+            result.append(.shareCard(payload))
+        } else if !content.isEmpty {
             result.append(.text(content))
         }
 

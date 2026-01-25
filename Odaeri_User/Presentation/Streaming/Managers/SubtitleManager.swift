@@ -77,11 +77,6 @@ final class SubtitleManager {
         let subtitles = extractSubtitles(from: item)
         availableSubtitlesSubject.send(subtitles)
 
-        print("[SubtitleManager] Found \(subtitles.count) subtitle tracks:")
-        for subtitle in subtitles {
-            print("  - \(subtitle.name) (\(subtitle.language))")
-        }
-
         if let defaultSubtitle = subtitles.first(where: { $0.isDefault }) {
             selectSubtitle(defaultSubtitle)
         }
@@ -137,14 +132,11 @@ final class SubtitleManager {
             if externalSubtitles[track.language] != nil {
                 currentExternalSubtitles = externalSubtitles[track.language]
                 externalSubtitleDataSubject.send(currentExternalSubtitles)
-                print("[SubtitleManager] Using cached external subtitle: \(track.name)")
             } else {
                 let subtitleMetadata = externalSubtitleMetadata.first(where: { $0.language == track.language })
                 if let path = subtitleMetadata?.url {
                     addExternalSubtitle(path: path, language: track.language, name: track.name)
-                    print("[SubtitleManager] Loading external subtitle: \(track.name) from \(path)")
                 } else {
-                    print("[SubtitleManager] Cannot find subtitle path for language: \(track.language)")
                 }
             }
 
@@ -152,7 +144,6 @@ final class SubtitleManager {
             currentSubtitleSubject.send(track)
             currentExternalSubtitles = nil
             externalSubtitleDataSubject.send(nil)
-            print("[SubtitleManager] Subtitles turned off")
 
         case .embedded:
             break
@@ -243,7 +234,6 @@ final class SubtitleManager {
                     self.externalSubtitles[language] = subtitles
                     self.currentExternalSubtitles = subtitles
                     self.externalSubtitleDataSubject.send(subtitles)
-                    print("[SubtitleManager] Parsed \(subtitles.count) subtitle items for language: \(language)")
                 }
             }
             .store(in: &cancellables)

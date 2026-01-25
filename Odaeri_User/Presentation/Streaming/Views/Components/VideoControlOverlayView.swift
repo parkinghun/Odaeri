@@ -82,7 +82,7 @@ final class VideoControlOverlayView: BaseView {
 
         controlView.snp.makeConstraints { make in
             make.leading.trailing.bottom.equalToSuperview()
-            make.height.equalTo(60)
+            make.height.equalTo(44)
         }
 
         centerPlayPauseButton.snp.makeConstraints { make in

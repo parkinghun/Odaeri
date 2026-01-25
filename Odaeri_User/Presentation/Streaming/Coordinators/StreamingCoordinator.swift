@@ -48,6 +48,20 @@ final class StreamingCoordinator: Coordinator {
         navigationController.pushViewController(viewController, animated: true)
     }
 
+    func presentShareSheet(from presenter: UIViewController, payload: ShareCardPayload) {
+        let viewModel = ShareTargetPickerViewModel(sharePayload: payload)
+        let viewController = ShareTargetPickerViewController(viewModel: viewModel)
+        viewController.modalPresentationStyle = .pageSheet
+
+        if let sheet = viewController.sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 24
+        }
+
+        presenter.present(viewController, animated: true)
+    }
+
     func retainPIPSession(playerManager: StreamingPlayerManager, viewController: StreamingDetailViewController, video: VideoEntity) {
         print("[StreamingCoordinator] Retaining PIP session")
         activePIPPlayerManager = playerManager
