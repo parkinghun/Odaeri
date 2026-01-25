@@ -10,6 +10,10 @@ import Combine
 import SnapKit
 
 final class UserProfileEmptyView: UIView {
+    enum Mode {
+        case posts
+        case savedVideos
+    }
     private let actionTappedSubject = PassthroughSubject<Void, Never>()
     private var cancellables = Set<AnyCancellable>()
 
@@ -37,12 +41,18 @@ final class UserProfileEmptyView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func configure(isMe: Bool) {
-        if isMe {
-            messageLabel.text = "아직 기록이 없어요. 첫 번째 맛집을 공유해보세요!"
-            actionButton.isHidden = false
-        } else {
-            messageLabel.text = "아직 작성한 게시글이 없습니다."
+    func configure(isMe: Bool, mode: Mode) {
+        switch mode {
+        case .posts:
+            if isMe {
+                messageLabel.text = "아직 기록이 없어요. 첫 번째 맛집을 공유해보세요!"
+                actionButton.isHidden = false
+            } else {
+                messageLabel.text = "아직 작성한 게시글이 없습니다."
+                actionButton.isHidden = true
+            }
+        case .savedVideos:
+            messageLabel.text = "저장한 영상이 없습니다."
             actionButton.isHidden = true
         }
     }

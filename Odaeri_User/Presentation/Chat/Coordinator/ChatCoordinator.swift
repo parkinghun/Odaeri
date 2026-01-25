@@ -132,6 +132,10 @@ extension ChatCoordinator: UserProfileCoordinating {
         showPlaceholderAlert(title: "게시글 수정", message: "게시글 수정 화면은 준비 중입니다.")
     }
 
+    func showSavedVideo(videoId: String) {
+        showSharedVideo(videoId: videoId)
+    }
+
     func didFinishLogout() {
         TokenManager.shared.clearTokens()
         UserManager.shared.clearUser()

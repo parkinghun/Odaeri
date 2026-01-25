@@ -15,6 +15,7 @@ protocol UserProfileCoordinating: AnyObject {
     func showWritePost()
     func showEditPost(postId: String)
     func showChatRoom(roomId: String, title: String?)
+    func showSavedVideo(videoId: String)
     func didFinishLogout()
 }
 
@@ -25,6 +26,8 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
     private let communityRepository: CommunityPostRepository
     private let chatRepository: ChatRepository
     private let userRepository: UserRepository
+    private let getSavedVideoIdsUseCase: GetSavedVideoIdsUseCase
+    private let getVideoListUseCase: GetVideoListUseCase
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let errorSubject = PassthroughSubject<String, Never>()
     private let headerSubject = CurrentValueSubject<UserProfileHeaderViewModel, Never>(
@@ -46,12 +49,18 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
         initialProfileImage: String? = nil,
         communityRepository: CommunityPostRepository = CommunityPostRepositoryImpl(),
         chatRepository: ChatRepository = ChatRepositoryImpl(),
-        userRepository: UserRepository = UserRepositoryImpl()
+        userRepository: UserRepository = UserRepositoryImpl(),
+        getSavedVideoIdsUseCase: GetSavedVideoIdsUseCase = DefaultGetSavedVideoIdsUseCase(),
+        getVideoListUseCase: GetVideoListUseCase = DefaultGetVideoListUseCase(
+            repository: VideoRepositoryImpl()
+        )
     ) {
         self.targetUserId = targetUserId
         self.communityRepository = communityRepository
         self.chatRepository = chatRepository
         self.userRepository = userRepository
+        self.getSavedVideoIdsUseCase = getSavedVideoIdsUseCase
+        self.getVideoListUseCase = getVideoListUseCase
         super.init()
         if isMe {
             updateHeader(from: UserManager.shared.currentUser, isMe: true)
@@ -74,18 +83,22 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
         let logoutTapped: AnyPublisher<Void, Never>
         let emptyActionTapped: AnyPublisher<Void, Never>
         let postAction: AnyPublisher<UserProfilePostAction, Never>
+        let tabSelection: AnyPublisher<UserProfileContentTab, Never>
+        let contentSelected: AnyPublisher<UserProfileContentSelection, Never>
     }
 
     struct Output {
         let header: AnyPublisher<UserProfileHeaderViewModel, Never>
         let navigationItem: AnyPublisher<UserProfileNavigationItem, Never>
         let posts: AnyPublisher<[CommunityPostEntity], Never>
+        let savedVideos: AnyPublisher<[VideoEntity], Never>
         let isLoading: AnyPublisher<Bool, Never>
         let error: AnyPublisher<String, Never>
     }
 
     func transform(input: Input) -> Output {
         let postsSubject = CurrentValueSubject<[CommunityPostEntity], Never>([])
+        let savedVideosSubject = CurrentValueSubject<[VideoEntity], Never>([])
 
         input.viewDidLoad
             .sink { [weak self] _ in
@@ -141,6 +154,29 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
             }
             .store(in: &cancellables)
 
+        input.tabSelection
+            .sink { [weak self] tab in
+                guard let self else { return }
+                switch tab {
+                case .posts:
+                    break
+                case .savedVideos:
+                    self.fetchSavedVideos(subject: savedVideosSubject)
+                }
+            }
+            .store(in: &cancellables)
+
+        input.contentSelected
+            .sink { [weak self] selection in
+                switch selection {
+                case .post:
+                    break
+                case .savedVideo(let videoId):
+                    self?.coordinator?.showSavedVideo(videoId: videoId)
+                }
+            }
+            .store(in: &cancellables)
+
         postsSubject
             .sink { [weak self] posts in
                 guard let self, !self.isMe else { return }
@@ -158,6 +194,7 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
             header: headerSubject.eraseToAnyPublisher(),
             navigationItem: navigationItemSubject.eraseToAnyPublisher(),
             posts: postsSubject.eraseToAnyPublisher(),
+            savedVideos: savedVideosSubject.eraseToAnyPublisher(),
             isLoading: isLoadingSubject.eraseToAnyPublisher(),
             error: errorSubject.eraseToAnyPublisher()
         )
@@ -278,6 +315,46 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
             .store(in: &cancellables)
     }
 
+    private func fetchSavedVideos(subject: CurrentValueSubject<[VideoEntity], Never>) {
+        isLoadingSubject.send(true)
+
+        getSavedVideoIdsUseCase.execute()
+            .flatMap { [weak self] videoIds -> AnyPublisher<[VideoEntity], NetworkError> in
+                guard let self else {
+                    return Just([])
+                        .setFailureType(to: NetworkError.self)
+                        .eraseToAnyPublisher()
+                }
+
+                guard !videoIds.isEmpty else {
+                    return Just([])
+                        .setFailureType(to: NetworkError.self)
+                        .eraseToAnyPublisher()
+                }
+
+                return self.getVideoListUseCase.execute(next: nil, limit: nil)
+                    .map { result in
+                        let videoMap = Dictionary(uniqueKeysWithValues: result.videos.map {
+                            ($0.videoId, $0)
+                        })
+                        return videoIds.compactMap { videoMap[$0] }
+                    }
+                    .eraseToAnyPublisher()
+            }
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    self?.isLoadingSubject.send(false)
+                    if case .failure(let error) = completion {
+                        self?.errorSubject.send(error.errorDescription)
+                    }
+                },
+                receiveValue: { videos in
+                    subject.send(videos)
+                }
+            )
+            .store(in: &cancellables)
+    }
+
     private func logout() {
         isLoadingSubject.send(true)
 
@@ -323,4 +400,14 @@ enum UserProfileNavigationItem {
 enum UserProfilePostAction {
     case edit(String)
     case delete(String)
+}
+
+enum UserProfileContentTab {
+    case posts
+    case savedVideos
+}
+
+enum UserProfileContentSelection {
+    case post
+    case savedVideo(String)
 }
