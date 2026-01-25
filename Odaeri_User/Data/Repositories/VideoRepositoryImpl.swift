@@ -36,4 +36,21 @@ final class VideoRepositoryImpl: VideoRepository {
             .map { (_: EmptyResponse) in () }
             .eraseToAnyPublisher()
     }
+
+    func getSubtitleFile(path: String) -> AnyPublisher<String, NetworkError> {
+        provider.requestPublisher(.getSubtitleFile(path: path), callbackQueue: .main)
+            .tryMap { response in
+                guard let vttString = String(data: response.data, encoding: .utf8) else {
+                    throw NetworkError.invalidRequest("자막 데이터를 UTF-8로 디코딩할 수 없습니다")
+                }
+                return vttString
+            }
+            .mapError { error in
+                if let networkError = error as? NetworkError {
+                    return networkError
+                }
+                return NetworkError.unknown(error)
+            }
+            .eraseToAnyPublisher()
+    }
 }

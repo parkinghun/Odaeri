@@ -23,9 +23,26 @@ final class LandscapeVideoViewController: BaseViewController<StreamingDetailView
     private(set) var playerLayer: AVPlayerLayer?
 
     weak var delegate: LandscapeVideoViewControllerDelegate?
+    private weak var playerManager: StreamingPlayerManager?
 
     private var originalCenter: CGPoint = .zero
     private var isDismissing = false
+    private var isCurrentlyPlaying = false
+
+    private let fastForwardIndicatorLabel: UILabel = {
+        let label = UILabel()
+        label.text = "2배속으로 재생 중"
+        label.font = AppFont.body2
+        label.textColor = AppColor.gray0
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        label.textAlignment = .center
+        label.layer.cornerRadius = 8
+        label.clipsToBounds = true
+        label.isHidden = true
+        return label
+    }()
+
+    private let hapticGenerator = UIImpactFeedbackGenerator(style: .medium)
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
@@ -50,8 +67,8 @@ final class LandscapeVideoViewController: BaseViewController<StreamingDetailView
         view.backgroundColor = .black
 
         view.addSubview(videoContainerView)
-
         videoContainerView.addSubview(controlOverlayView)
+        view.addSubview(fastForwardIndicatorLabel)
 
         videoContainerView.snp.makeConstraints { make in
             make.edges.equalToSuperview()
@@ -61,15 +78,54 @@ final class LandscapeVideoViewController: BaseViewController<StreamingDetailView
             make.edges.equalToSuperview()
         }
 
+        fastForwardIndicatorLabel.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(20)
+            make.centerX.equalToSuperview()
+            make.height.equalTo(32)
+            make.width.greaterThanOrEqualTo(150)
+        }
+
         controlOverlayView.setInitiallyHidden()
+        hideScriptButton()
 
         setupDismissGesture()
+        setupLongPressGesture()
     }
 
     private func setupDismissGesture() {
         let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handleDismissPan(_:)))
         panGesture.delegate = self
         view.addGestureRecognizer(panGesture)
+    }
+
+    private func setupLongPressGesture() {
+        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
+        longPress.minimumPressDuration = 0.5
+        view.addGestureRecognizer(longPress)
+    }
+
+    private func hideScriptButton() {
+        let controlView = controlOverlayView.getControlView()
+        controlView.hideSubtitleButton()
+    }
+
+    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
+        let location = gesture.location(in: view)
+        let isRightSide = location.x > view.bounds.width / 2
+
+        guard isRightSide else { return }
+
+        switch gesture.state {
+        case .began:
+            playerManager?.startFastForward()
+            fastForwardIndicatorLabel.isHidden = false
+            hapticGenerator.impactOccurred()
+        case .ended, .cancelled:
+            playerManager?.stopFastForward()
+            fastForwardIndicatorLabel.isHidden = true
+        default:
+            break
+        }
     }
 
     @objc private func handleDismissPan(_ gesture: UIPanGestureRecognizer) {
@@ -139,12 +195,34 @@ final class LandscapeVideoViewController: BaseViewController<StreamingDetailView
 
         controlView.settingsTappedPublisher
             .sink { [weak self] in
+                self?.showSpeedSettingsAlert()
                 self?.controlOverlayView.resetAutoHideTimer()
             }
             .store(in: &cancellables)
 
         controlView.subtitleTappedPublisher
             .sink { [weak self] in
+                self?.controlOverlayView.resetAutoHideTimer()
+            }
+            .store(in: &cancellables)
+
+        controlOverlayView.centerPlayPauseTappedPublisher
+            .sink { [weak self] in
+                self?.togglePlayPause()
+                self?.controlOverlayView.resetAutoHideTimer()
+            }
+            .store(in: &cancellables)
+
+        controlOverlayView.seekBackwardTappedPublisher
+            .sink { [weak self] in
+                self?.seekRelative(seconds: -10)
+                self?.controlOverlayView.resetAutoHideTimer()
+            }
+            .store(in: &cancellables)
+
+        controlOverlayView.seekForwardTappedPublisher
+            .sink { [weak self] in
+                self?.seekRelative(seconds: 10)
                 self?.controlOverlayView.resetAutoHideTimer()
             }
             .store(in: &cancellables)
@@ -171,6 +249,63 @@ final class LandscapeVideoViewController: BaseViewController<StreamingDetailView
         return controlOverlayView
     }
 
+    func setPlayerManager(_ manager: StreamingPlayerManager) {
+        self.playerManager = manager
+
+        manager.isPlayingPublisher
+            .sink { [weak self] isPlaying in
+                self?.isCurrentlyPlaying = isPlaying
+            }
+            .store(in: &cancellables)
+    }
+
+    private func togglePlayPause() {
+        guard let playerManager = playerManager else { return }
+        if isCurrentlyPlaying {
+            playerManager.pause()
+        } else {
+            playerManager.play()
+        }
+    }
+
+    private func seekRelative(seconds: Double) {
+        guard let playerManager = playerManager else { return }
+        let player = playerManager.getPlayer()
+        let currentTime = player.currentTime()
+        let newTime = CMTimeAdd(currentTime, CMTime(seconds: seconds, preferredTimescale: 600))
+
+        guard let duration = player.currentItem?.duration else { return }
+
+        let clampedTime: CMTime
+        if newTime < .zero {
+            clampedTime = .zero
+        } else if newTime > duration {
+            clampedTime = duration
+        } else {
+            clampedTime = newTime
+        }
+
+        playerManager.seek(to: clampedTime)
+    }
+
+    private func showSpeedSettingsAlert() {
+        let speeds: [Float] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
+        let alert = UIAlertController(title: "재생 속도", message: nil, preferredStyle: .actionSheet)
+
+        for speed in speeds {
+            let title = speed == 1.0 ? "일반 (1.0x)" : "\(speed)x"
+            let action = UIAlertAction(title: title, style: .default) { [weak self] _ in
+                self?.playerManager?.setPreferredRate(speed)
+            }
+            alert.addAction(action)
+        }
+
+        let cancelAction = UIAlertAction(title: "취소", style: .cancel)
+        alert.addAction(cancelAction)
+
+        present(alert, animated: true)
+    }
+
     private func setLandscapeOrientation() {
         if #available(iOS 16.0, *) {
             guard let windowScene = view.window?.windowScene else { return }
@@ -195,5 +330,17 @@ final class LandscapeVideoViewController: BaseViewController<StreamingDetailView
             let value = UIInterfaceOrientation.portrait.rawValue
             UIDevice.current.setValue(value, forKey: "orientation")
         }
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return true
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if let panGesture = gestureRecognizer as? UIPanGestureRecognizer {
+            let translation = panGesture.translation(in: view)
+            return abs(translation.y) > abs(translation.x)
+        }
+        return true
     }
 }

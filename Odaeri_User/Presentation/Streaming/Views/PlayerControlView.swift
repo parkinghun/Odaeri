@@ -14,7 +14,7 @@ final class PlayerControlView: UIView {
     private let playPauseButton: UIButton = {
         let button = UIButton(type: .system)
         button.tintColor = AppColor.gray0
-        let config = UIImage.SymbolConfiguration(pointSize: 32, weight: .regular)
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
         button.setImage(UIImage(systemName: "play.fill", withConfiguration: config), for: .normal)
         return button
     }()
@@ -22,7 +22,7 @@ final class PlayerControlView: UIView {
     private let fullscreenButton: UIButton = {
         let button = UIButton(type: .system)
         button.tintColor = AppColor.gray0
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
+        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .regular)
         button.setImage(UIImage(systemName: "arrow.up.left.and.arrow.down.right", withConfiguration: config), for: .normal)
         return button
     }()
@@ -30,7 +30,7 @@ final class PlayerControlView: UIView {
     private let subtitleButton: UIButton = {
         let button = UIButton(type: .system)
         button.tintColor = AppColor.gray0
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
+        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .regular)
         button.setImage(UIImage(systemName: "captions.bubble", withConfiguration: config), for: .normal)
         return button
     }()
@@ -38,7 +38,7 @@ final class PlayerControlView: UIView {
     private let settingsButton: UIButton = {
         let button = UIButton(type: .system)
         button.tintColor = AppColor.gray0
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
+        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .regular)
         button.setImage(UIImage(systemName: "gearshape.fill", withConfiguration: config), for: .normal)
         return button
     }()
@@ -55,7 +55,7 @@ final class PlayerControlView: UIView {
 
     private let currentTimeLabel: UILabel = {
         let label = UILabel()
-        label.font = AppFont.caption1
+        label.font = AppFont.caption2
         label.textColor = AppColor.gray0
         label.text = "0:00"
         return label
@@ -63,7 +63,7 @@ final class PlayerControlView: UIView {
 
     private let durationLabel: UILabel = {
         let label = UILabel()
-        label.font = AppFont.caption1
+        label.font = AppFont.caption2
         label.textColor = AppColor.gray0
         label.text = "0:00"
         return label
@@ -107,42 +107,42 @@ final class PlayerControlView: UIView {
 
         playPauseButton.snp.makeConstraints { make in
             make.centerY.equalToSuperview()
-            make.leading.equalToSuperview().inset(20)
-            make.width.height.equalTo(44)
+            make.leading.equalToSuperview().inset(12)
+            make.width.height.equalTo(32)
         }
 
         settingsButton.snp.makeConstraints { make in
             make.centerY.equalToSuperview()
-            make.trailing.equalToSuperview().inset(20)
-            make.width.height.equalTo(44)
+            make.trailing.equalToSuperview().inset(12)
+            make.width.height.equalTo(32)
         }
 
         subtitleButton.snp.makeConstraints { make in
             make.centerY.equalToSuperview()
-            make.trailing.equalTo(settingsButton.snp.leading).offset(-8)
-            make.width.height.equalTo(44)
+            make.trailing.equalTo(settingsButton.snp.leading).offset(-6)
+            make.width.height.equalTo(32)
         }
 
         fullscreenButton.snp.makeConstraints { make in
             make.centerY.equalToSuperview()
-            make.trailing.equalTo(subtitleButton.snp.leading).offset(-8)
-            make.width.height.equalTo(44)
+            make.trailing.equalTo(subtitleButton.snp.leading).offset(-6)
+            make.width.height.equalTo(32)
         }
 
         currentTimeLabel.snp.makeConstraints { make in
             make.centerY.equalToSuperview()
-            make.leading.equalTo(playPauseButton.snp.trailing).offset(12)
+            make.leading.equalTo(playPauseButton.snp.trailing).offset(8)
         }
 
         durationLabel.snp.makeConstraints { make in
             make.centerY.equalToSuperview()
-            make.trailing.equalTo(fullscreenButton.snp.leading).offset(-12)
+            make.trailing.equalTo(fullscreenButton.snp.leading).offset(-8)
         }
 
         progressSlider.snp.makeConstraints { make in
             make.centerY.equalToSuperview()
-            make.leading.equalTo(currentTimeLabel.snp.trailing).offset(12)
-            make.trailing.equalTo(durationLabel.snp.leading).offset(-12)
+            make.leading.equalTo(currentTimeLabel.snp.trailing).offset(8)
+            make.trailing.equalTo(durationLabel.snp.leading).offset(-8)
         }
     }
 
@@ -156,7 +156,7 @@ final class PlayerControlView: UIView {
     }
 
     func updatePlayPauseButton(isPlaying: Bool) {
-        let config = UIImage.SymbolConfiguration(pointSize: 32, weight: .regular)
+        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
         let imageName = isPlaying ? "pause.fill" : "play.fill"
         playPauseButton.setImage(UIImage(systemName: imageName, withConfiguration: config), for: .normal)
     }
@@ -177,7 +177,11 @@ final class PlayerControlView: UIView {
         let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
         let imageName = isActive ? "captions.bubble.fill" : "captions.bubble"
         subtitleButton.setImage(UIImage(systemName: imageName, withConfiguration: config), for: .normal)
-        subtitleButton.tintColor = isActive ? AppColor.brightForsythia : AppColor.gray0
+        subtitleButton.tintColor = AppColor.gray0
+    }
+
+    func hideSubtitleButton() {
+        subtitleButton.isHidden = true
     }
 
     private static func createThumbImage() -> UIImage? {

@@ -532,6 +532,10 @@ extension ChatViewController: ChatMessageCellDelegate {
         AppMediaService.shared.previewFile(url: fileInfo.url, fileName: fileInfo.fileName, from: self)
     }
 
+    func chatMessageCell(_ cell: ChatMessageCell, didTapShareCard payload: ShareCardPayload) {
+        viewModel.coordinator?.showSharedVideo(videoId: payload.videoId)
+    }
+
     func chatMessageCell(_ cell: ChatMessageCell, didTapProfile userId: String) {
         viewModel.coordinator?.showUserProfile(userId: userId)
     }

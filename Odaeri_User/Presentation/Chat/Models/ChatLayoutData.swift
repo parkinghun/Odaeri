@@ -26,6 +26,7 @@ struct ChatMessageCellLayoutData: Equatable {
     let imageGridFrame: CGRect?
     let videoFrame: CGRect?
     let fileFrame: CGRect?
+    let shareCardFrame: CGRect?
 
     let showProfile: Bool
     let showName: Bool

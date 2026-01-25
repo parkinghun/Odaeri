@@ -20,11 +20,23 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
     private let logoutTappedSubject = PassthroughSubject<Void, Never>()
     private let emptyActionTappedSubject = PassthroughSubject<Void, Never>()
     private let postActionSubject = PassthroughSubject<UserProfilePostAction, Never>()
+    private let tabSelectionSubject = CurrentValueSubject<UserProfileContentTab, Never>(.posts)
+    private let contentSelectionSubject = PassthroughSubject<UserProfileContentSelection, Never>()
 
     private var posts: [CommunityPostEntity] = []
+    private var savedVideos: [VideoEntity] = []
     private var isMe = false
+    private var selectedTab: UserProfileContentTab = .posts
+    private var emptyMode: UserProfileEmptyView.Mode = .posts
 
     override var navigationBarHidden: Bool { false }
+
+    private let tabContainer = UIView()
+    private let tabStackView = UIStackView()
+    private let postsButton = UIButton(type: .system)
+    private let savedVideosButton = UIButton(type: .system)
+    private let tabIndicatorView = UIView()
+    private var tabHeightConstraint: Constraint?
 
     private lazy var collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
@@ -40,6 +52,8 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
         static let headerTop: CGFloat = 12
         static let headerSide: CGFloat = 20
         static let headerBottom: CGFloat = 12
+        static let tabHeight: CGFloat = 44
+        static let tabIndicatorHeight: CGFloat = 2
         static let itemSpacing: CGFloat = 2
         static let sectionInset: CGFloat = 2
         static let columns: CGFloat = 3
@@ -51,6 +65,7 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
         view.backgroundColor = AppColor.gray0
         navigationItem.title = "프로필"
         view.addSubview(headerView)
+        view.addSubview(tabContainer)
         view.addSubview(collectionView)
 
         headerView.snp.makeConstraints {
@@ -58,10 +73,18 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
             $0.leading.trailing.equalToSuperview().inset(Layout.headerSide)
         }
 
-        collectionView.snp.makeConstraints {
+        tabContainer.snp.makeConstraints {
             $0.top.equalTo(headerView.snp.bottom).offset(Layout.headerBottom)
+            $0.leading.trailing.equalToSuperview().inset(Layout.headerSide)
+            tabHeightConstraint = $0.height.equalTo(Layout.tabHeight).constraint
+        }
+
+        collectionView.snp.makeConstraints {
+            $0.top.equalTo(tabContainer.snp.bottom)
             $0.leading.trailing.bottom.equalToSuperview()
         }
+
+        setupTabs()
 
         collectionView.register(
             UserProfilePostCell.self,
@@ -75,6 +98,7 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         viewWillAppearSubject.send(())
+        tabSelectionSubject.send(selectedTab)
     }
 
     override func bind() {
@@ -87,7 +111,9 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
             moreTapped: moreTappedSubject.eraseToAnyPublisher(),
             logoutTapped: logoutTappedSubject.eraseToAnyPublisher(),
             emptyActionTapped: emptyActionTappedSubject.eraseToAnyPublisher(),
-            postAction: postActionSubject.eraseToAnyPublisher()
+            postAction: postActionSubject.eraseToAnyPublisher(),
+            tabSelection: tabSelectionSubject.eraseToAnyPublisher(),
+            contentSelected: contentSelectionSubject.eraseToAnyPublisher()
         )
 
         let output = viewModel.transform(input: input)
@@ -110,8 +136,21 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
             .receive(on: DispatchQueue.main)
             .sink { [weak self] posts in
                 self?.posts = posts
-                self?.collectionView.reloadData()
-                self?.updateEmptyView()
+                if self?.selectedTab == .posts {
+                    self?.collectionView.reloadData()
+                    self?.updateEmptyView()
+                }
+            }
+            .store(in: &cancellables)
+
+        output.savedVideos
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] videos in
+                self?.savedVideos = videos
+                if self?.selectedTab == .savedVideos {
+                    self?.collectionView.reloadData()
+                    self?.updateEmptyView()
+                }
             }
             .store(in: &cancellables)
 
@@ -160,17 +199,106 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
 
         button.snp.makeConstraints { $0.size.equalTo(28) }
         navigationItem.rightBarButtonItem = UIBarButtonItem(customView: button)
+        updateTabVisibility()
         updateEmptyView()
     }
 
     private func updateEmptyView() {
-        emptyView.configure(isMe: isMe)
-        emptyView.isHidden = !posts.isEmpty
-        collectionView.backgroundView = posts.isEmpty ? emptyView : nil
+        switch selectedTab {
+        case .posts:
+            emptyMode = .posts
+            emptyView.configure(isMe: isMe, mode: emptyMode)
+            emptyView.isHidden = !posts.isEmpty
+            collectionView.backgroundView = posts.isEmpty ? emptyView : nil
+        case .savedVideos:
+            emptyMode = .savedVideos
+            emptyView.configure(isMe: isMe, mode: emptyMode)
+            emptyView.isHidden = !savedVideos.isEmpty
+            collectionView.backgroundView = savedVideos.isEmpty ? emptyView : nil
+        }
     }
 
     @objc private func moreTapped() {
         moreTappedSubject.send(())
+    }
+
+    private func setupTabs() {
+        tabContainer.addSubview(tabStackView)
+        tabContainer.addSubview(tabIndicatorView)
+
+        tabStackView.axis = .horizontal
+        tabStackView.distribution = .fillEqually
+        tabStackView.alignment = .center
+
+        postsButton.setTitle("게시글", for: .normal)
+        savedVideosButton.setTitle("저장한 영상", for: .normal)
+
+        tabStackView.addArrangedSubview(postsButton)
+        tabStackView.addArrangedSubview(savedVideosButton)
+
+        tabStackView.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+        }
+
+        tabIndicatorView.backgroundColor = AppColor.gray90
+        tabIndicatorView.snp.makeConstraints {
+            $0.height.equalTo(Layout.tabIndicatorHeight)
+            $0.bottom.equalToSuperview()
+            $0.leading.equalTo(postsButton)
+            $0.trailing.equalTo(postsButton)
+        }
+
+        postsButton.tapPublisher()
+            .sink { [weak self] _ in
+                self?.setTab(.posts)
+            }
+            .store(in: &cancellables)
+
+        savedVideosButton.tapPublisher()
+            .sink { [weak self] _ in
+                self?.setTab(.savedVideos)
+            }
+            .store(in: &cancellables)
+
+        updateTabSelection()
+    }
+
+    private func updateTabSelection() {
+        let postsSelected = selectedTab == .posts
+        postsButton.titleLabel?.font = postsSelected ? AppFont.body2Bold : AppFont.body2
+        postsButton.setTitleColor(postsSelected ? AppColor.gray90 : AppColor.gray60, for: .normal)
+
+        let savedSelected = selectedTab == .savedVideos
+        savedVideosButton.titleLabel?.font = savedSelected ? AppFont.body2Bold : AppFont.body2
+        savedVideosButton.setTitleColor(savedSelected ? AppColor.gray90 : AppColor.gray60, for: .normal)
+
+        let targetButton = postsSelected ? postsButton : savedVideosButton
+        tabIndicatorView.snp.remakeConstraints {
+            $0.height.equalTo(Layout.tabIndicatorHeight)
+            $0.bottom.equalToSuperview()
+            $0.leading.equalTo(targetButton)
+            $0.trailing.equalTo(targetButton)
+        }
+        view.layoutIfNeeded()
+    }
+
+    private func setTab(_ tab: UserProfileContentTab) {
+        guard selectedTab != tab else { return }
+        selectedTab = tab
+        tabSelectionSubject.send(tab)
+        updateTabSelection()
+        collectionView.reloadData()
+        updateEmptyView()
+    }
+
+    private func updateTabVisibility() {
+        tabContainer.isHidden = !isMe
+        tabHeightConstraint?.update(offset: isMe ? Layout.tabHeight : 0)
+        if !isMe {
+            selectedTab = .posts
+            tabSelectionSubject.send(.posts)
+            updateTabSelection()
+        }
     }
 
     private func makeMyMenu() -> UIMenu {
@@ -230,7 +358,12 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
 
 extension UserProfileViewController: UICollectionViewDataSource {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        posts.count
+        switch selectedTab {
+        case .posts:
+            return posts.count
+        case .savedVideos:
+            return savedVideos.count
+        }
     }
 
     func collectionView(
@@ -244,8 +377,14 @@ extension UserProfileViewController: UICollectionViewDataSource {
             return UICollectionViewCell()
         }
 
-        let post = posts[indexPath.item]
-        cell.configure(imageUrl: post.files.first)
+        switch selectedTab {
+        case .posts:
+            let post = posts[indexPath.item]
+            cell.configure(imageUrl: post.files.first)
+        case .savedVideos:
+            let video = savedVideos[indexPath.item]
+            cell.configure(imageUrl: video.thumbnailUrl)
+        }
         return cell
     }
 }
@@ -279,7 +418,7 @@ extension UserProfileViewController: UICollectionViewDelegateFlowLayout {
         contextMenuConfigurationForItemAt indexPath: IndexPath,
         point: CGPoint
     ) -> UIContextMenuConfiguration? {
-        guard isMe else { return nil }
+        guard isMe, selectedTab == .posts else { return nil }
         let postId = posts[indexPath.item].postId
         return UIContextMenuConfiguration(identifier: postId as NSString, previewProvider: nil) { _ in
             let editAction = UIAction(title: "수정") { [weak self] _ in
@@ -290,5 +429,11 @@ extension UserProfileViewController: UICollectionViewDelegateFlowLayout {
             }
             return UIMenu(children: [editAction, deleteAction])
         }
+    }
+
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard selectedTab == .savedVideos else { return }
+        let videoId = savedVideos[indexPath.item].videoId
+        contentSelectionSubject.send(.savedVideo(videoId))
     }
 }

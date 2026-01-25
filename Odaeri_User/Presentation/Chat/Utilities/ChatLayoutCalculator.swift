@@ -22,6 +22,11 @@ struct ChatLayoutCalculator {
         static let contentSpacing: CGFloat = 4
         static let fileHeight: CGFloat = ChatConstants.Layout.fileHeight
         static let maxBubbleWidthRatio: CGFloat = ChatConstants.Layout.maxBubbleWidthRatio
+        static let shareCardImageHeight: CGFloat = 120
+        static let shareCardHorizontalPadding: CGFloat = 12
+        static let shareCardVerticalPadding: CGFloat = 10
+        static let shareCardTagHeight: CGFloat = 14
+        static let shareCardTitleSpacing: CGFloat = 6
     }
 
     static func calculateMessageLayout(
@@ -53,6 +58,7 @@ struct ChatLayoutCalculator {
         var imageGridFrame: CGRect?
         var videoFrame: CGRect?
         var fileFrame: CGRect?
+        var shareCardFrame: CGRect?
         var bubbleFrame = CGRect.zero
         var timeFrame = CGRect.zero
         var statusFrame = CGRect.zero
@@ -144,6 +150,20 @@ struct ChatLayoutCalculator {
                 )
                 totalMediaHeight += Layout.fileHeight
                 mediaCount += 1
+
+            case .shareCard(let payload):
+                let cardSize = calculateShareCardSize(
+                    title: payload.title,
+                    maxWidth: maxContentWidth
+                )
+                shareCardFrame = CGRect(
+                    x: 0,
+                    y: 0,
+                    width: cardSize.width,
+                    height: cardSize.height
+                )
+                totalMediaHeight += cardSize.height
+                mediaCount += 1
             }
         }
 
@@ -176,6 +196,15 @@ struct ChatLayoutCalculator {
 
         if totalMediaHeight > 0 {
             var mediaY = currentY
+
+            if var cardFrame = shareCardFrame {
+                let mediaX = isMe
+                    ? containerWidth - Layout.contentInset - cardFrame.width
+                    : contentX
+                cardFrame.origin = CGPoint(x: mediaX, y: mediaY)
+                shareCardFrame = cardFrame
+                mediaY += cardFrame.height + Layout.contentSpacing
+            }
 
             if var imageFrame = imageGridFrame {
                 let mediaX = isMe
@@ -213,7 +242,10 @@ struct ChatLayoutCalculator {
         let contentMaxX: CGFloat
         let contentMinX: CGFloat
 
-        if let fFrame = fileFrame {
+        if let cardFrame = shareCardFrame {
+            contentMaxX = cardFrame.maxX
+            contentMinX = cardFrame.minX
+        } else if let fFrame = fileFrame {
             contentMaxX = fFrame.maxX
             contentMinX = fFrame.minX
         } else if let vFrame = videoFrame {
@@ -258,6 +290,7 @@ struct ChatLayoutCalculator {
             imageGridFrame: imageGridFrame,
             videoFrame: videoFrame,
             fileFrame: fileFrame,
+            shareCardFrame: shareCardFrame,
             showProfile: showProfile,
             showName: showName,
             showTime: showTime,
@@ -271,6 +304,29 @@ struct ChatLayoutCalculator {
             uploadProgress: displayModel.uploadProgress,
             senderType: senderType
         )
+    }
+
+    private static func calculateShareCardSize(title: String, maxWidth: CGFloat) -> CGSize {
+        let cardWidth = maxWidth
+        let textMaxWidth = cardWidth - Layout.shareCardHorizontalPadding * 2
+
+        let titleSize = title.boundingRect(
+            with: CGSize(width: textMaxWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: AppFont.body2],
+            context: nil
+        ).size
+
+        let titleHeight = ceil(titleSize.height)
+
+        let textHeight = Layout.shareCardTagHeight +
+            Layout.shareCardTitleSpacing +
+            titleHeight +
+            Layout.shareCardVerticalPadding * 2
+
+        let totalHeight = Layout.shareCardImageHeight + textHeight
+
+        return CGSize(width: cardWidth, height: totalHeight)
     }
 
     static func calculateDateSeparatorLayout(

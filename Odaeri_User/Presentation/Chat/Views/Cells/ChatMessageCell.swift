@@ -12,6 +12,7 @@ protocol ChatMessageCellDelegate: AnyObject {
     func chatMessageCell(_ cell: ChatMessageCell, didTapImageAt index: Int, in urls: [String])
     func chatMessageCell(_ cell: ChatMessageCell, didTapVideo url: String)
     func chatMessageCell(_ cell: ChatMessageCell, didTapFile fileInfo: ChatMessageContent.FileInfo)
+    func chatMessageCell(_ cell: ChatMessageCell, didTapShareCard payload: ShareCardPayload)
     func chatMessageCell(_ cell: ChatMessageCell, didTapProfile userId: String)
     func chatMessageCellDidTapRetry(_ cell: ChatMessageCell, messageId: String)
     func chatMessageCellDidTapDelete(_ cell: ChatMessageCell, messageId: String)
@@ -38,9 +39,11 @@ final class ChatMessageCell: BaseCollectionViewCell {
     private let imageGridView = ChatImageGridView()
     private let videoView = ChatVideoView()
     private let fileView = ChatFileView()
+    private let shareCardView = ChatShareCardView()
 
     private var currentLayoutData: ChatMessageCellLayoutData?
     private var currentProfileImageUrl: String?
+    private var currentSharePayload: ShareCardPayload?
 
     private enum Layout {
         static let profileSize: CGFloat = 32
@@ -156,6 +159,13 @@ final class ChatMessageCell: BaseCollectionViewCell {
         fileView.translatesAutoresizingMaskIntoConstraints = true
         fileView.isHidden = true
         contentView.addSubview(fileView)
+
+        shareCardView.translatesAutoresizingMaskIntoConstraints = true
+        shareCardView.isHidden = true
+        shareCardView.isUserInteractionEnabled = true
+        let shareTap = UITapGestureRecognizer(target: self, action: #selector(handleShareCardTap))
+        shareCardView.addGestureRecognizer(shareTap)
+        contentView.addSubview(shareCardView)
     }
 
     override func preferredLayoutAttributesFitting(
@@ -207,6 +217,10 @@ final class ChatMessageCell: BaseCollectionViewCell {
         if let fileFrame = layoutData.fileFrame {
             fileView.frame = fileFrame
         }
+
+        if let shareCardFrame = layoutData.shareCardFrame {
+            shareCardView.frame = shareCardFrame
+        }
     }
 
     override func prepareForReuse() {
@@ -216,11 +230,13 @@ final class ChatMessageCell: BaseCollectionViewCell {
         timeLabel.text = nil
         currentLayoutData = nil
         currentProfileImageUrl = nil
+        currentSharePayload = nil
 
         textView.isHidden = true
         imageGridView.isHidden = true
         videoView.isHidden = true
         fileView.isHidden = true
+        shareCardView.isHidden = true
     }
 
     private func configure(with layoutData: ChatMessageCellLayoutData) {
@@ -251,6 +267,7 @@ final class ChatMessageCell: BaseCollectionViewCell {
         var hasImageGrid = false
         var hasVideo = false
         var hasFile = false
+        var hasShareCard = false
 
         for content in layoutData.contents {
             switch content {
@@ -300,6 +317,12 @@ final class ChatMessageCell: BaseCollectionViewCell {
                 }
                 fileView.isHidden = false
                 hasFile = true
+
+            case .shareCard(let payload):
+                currentSharePayload = payload
+                shareCardView.configure(payload: payload)
+                shareCardView.isHidden = false
+                hasShareCard = true
             }
         }
 
@@ -313,6 +336,9 @@ final class ChatMessageCell: BaseCollectionViewCell {
         }
         if !hasFile {
             fileView.isHidden = true
+        }
+        if !hasShareCard {
+            shareCardView.isHidden = true
         }
 
         applyStyle(for: layoutData.senderType)
@@ -363,6 +389,11 @@ final class ChatMessageCell: BaseCollectionViewCell {
     @objc private func handleDeleteTap() {
         guard let messageId = currentLayoutData?.messageId else { return }
         delegate?.chatMessageCellDidTapDelete(self, messageId: messageId)
+    }
+
+    @objc private func handleShareCardTap() {
+        guard let payload = currentSharePayload else { return }
+        delegate?.chatMessageCell(self, didTapShareCard: payload)
     }
 
     @objc private func handleProfileTap() {

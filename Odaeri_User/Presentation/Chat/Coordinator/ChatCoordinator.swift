@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import Combine
 
 protocol ChatCoordinatorDelegate: AnyObject {
     func chatCoordinatorDidFinish(_ coordinator: ChatCoordinator)
@@ -16,6 +17,7 @@ final class ChatCoordinator: Coordinator {
     var childCoordinators: [Coordinator] = []
 
     weak var delegate: ChatCoordinatorDelegate?
+    private var cancellables = Set<AnyCancellable>()
 
     init(navigationController: UINavigationController) {
         self.navigationController = navigationController
@@ -48,6 +50,46 @@ final class ChatCoordinator: Coordinator {
         viewModel.coordinator = self
         let viewController = UserProfileViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
+    }
+
+    func showSharedVideo(videoId: String) {
+        let repository = VideoRepositoryImpl()
+        let useCase = DefaultGetVideoListUseCase(repository: repository)
+
+        useCase.execute(next: nil, limit: nil)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] completion in
+                if case .failure(let error) = completion {
+                    self?.showPlaceholderAlert(title: "오류", message: error.errorDescription)
+                }
+            } receiveValue: { [weak self] result in
+                guard let self = self else { return }
+                guard let video = result.videos.first(where: { $0.videoId == videoId }) else {
+                    self.showPlaceholderAlert(title: "알림", message: "영상 정보를 찾을 수 없습니다.")
+                    return
+                }
+
+                let getStreamURLUseCase = DefaultGetVideoStreamURLUseCase(repository: repository)
+                let toggleVideoLikeUseCase = DefaultToggleVideoLikeUseCase(repository: repository)
+                let viewModel = StreamingDetailViewModel(
+                    video: video,
+                    getStreamURLUseCase: getStreamURLUseCase,
+                    toggleVideoLikeUseCase: toggleVideoLikeUseCase
+                )
+                let playerManager = StreamingPlayerManager(videoRepository: repository)
+                let viewController = StreamingDetailViewController(
+                    video: video,
+                    viewModel: viewModel,
+                    playerManager: playerManager
+                )
+
+                let streamingCoordinator = StreamingCoordinator(navigationController: self.navigationController)
+                self.addChild(streamingCoordinator)
+                viewController.coordinator = streamingCoordinator
+
+                self.navigationController.pushViewController(viewController, animated: true)
+            }
+            .store(in: &cancellables)
     }
 
     func showImageViewer(
@@ -88,6 +130,10 @@ extension ChatCoordinator: UserProfileCoordinating {
 
     func showEditPost(postId: String) {
         showPlaceholderAlert(title: "게시글 수정", message: "게시글 수정 화면은 준비 중입니다.")
+    }
+
+    func showSavedVideo(videoId: String) {
+        showSharedVideo(videoId: videoId)
     }
 
     func didFinishLogout() {

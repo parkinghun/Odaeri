@@ -6,6 +6,7 @@
 //
 
 import AVFoundation
+import AVKit
 import Combine
 
 final class StreamingPlayerManager {
@@ -17,6 +18,8 @@ final class StreamingPlayerManager {
     private var playerItem: AVPlayerItem?
     private var timeObserver: Any?
     private var cancellables = Set<AnyCancellable>()
+    private let videoRepository: VideoRepository
+    private var pipController: AVPictureInPictureController?
 
     private let currentTimeSubject = PassthroughSubject<CMTime, Never>()
     private let durationSubject = PassthroughSubject<CMTime, Never>()
@@ -28,7 +31,7 @@ final class StreamingPlayerManager {
     private var isFastForwarding = false
 
     private(set) lazy var subtitleManager: SubtitleManager = {
-        return SubtitleManager(player: player)
+        return SubtitleManager(player: player, videoRepository: videoRepository)
     }()
 
     var currentTimePublisher: AnyPublisher<CMTime, Never> {
@@ -51,7 +54,9 @@ final class StreamingPlayerManager {
         currentRateSubject.eraseToAnyPublisher()
     }
 
-    init() {
+    init(videoRepository: VideoRepository) {
+        self.videoRepository = videoRepository
+        setupAudioSession()
         setupTimeObserver()
         observePlayerStatus()
     }
@@ -79,17 +84,23 @@ final class StreamingPlayerManager {
     }
 
     func play() {
+        print("[StreamingPlayerManager] play() called, preferredRate: \(preferredRate), isFastForwarding: \(isFastForwarding)")
         player.rate = isFastForwarding ? 2.0 : preferredRate
-        isPlayingSubject.send(true)
+        print("[StreamingPlayerManager] after play(), rate: \(player.rate)")
     }
 
     func pause() {
+        print("[StreamingPlayerManager] pause() called, current rate: \(player.rate)")
         player.pause()
-        isPlayingSubject.send(false)
+        print("[StreamingPlayerManager] after pause(), rate: \(player.rate)")
     }
 
-    func seek(to time: CMTime) {
-        player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
+    func seek(to time: CMTime, completion: (() -> Void)? = nil) {
+        player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
+            if finished {
+                completion?()
+            }
+        }
     }
 
     func setPreferredRate(_ rate: Float) {
@@ -123,13 +134,44 @@ final class StreamingPlayerManager {
         return player
     }
 
+    func setVideoInfo(subtitles: [VideoSubtitleEntity]) {
+        subtitleManager.setExternalSubtitleInfo(subtitles: subtitles)
+    }
+
+    func setupPictureInPicture(with playerLayer: AVPlayerLayer) {
+        guard AVPictureInPictureController.isPictureInPictureSupported() else {
+            print("[StreamingPlayerManager] PIP is not supported on this device")
+            return
+        }
+
+        pipController = AVPictureInPictureController(playerLayer: playerLayer)
+        pipController?.canStartPictureInPictureAutomaticallyFromInline = true
+        print("[StreamingPlayerManager] PIP controller initialized")
+    }
+
+    func getPIPController() -> AVPictureInPictureController? {
+        return pipController
+    }
+
+    private func setupAudioSession() {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+            try AVAudioSession.sharedInstance().setActive(true)
+            print("[StreamingPlayerManager] Audio session configured for playback")
+        } catch {
+            print("[StreamingPlayerManager] Failed to set up audio session: \(error.localizedDescription)")
+        }
+    }
+
     private func setupTimeObserver() {
         let interval = CMTime(seconds: 0.25, preferredTimescale: 600)
         timeObserver = player.addPeriodicTimeObserver(
             forInterval: interval,
             queue: .main
         ) { [weak self] time in
-            self?.currentTimeSubject.send(time)
+            guard let self = self else { return }
+            self.currentTimeSubject.send(time)
+            self.subtitleManager.updateCurrentSubtitleIndex(time: time.seconds)
         }
     }
 

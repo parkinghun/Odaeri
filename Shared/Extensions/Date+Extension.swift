@@ -18,14 +18,26 @@ extension Date {
         return DateFormatter.timeDisplay.string(from: self)
     }
     
-    /// "n분 전 / n시간 전" (Relative Time)
+    var toYearMonthDay: String {
+        return DateFormatter.dateSeparator.string(from: self)
+    }
+    
+    var toMonthDay: String {
+        return DateFormatter.monthDay.string(from: self)
+    }
+    
     var toRelativeTime: String {
         let calendar = Calendar.current
         let now = Date()
-        let components = calendar.dateComponents([.minute, .hour, .day], from: self, to: now)
+        let components = calendar.dateComponents([.year, .minute, .hour, .day], from: self, to: now)
+        
+        if let day = components.day, day >= 7 {
+            let isSameYear = calendar.component(.year, from: self) == calendar.component(.year, from: now)
+            return isSameYear ? self.toMonthDay : self.toYearMonthDay
+        }
         
         if let day = components.day, day > 0 {
-            return day >= 7 ? self.toFullDisplay : "\(day)일 전"
+            return "\(day)일 전"
         }
         
         if let hour = components.hour, hour > 0 {
