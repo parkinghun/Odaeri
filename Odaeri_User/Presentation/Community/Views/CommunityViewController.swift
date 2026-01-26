@@ -10,6 +10,7 @@ import Combine
 import SnapKit
 
 final class CommunityViewController: BaseViewController<CommunityViewModel> {
+    override var navigationBarHidden: Bool { true }
     private let searchBar = SearchBar()
 
     private let chatButton: UIButton = {
@@ -261,6 +262,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
 
         viewDidLoadSubject.send(())
     }
+
 
     private func configureDataSource() {
         dataSource = DataSource(tableView: tableView) { [weak self] tableView, indexPath, item in

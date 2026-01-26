@@ -43,11 +43,16 @@ class BaseViewController<VM: ViewModelType>: UIViewController, UIGestureRecogniz
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = AppColor.gray0
-        setupNavigationBar()
+//        setupNavigationBar()
         setupLoadingIndicator()
         setupKeyboardDismissGesture()
         setupUI()
         bind()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        adjustSafeAreaForHiddenNavigationBar()
     }
     
     func setupUI() {
@@ -104,6 +109,13 @@ class BaseViewController<VM: ViewModelType>: UIViewController, UIGestureRecogniz
         tapGesture.cancelsTouchesInView = false
         tapGesture.delegate = self
         view.addGestureRecognizer(tapGesture)
+    }
+
+    private func adjustSafeAreaForHiddenNavigationBar() {
+        guard let navigationController, navigationController.isNavigationBarHidden else { return }
+        let navBarHeight = navigationController.navigationBar.frame.height
+        guard navBarHeight > 0, additionalSafeAreaInsets.top == 0 else { return }
+        additionalSafeAreaInsets.top = -navBarHeight
     }
 
     @objc private func handleKeyboardDismissTap() {

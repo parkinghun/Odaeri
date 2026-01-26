@@ -11,6 +11,7 @@ import SnapKit
 import CoreLocation
 
 final class HomeViewController: BaseViewController<HomeViewModel> {
+    override var navigationBarHidden: Bool { true }
     private let locationView = LocationView()
 
     private lazy var collectionView: UICollectionView = {

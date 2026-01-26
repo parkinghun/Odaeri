@@ -64,6 +64,19 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
         button.layer.cornerRadius = 8
         return button
     }()
+    
+    private let signUpButton: UIButton = {
+        let button = UIButton(type: .system)
+        let text = "오대리가 처음이신가요? 회원가입"
+        let attributed = NSMutableAttributedString(string: text)
+        attributed.addAttribute(.foregroundColor, value: AppColor.blackSprout, range: NSRange(location: 0, length: text.count))
+        let highlightRange = (text as NSString).range(of: "회원가입")
+        attributed.addAttribute(.foregroundColor, value: AppColor.blackSprout, range: highlightRange)
+        attributed.addAttribute(.font, value: AppFont.body2Bold, range: highlightRange)
+        attributed.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: highlightRange)
+        button.setAttributedTitle(attributed, for: .normal)
+        return button
+    }()
 
     private let socialDividerLeft: UIView = {
         let view = UIView()
@@ -79,7 +92,7 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
 
     private let socialDividerLabel: UILabel = {
         let label = UILabel()
-        label.text = "소셜 로그인"
+        label.text = "SNS 계정으로 로그인하세요"
         label.font = AppFont.caption1
         label.textColor = AppColor.blackSprout
         return label
@@ -87,30 +100,35 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
 
     private let kakaoLoginButton: UIButton = {
         let button = UIButton()
-        button.setBackgroundImage(AppImage.kakaoLogin, for: .normal)
+        button.setImage(AppImage.kakaoLogin, for: .normal)
         button.imageView?.contentMode = .scaleAspectFill
         button.clipsToBounds = true
+        button.backgroundColor = .clear
+        button.layer.cornerRadius = 30
         return button
     }()
 
     private let appleLoginButton: UIButton = {
         let button = UIButton()
-        button.setBackgroundImage(AppImage.appleLogin, for: .normal)
-        button.imageView?.contentMode = .scaleAspectFill
+        let config = UIImage.SymbolConfiguration(pointSize: 25, weight: .medium)
+        button.setImage(AppImage.appleLogo.withConfiguration(config), for: .normal)
+        button.tintColor = AppColor.gray0
+        button.imageView?.contentMode = .scaleAspectFit
+        button.backgroundColor = .black
+        button.layer.cornerRadius = 30
         button.clipsToBounds = true
         return button
     }()
 
-    private let signUpButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("회원가입 하러가기", for: .normal)
-        button.setTitleColor(AppColor.gray90, for: .normal)
-        button.titleLabel?.font = AppFont.body2
-        return button
+    private let socialLoginStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.alignment = .center
+        stackView.distribution = .equalSpacing
+        stackView.spacing = 24
+        return stackView
     }()
     
-//    private let appleLoginButton = ASAuthorizationAppleIDButton(type: .signIn, style: .black)
-
     override func setupUI() {
         super.setupUI()
 
@@ -123,8 +141,9 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
         view.addSubview(socialDividerLeft)
         view.addSubview(socialDividerLabel)
         view.addSubview(socialDividerRight)
-        view.addSubview(kakaoLoginButton)
-        view.addSubview(appleLoginButton)
+        view.addSubview(socialLoginStackView)
+        socialLoginStackView.addArrangedSubview(appleLoginButton)
+        socialLoginStackView.addArrangedSubview(kakaoLoginButton)
         view.addSubview(signUpButton)
 
         titleLabel.snp.makeConstraints {
@@ -134,8 +153,7 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
 
         emailTextField.snp.makeConstraints {
             $0.top.equalTo(titleLabel.snp.bottom).offset(60)
-            $0.leading.equalToSuperview().offset(40)
-            $0.trailing.equalToSuperview().offset(-40)
+            $0.horizontalEdges.equalToSuperview().inset(40)
             $0.height.equalTo(48)
         }
 
@@ -147,7 +165,7 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
 
         passwordTextField.snp.makeConstraints {
             $0.top.equalTo(emailValidationLabel.snp.bottom).offset(16)
-            $0.leading.trailing.height.equalTo(emailTextField)
+            $0.horizontalEdges.height.equalTo(emailTextField)
         }
 
         passwordValidationLabel.snp.makeConstraints {
@@ -161,9 +179,14 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
             $0.leading.trailing.equalTo(emailTextField)
             $0.height.equalTo(50)
         }
+        
+        signUpButton.snp.makeConstraints {
+            $0.top.equalTo(loginButton.snp.bottom).offset(AppSpacing.smallMedium)
+            $0.centerX.equalToSuperview()
+        }
 
         socialDividerLabel.snp.makeConstraints {
-            $0.top.equalTo(loginButton.snp.bottom).offset(40)
+            $0.top.equalTo(signUpButton.snp.bottom).offset(40)
             $0.centerX.equalToSuperview()
         }
 
@@ -181,21 +204,17 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
             $0.height.equalTo(1)
         }
 
+        socialLoginStackView.snp.makeConstraints {
+            $0.top.equalTo(socialDividerLabel.snp.bottom).offset(AppSpacing.xLarge)
+            $0.centerX.equalToSuperview()
+        }
+
         kakaoLoginButton.snp.makeConstraints {
-            $0.top.equalTo(socialDividerLabel.snp.bottom).offset(16)
-            $0.leading.trailing.equalTo(emailTextField)
-            $0.height.equalTo(48)
+            $0.size.equalTo(60)
         }
 
         appleLoginButton.snp.makeConstraints {
-            $0.top.equalTo(kakaoLoginButton.snp.bottom).offset(12)
-            $0.leading.trailing.equalTo(emailTextField)
-            $0.height.equalTo(48)
-        }
-
-        signUpButton.snp.makeConstraints {
-            $0.top.equalTo(appleLoginButton.snp.bottom).offset(16)
-            $0.centerX.equalToSuperview()
+            $0.size.equalTo(60)
         }
     }
 

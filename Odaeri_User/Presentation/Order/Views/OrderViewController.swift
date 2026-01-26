@@ -10,6 +10,7 @@ import Combine
 import SnapKit
 
 final class OrderViewController: BaseViewController<OrderViewModel> {
+    override var navigationBarHidden: Bool { true }
     private enum Section: Int, CaseIterable {
         case current
         case past
