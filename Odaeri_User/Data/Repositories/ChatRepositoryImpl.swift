@@ -105,7 +105,7 @@ final class ChatRepositoryImpl: ChatRepository {
             email: "test@example.com",
             nick: "나",
             profileImage: "",
-            phoneNum: ""
+            phoneNum: nil
         )
 
         let chatId = "chat_mock_\(UUID().uuidString)"

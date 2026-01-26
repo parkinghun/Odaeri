@@ -52,7 +52,7 @@ final class UserManager {
             email: email,
             nick: nick,
             profileImage: profileImage,
-            phoneNum: ""
+            phoneNum: nil
         )
         
         print("👏 currentUser: ")

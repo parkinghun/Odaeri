@@ -36,7 +36,9 @@ final class ProfileCoordinator: Coordinator {
     }
 
     func showEditProfile() {
-        showPlaceholderAlert(title: "프로필 수정", message: "프로필 수정 화면은 준비 중입니다.")
+        let viewModel = UserProfileEditViewModel()
+        let viewController = UserProfileEditViewController(viewModel: viewModel)
+        navigationController.pushViewController(viewController, animated: true)
     }
 
     func showSettings() {

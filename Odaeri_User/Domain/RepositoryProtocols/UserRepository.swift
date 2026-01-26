@@ -17,4 +17,6 @@ protocol UserRepository {
     func logout() -> AnyPublisher<Void, NetworkError>
     func validateEmail(email: String) -> AnyPublisher<Void, NetworkError>
     func join(email: String, password: String, nick: String, phoneNum: String, deviceToken: String) -> AnyPublisher<UserResult, NetworkError>
+    func uploadProfileImage(imageData: Data) -> AnyPublisher<String, NetworkError>
+    func updateMyProfile(nick: String?, phoneNum: String?, profileImage: String?) -> AnyPublisher<UserEntity, NetworkError>
 }

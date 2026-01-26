@@ -50,22 +50,20 @@ final class AdminLoginViewModel {
             .store(in: &cancellables)
 
         let emailValidation = input.emailText
-            .map { [weak self] email in
-                guard let self else { return "" }
-                return self.emailValidationMessage(for: email) ?? ""
+            .map { email in
+                InputValidator.emailValidationMessage(for: email) ?? ""
             }
             .eraseToAnyPublisher()
 
         let passwordValidation = input.passwordText
-            .map { [weak self] password in
-                guard let self else { return "" }
-                return self.passwordValidationMessage(for: password) ?? ""
+            .map { password in
+                InputValidator.passwordValidationMessage(for: password) ?? ""
             }
             .eraseToAnyPublisher()
 
         let isLoginEnabled = Publishers.CombineLatest3(
-            input.emailText.map { [weak self] in self?.validateEmail($0) ?? false },
-            input.passwordText.map { [weak self] in self?.validatePassword($0) ?? false },
+            input.emailText.map { InputValidator.validateEmail($0) },
+            input.passwordText.map { InputValidator.validatePassword($0) },
             isLoadingSubject
         )
         .map { emailValid, passwordValid, isLoading in
@@ -89,7 +87,6 @@ final class AdminLoginViewModel {
         )
     }
 }
-
 private extension AdminLoginViewModel {
     func performLogin() {
         let email = currentEmail.value
@@ -120,44 +117,5 @@ private extension AdminLoginViewModel {
                 }
             )
             .store(in: &cancellables)
-    }
-
-    func validateEmail(_ email: String) -> Bool {
-        guard !email.isEmpty else { return false }
-        let regex = "^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
-        return NSPredicate(format: "SELF MATCHES %@", regex).evaluate(with: email)
-    }
-
-    func validatePassword(_ password: String) -> Bool {
-        guard password.count >= 8 else { return false }
-        let hasLetter = password.range(of: "[A-Za-z]", options: .regularExpression) != nil
-        let hasNumber = password.range(of: "[0-9]", options: .regularExpression) != nil
-        let hasSpecial = password.range(of: "[@$!%*#?&]", options: .regularExpression) != nil
-        return hasLetter && hasNumber && hasSpecial
-    }
-
-    func emailValidationMessage(for email: String) -> String? {
-        guard !email.isEmpty else { return nil }
-        return validateEmail(email) ? nil : "유효한 이메일 형식이 아닙니다 (예: user@example.com)"
-    }
-
-    func passwordValidationMessage(for password: String) -> String? {
-        guard !password.isEmpty else { return nil }
-        if password.count < 8 {
-            return "비밀번호는 최소 8자 이상이어야 합니다"
-        }
-        let hasLetter = password.range(of: "[A-Za-z]", options: .regularExpression) != nil
-        let hasNumber = password.range(of: "[0-9]", options: .regularExpression) != nil
-        let hasSpecial = password.range(of: "[@$!%*#?&]", options: .regularExpression) != nil
-        if !hasLetter {
-            return "영문자를 1개 이상 포함해야 합니다"
-        }
-        if !hasNumber {
-            return "숫자를 1개 이상 포함해야 합니다"
-        }
-        if !hasSpecial {
-            return "특수문자(@$!%*#?&)를 1개 이상 포함해야 합니다"
-        }
-        return nil
     }
 }

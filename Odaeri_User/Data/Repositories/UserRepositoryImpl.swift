@@ -13,17 +13,20 @@ import AuthenticationServices
 
 final class UserRepositoryImpl: UserRepository {
     private let provider: MoyaProvider<UserAPI>
+    private let mediaProvider: MoyaProvider<MediaUploadAPI>
     private let kakaoService: KakaoLoginServiceProtocol
     private let appleService: AppleLoginServiceProtocol
 
     init(
         kakaoService: KakaoLoginServiceProtocol = DefaultKakaoLoginService(),
         appleService: AppleLoginServiceProtocol = DefaultAppleLoginService(),
-        provider: MoyaProvider<UserAPI> = MoyaProvider<UserAPI>(plugins: [NetworkLoggerPlugin()])
+        provider: MoyaProvider<UserAPI> = MoyaProvider<UserAPI>(plugins: [NetworkLoggerPlugin()]),
+        mediaProvider: MoyaProvider<MediaUploadAPI> = MoyaProvider<MediaUploadAPI>(plugins: [NetworkLoggerPlugin()])
     ) {
         self.kakaoService = kakaoService
         self.appleService = appleService
         self.provider = provider
+        self.mediaProvider = mediaProvider
     }
 
     func emailLogin(email: String, password: String, deviceToken: String) -> AnyPublisher<UserResult, NetworkError> {
@@ -198,6 +201,39 @@ final class UserRepositoryImpl: UserRepository {
         return provider.requestPublisher(UserAPI.join(request: request))
             .map { (response: UserResponse) in
                 UserResult(from: response)
+            }
+            .eraseToAnyPublisher()
+    }
+
+    func uploadProfileImage(imageData: Data) -> AnyPublisher<String, NetworkError> {
+        let multipart = MultipartFormData(
+            provider: .data(imageData),
+            name: "profile",
+            fileName: "profile_image.jpg",
+            mimeType: "image/jpeg"
+        )
+
+        return mediaProvider.requestPublisher(MediaUploadAPI.profileImageUpload(profile: multipart))
+            .map { (response: ProfileFileUploadResponse) in
+                response.profileImage
+            }
+            .eraseToAnyPublisher()
+    }
+
+    func updateMyProfile(
+        nick: String?,
+        phoneNum: String?,
+        profileImage: String?
+    ) -> AnyPublisher<UserEntity, NetworkError> {
+        let request = ProfileUpdateRequest(
+            nick: nick,
+            phoneNum: phoneNum,
+            profileImage: profileImage
+        )
+
+        return provider.requestPublisher(UserAPI.updateMyProfile(request: request))
+            .map { (response: ProfileResponse) in
+                UserEntity(from: response)
             }
             .eraseToAnyPublisher()
     }

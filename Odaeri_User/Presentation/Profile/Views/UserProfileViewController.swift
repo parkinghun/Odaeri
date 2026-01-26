@@ -28,6 +28,7 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
     private var isMe = false
     private var selectedTab: UserProfileContentTab = .posts
     private var emptyMode: UserProfileEmptyView.Mode = .posts
+    private var profileImageUrl: String?
 
     override var navigationBarHidden: Bool { false }
 
@@ -122,6 +123,7 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
             .receive(on: DispatchQueue.main)
             .sink { [weak self] header in
                 self?.headerView.configure(with: header)
+                self?.profileImageUrl = header.profileImageUrl
             }
             .store(in: &cancellables)
 
@@ -172,6 +174,12 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
             }
             .store(in: &cancellables)
 
+        headerView.profileImageTapped
+            .sink { [weak self] _ in
+                self?.showProfileImageViewer()
+            }
+            .store(in: &cancellables)
+
         emptyView.actionTapped
             .sink { [weak self] _ in
                 self?.emptyActionTappedSubject.send(())
@@ -179,6 +187,11 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
             .store(in: &cancellables)
 
         viewDidLoadSubject.send(())
+    }
+
+    private func showProfileImageViewer() {
+        guard let profileImageUrl, !profileImageUrl.isEmpty else { return }
+        presentImageViewer(imageUrls: [profileImageUrl], initialIndex: 0, transitionSource: nil)
     }
 
     private func configureNavigationItem(_ item: UserProfileNavigationItem) {
@@ -355,6 +368,8 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
         }
     }
 }
+
+extension UserProfileViewController: ImageViewerPresentable {}
 
 extension UserProfileViewController: UICollectionViewDataSource {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {

@@ -100,6 +100,14 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
         button.clipsToBounds = true
         return button
     }()
+
+    private let signUpButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("회원가입 하러가기", for: .normal)
+        button.setTitleColor(AppColor.gray90, for: .normal)
+        button.titleLabel?.font = AppFont.body2
+        return button
+    }()
     
 //    private let appleLoginButton = ASAuthorizationAppleIDButton(type: .signIn, style: .black)
 
@@ -117,6 +125,7 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
         view.addSubview(socialDividerRight)
         view.addSubview(kakaoLoginButton)
         view.addSubview(appleLoginButton)
+        view.addSubview(signUpButton)
 
         titleLabel.snp.makeConstraints {
             $0.centerX.equalToSuperview()
@@ -183,6 +192,11 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
             $0.leading.trailing.equalTo(emailTextField)
             $0.height.equalTo(48)
         }
+
+        signUpButton.snp.makeConstraints {
+            $0.top.equalTo(appleLoginButton.snp.bottom).offset(16)
+            $0.centerX.equalToSuperview()
+        }
     }
 
     override func bind() {
@@ -193,7 +207,8 @@ final class LoginViewController: BaseViewController<LoginViewModel> {
             passwordText: passwordTextField.textPublisher.compactMap { $0 }.eraseToAnyPublisher(),
             loginButtonTapped: loginButton.tapPublisher(),
             kakaoLoginTapped: kakaoLoginButton.tapPublisher(),
-            appleLoginTapped: appleLoginButton.tapPublisher()
+            appleLoginTapped: appleLoginButton.tapPublisher(),
+            signUpTapped: signUpButton.tapPublisher()
         )
 
         let output = viewModel.transform(input: input)

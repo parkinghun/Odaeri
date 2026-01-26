@@ -12,14 +12,14 @@ struct UserEntity {
     let email: String
     let nick: String
     let profileImage: String?
-    let phoneNum: String
+    let phoneNum: String?
 
     init(
         userId: String,
         email: String,
         nick: String,
         profileImage: String,
-        phoneNum: String
+        phoneNum: String?
     ) {
         self.userId = userId
         self.email = email
@@ -41,7 +41,7 @@ struct UserEntity {
         self.email = userResult.email
         self.nick = userResult.nick
         self.profileImage = userResult.profileImage ?? ""
-        self.phoneNum = ""
+        self.phoneNum = nil
     }
 }
 

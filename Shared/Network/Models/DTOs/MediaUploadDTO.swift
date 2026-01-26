@@ -18,3 +18,7 @@ struct StoreReviewImageUploadResponse: Decodable {
         case reviewImageUrls = "review_image_urls"
     }
 }
+
+struct ProfileFileUploadResponse: Decodable {
+    let profileImage: String
+}

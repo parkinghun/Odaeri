@@ -32,6 +32,13 @@ final class AuthCoordinator: Coordinator {
         navigationController.setViewControllers([viewController], animated: true)
     }
 
+    func showSignUp() {
+        let viewModel = SignUpViewModel()
+        viewModel.coordinator = self
+        let viewController = SignUpViewController(viewModel: viewModel)
+        navigationController.pushViewController(viewController, animated: true)
+    }
+
     func didFinishLogin() {
         delegate?.authCoordinatorDidFinishLogin(self)
     }

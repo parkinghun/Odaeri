@@ -11,6 +11,7 @@ import Moya
 enum MediaUploadAPI {
     case chatUpload(roomId: String, files: [MultipartFormData])
     case communityUpload(files: [MultipartFormData])
+    case profileImageUpload(profile: MultipartFormData)
     case storeReviewUpload(storeId: String, files: [MultipartFormData])
     case storeUpload(files: [MultipartFormData])
     case menuUpload(files: [MultipartFormData])
@@ -23,6 +24,8 @@ extension MediaUploadAPI: BaseAPI {
             return "/chats/\(roomId)/files"
         case .communityUpload:
             return "/posts/files"
+        case .profileImageUpload:
+            return "/users/profile/image"
         case let .storeReviewUpload(storeId, _):
             return "/stores/\(storeId)/reviews/files"
         case .storeUpload:
@@ -44,6 +47,8 @@ extension MediaUploadAPI: BaseAPI {
                 .storeUpload(let files),
                 .menuUpload(let files):
             return .uploadMultipart(files)
+        case .profileImageUpload(let profile):
+            return .uploadMultipart([profile])
         }
     }
     

@@ -11,10 +11,15 @@ import SnapKit
 
 final class UserProfileHeaderView: UIView {
     private let actionTappedSubject = PassthroughSubject<Void, Never>()
+    private let profileImageTappedSubject = PassthroughSubject<Void, Never>()
     private var cancellables = Set<AnyCancellable>()
 
     var actionTapped: AnyPublisher<Void, Never> {
         actionTappedSubject.eraseToAnyPublisher()
+    }
+
+    var profileImageTapped: AnyPublisher<Void, Never> {
+        profileImageTappedSubject.eraseToAnyPublisher()
     }
 
     private let profileImageView = UIImageView()
@@ -51,6 +56,9 @@ final class UserProfileHeaderView: UIView {
         profileImageView.clipsToBounds = true
         profileImageView.layer.cornerRadius = Layout.profileSize / 2
         profileImageView.backgroundColor = AppColor.gray15
+        profileImageView.isUserInteractionEnabled = true
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleProfileImageTap))
+        profileImageView.addGestureRecognizer(tapGesture)
 
         nickLabel.font = AppFont.body1Bold
         nickLabel.textColor = AppColor.gray90
@@ -78,6 +86,10 @@ final class UserProfileHeaderView: UIView {
                 self?.actionTappedSubject.send(())
             }
             .store(in: &cancellables)
+    }
+
+    @objc private func handleProfileImageTap() {
+        profileImageTappedSubject.send(())
     }
 
     func configure(with viewModel: UserProfileHeaderViewModel) {
