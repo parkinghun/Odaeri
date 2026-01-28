@@ -16,6 +16,9 @@ final class ChatRoomViewModel: BaseViewModel, ViewModelType {
     private let userManager: UserManager
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let errorSubject = PassthroughSubject<String, Never>()
+    private let roomsSubject = CurrentValueSubject<[ChatRoomDisplayModel], Never>([])
+    private var roomsObservationCancellable: AnyCancellable?
+    private var latestRooms: [ChatRoomEntity] = []
 
     init(
         chatRepository: ChatRepository,
@@ -36,11 +39,13 @@ final class ChatRoomViewModel: BaseViewModel, ViewModelType {
     struct Output {
         let isLoading: AnyPublisher<Bool, Never>
         let error: AnyPublisher<String, Never>
+        let rooms: AnyPublisher<[ChatRoomDisplayModel], Never>
     }
 
     func transform(input: Input) -> Output {
         input.viewWillAppear
             .sink { [weak self] _ in
+                self?.startRoomObservation()
                 self?.syncChatRooms()
             }
             .store(in: &cancellables)
@@ -59,8 +64,25 @@ final class ChatRoomViewModel: BaseViewModel, ViewModelType {
 
         return Output(
             isLoading: isLoadingSubject.eraseToAnyPublisher(),
-            error: errorSubject.eraseToAnyPublisher()
+            error: errorSubject.eraseToAnyPublisher(),
+            rooms: roomsSubject.eraseToAnyPublisher()
         )
+    }
+
+    private func startRoomObservation() {
+        guard roomsObservationCancellable == nil else { return }
+
+        roomsObservationCancellable = chatLocalStore.observeRoomsPublisher()
+            .map { [weak self] entities -> [ChatRoomDisplayModel] in
+                guard let self = self else { return [] }
+                self.latestRooms = entities
+                let currentUserId = self.userManager.currentUser?.userId ?? ""
+                return ChatRoomMapper.map(entities, currentUserId: currentUserId)
+            }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] models in
+                self?.roomsSubject.send(models)
+            }
     }
 
     private func syncChatRooms() {
@@ -94,16 +116,13 @@ final class ChatRoomViewModel: BaseViewModel, ViewModelType {
     }
 
     private func openChatRoom(roomId: String) {
-        guard let realmRoom = chatLocalStore.observeRooms()?
-            .filter("roomId == %@", roomId)
-            .first else {
+        guard let room = latestRooms.first(where: { $0.roomId == roomId }) else {
             coordinator?.showChatRoom(roomId: roomId, title: "알 수 없음")
             return
         }
 
         let currentUserId = userManager.currentUser?.userId ?? "current_user"
-        let participantEntities = Array(realmRoom.participants.map { $0.toEntity() })
-        guard let opponent = participantEntities.first(where: { $0.userId != currentUserId }) else {
+        guard let opponent = room.participants.first(where: { $0.userId != currentUserId }) else {
             coordinator?.showChatRoom(roomId: roomId, title: "알 수 없음")
             return
         }

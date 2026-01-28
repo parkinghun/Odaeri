@@ -33,11 +33,7 @@ final class ChatCoordinator: Coordinator {
             userManager: dependencies.userManager
         )
         viewModel.coordinator = self
-        let viewController = ChatRoomViewController(
-            viewModel: viewModel,
-            chatLocalStore: dependencies.chatLocalStore,
-            currentUserId: dependencies.userManager.currentUser?.userId ?? "current_user"
-        )
+        let viewController = ChatRoomViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
     }
 

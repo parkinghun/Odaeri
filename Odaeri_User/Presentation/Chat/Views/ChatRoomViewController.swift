@@ -8,17 +8,11 @@
 import UIKit
 import Combine
 import SnapKit
-import RealmSwift
-
 final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
     private let didPopSubject = PassthroughSubject<Void, Never>()
     private let viewWillAppearSubject = PassthroughSubject<Void, Never>()
     private let emptyView = ChatRoomEmptyView()
     private let roomSelectedSubject = PassthroughSubject<String, Never>()
-    private var realmToken: NotificationToken?
-    private var realmRooms: Results<ChatRoomObject>?
-    private let currentUserId: String
-    private let chatLocalStore: RealmChatRepository
 
     private typealias DataSource = UITableViewDiffableDataSource<Section, ChatRoomDisplayModel>
     private typealias Snapshot = NSDiffableDataSourceSnapshot<Section, ChatRoomDisplayModel>
@@ -53,24 +47,6 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
         static let cellHeight: CGFloat = 80
     }
 
-    init(
-        viewModel: ChatRoomViewModel,
-        chatLocalStore: RealmChatRepository,
-        currentUserId: String
-    ) {
-        self.chatLocalStore = chatLocalStore
-        self.currentUserId = currentUserId
-        super.init(viewModel: viewModel)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    deinit {
-        realmToken?.invalidate()
-    }
-
     override func setupUI() {
         super.setupUI()
         view.backgroundColor = AppColor.gray0
@@ -85,8 +61,6 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
         tableView.register(ChatRoomListCell.self, forCellReuseIdentifier: ChatRoomListCell.reuseIdentifier)
         tableView.delegate = self
         tableView.backgroundView = emptyView
-
-        setupRealmObserver()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -123,6 +97,12 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
             }
             .store(in: &cancellables)
 
+        output.rooms
+            .sink { [weak self] models in
+                self?.applySnapshot(with: models)
+            }
+            .store(in: &cancellables)
+
         emptyView.actionTapped
             .sink { [weak self] _ in
                 self?.navigationController?.popViewController(animated: true)
@@ -130,26 +110,7 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
             .store(in: &cancellables)
     }
 
-    private func setupRealmObserver() {
-        realmRooms = chatLocalStore.observeRooms()
-
-        realmToken = realmRooms?.observe { [weak self] changes in
-            guard let self = self else { return }
-
-            switch changes {
-            case .initial(let results):
-                self.applySnapshot(from: results)
-            case .update(let results, _, _, _):
-                self.applySnapshot(from: results)
-            case .error(let error):
-                print("Realm 관찰 오류: \(error)")
-            }
-        }
-    }
-
-    private func applySnapshot(from results: Results<ChatRoomObject>) {
-        let displayModels = ChatRoomMapper.mapFromRealm(results, currentUserId: currentUserId)
-
+    private func applySnapshot(with displayModels: [ChatRoomDisplayModel]) {
         var snapshot = Snapshot()
         snapshot.appendSections([.main])
         snapshot.appendItems(displayModels)

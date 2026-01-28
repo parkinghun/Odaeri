@@ -586,6 +586,51 @@ final class RealmChatRepository {
         }
     }
 
+    func observeMessagesPublisher(roomId: String, ascending: Bool) -> AnyPublisher<[ChatEntity], Never> {
+        Deferred { [weak self] () -> AnyPublisher<[ChatEntity], Never> in
+            guard let self = self else {
+                return Just([]).eraseToAnyPublisher()
+            }
+
+            do {
+                let realm = try self.getRealm()
+                let results = realm.objects(ChatMessageObject.self)
+                    .filter("roomId == %@", roomId)
+                    .sorted(byKeyPath: "createdAtDate", ascending: ascending)
+
+                return results.collectionPublisher
+                    .map { $0.map { $0.toEntity() } }
+                    .catch { _ in Just([]) }
+                    .eraseToAnyPublisher()
+            } catch {
+                return Just([]).eraseToAnyPublisher()
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+
+    func observeRoomsPublisher() -> AnyPublisher<[ChatRoomEntity], Never> {
+        Deferred { [weak self] () -> AnyPublisher<[ChatRoomEntity], Never> in
+            guard let self = self else {
+                return Just([]).eraseToAnyPublisher()
+            }
+
+            do {
+                let realm = try self.getRealm()
+                let results = realm.objects(ChatRoomObject.self)
+                    .sorted(byKeyPath: "updatedAtDate", ascending: false)
+
+                return results.collectionPublisher
+                    .map { $0.map { $0.toEntity() } }
+                    .catch { _ in Just([]) }
+                    .eraseToAnyPublisher()
+            } catch {
+                return Just([]).eraseToAnyPublisher()
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+
     @discardableResult
     func updateRoomLastMessage(
         roomId: String,

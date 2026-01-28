@@ -7,8 +7,6 @@
 
 import Foundation
 import Combine
-import RealmSwift
-
 final class ChatViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: ChatCoordinator?
     private let chatRepository: ChatRepository
@@ -22,11 +20,12 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     private let chatSocketService: ChatSocketService
     private let userManager: UserManager
 
-    private var realmToken: NotificationToken?
     private let chatItemsSubject = CurrentValueSubject<[ChatItem], Never>([])
     private var sendTimeouts: [String: DispatchWorkItem] = [:]
     private var uploadCancellables: [String: AnyCancellable] = [:]
     private var isSyncing = false
+    private var latestObservedEntities: [ChatEntity] = []
+    private var messagesObservationCancellable: AnyCancellable?
 
     private var currentLimit = ChatConstants.Pagination.initialLimit
     private var isInitialLoading = true
@@ -87,14 +86,10 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         self.title = title
     }
 
-    deinit {
-        realmToken?.invalidate()
-    }
-
     func transform(input: Input) -> Output {
         input.viewDidLoad
             .sink { [weak self] in
-                self?.setupRealmObserver()
+                self?.startMessageObservation()
                 self?.syncMessagesFromServer()
                 self?.setupNetworkObserver()
                 self?.setupReconnectionObserver()
@@ -113,36 +108,33 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         )
     }
 
-    private func setupRealmObserver() {
-        let messages = chatLocalStore.observeMessagesDescending(roomId: roomId)
+    private func startMessageObservation() {
+        guard messagesObservationCancellable == nil else { return }
 
-        realmToken = messages?.observe { [weak self] changes in
+        messagesObservationCancellable = chatLocalStore.observeMessagesPublisher(
+            roomId: roomId,
+            ascending: false
+        )
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] entities in
             guard let self = self else { return }
-
-            switch changes {
-            case let .initial(results):
-                self.isInitialLoading = false
-                self.updateChatItems(from: results, isInitial: true)
-            case let .update(results, _, _, _):
-                self.updateChatItems(from: results, isInitial: false)
-            case let .error(error):
-                print("Realm 메시지 관찰 오류: \(error)")
-            }
+            self.latestObservedEntities = entities
+            self.isInitialLoading = false
+            self.updateChatItems(from: entities)
         }
     }
 
-    private func updateChatItems(from results: Results<ChatMessageObject>, isInitial: Bool) {
-        let totalCount = results.count
+    private func updateChatItems(from entities: [ChatEntity]) {
+        let totalCount = entities.count
         hasMoreLocalData = totalCount > currentLimit
 
-        let limitedResults = results.prefix(currentLimit)
-        let entities = Array(limitedResults.map { $0.toEntity() })
+        let limitedEntities = Array(entities.prefix(currentLimit))
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
-            self.detectAndFillGaps(in: entities)
-            let items = ChatMapper.map(entities, currentUserId: self.currentUserId)
+            self.detectAndFillGaps(in: limitedEntities)
+            let items = ChatMapper.map(limitedEntities, currentUserId: self.currentUserId)
 
             DispatchQueue.main.async {
                 if !self.hasCompletedInitialLoad {
@@ -223,10 +215,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             isLoadingMoreSubject.send(true)
             currentLimit += pageSize
 
-            let messages = chatLocalStore.observeMessagesDescending(roomId: roomId)
-            if let results = messages {
-                updateChatItems(from: results, isInitial: false)
-            }
+            updateChatItems(from: latestObservedEntities)
 
             isFetchingNextPage = false
             isLoadingMoreSubject.send(false)
