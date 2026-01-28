@@ -41,7 +41,8 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
         homeViewModel.coordinator = self
         let homeViewController = HomeViewController(
             viewModel: homeViewModel,
-            notificationCenter: dependencies.notificationCenter
+            notificationCenter: dependencies.notificationCenter,
+            routeManager: dependencies.routeManager
         )
         navigationController.setViewControllers([homeViewController], animated: false)
     }
@@ -151,7 +152,10 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
             tokenManager: dependencies.tokenManager
         )
         viewModel.coordinator = self
-        let viewController = UserProfileViewController(viewModel: viewModel)
+        let viewController = UserProfileViewController(
+            viewModel: viewModel,
+            liveActivityManager: dependencies.liveActivityManager
+        )
         navigationController.pushViewController(viewController, animated: true)
     }
 
@@ -194,7 +198,8 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
             navigationController: navigationController,
             route: route,
             destination: destination,
-            navigationService: dependencies.navigationService
+            navigationService: dependencies.navigationService,
+            routeManager: dependencies.routeManager
         )
         navigationCoordinator.delegate = self
         addChild(navigationCoordinator)

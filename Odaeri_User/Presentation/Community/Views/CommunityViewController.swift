@@ -12,7 +12,7 @@ import SnapKit
 final class CommunityViewController: BaseViewController<CommunityViewModel> {
     override var navigationBarHidden: Bool { true }
     private let searchBar = SearchBar()
-    private let chatLocalStore: RealmChatRepository
+    private let chatLocalStore: ChatLocalStoreProviding
     private let appMediaService: AppMediaService
 
     private let chatButton: UIButton = {
@@ -104,7 +104,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
 
     init(
         viewModel: CommunityViewModel,
-        chatLocalStore: RealmChatRepository,
+        chatLocalStore: ChatLocalStoreProviding,
         appMediaService: AppMediaService
     ) {
         self.chatLocalStore = chatLocalStore

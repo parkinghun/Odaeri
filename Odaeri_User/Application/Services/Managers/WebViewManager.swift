@@ -7,7 +7,7 @@
 
 import Foundation
 
-final class WebViewManager {
+final class WebViewManager: WebViewManaging {
     static let shared = WebViewManager()
 
     private init() {}

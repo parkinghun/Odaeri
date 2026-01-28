@@ -12,7 +12,7 @@ final class ChatRoomViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: ChatCoordinator?
 
     private let chatRepository: ChatRepository
-    private let chatLocalStore: RealmChatRepository
+    private let chatLocalStore: ChatLocalStoreProviding
     private let userManager: UserManager
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let errorSubject = PassthroughSubject<String, Never>()
@@ -22,7 +22,7 @@ final class ChatRoomViewModel: BaseViewModel, ViewModelType {
 
     init(
         chatRepository: ChatRepository,
-        chatLocalStore: RealmChatRepository,
+        chatLocalStore: ChatLocalStoreProviding,
         userManager: UserManager
     ) {
         self.chatRepository = chatRepository

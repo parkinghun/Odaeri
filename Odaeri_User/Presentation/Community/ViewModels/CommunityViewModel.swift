@@ -14,8 +14,8 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
 
     private let postRepository: CommunityPostRepository
     private let bannerRepository: BannerRepository
-    private let locationManager: LocationManager
-    private let routeManager: RouteManager
+    private let locationManager: LocationManaging
+    private let routeManager: RouteManaging
     private let notificationCenter: NotificationCenter
     private let userManager: UserManager
 
@@ -38,8 +38,8 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
     init(
         postRepository: CommunityPostRepository,
         bannerRepository: BannerRepository,
-        locationManager: LocationManager,
-        routeManager: RouteManager,
+        locationManager: LocationManaging,
+        routeManager: RouteManaging,
         notificationCenter: NotificationCenter,
         userManager: UserManager
     ) {

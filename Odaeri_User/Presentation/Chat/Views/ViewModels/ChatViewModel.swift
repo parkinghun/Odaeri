@@ -16,7 +16,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     private let currentUserName: String
     let title: String?
     private let networkMonitor: NetworkMonitor
-    private let chatLocalStore: RealmChatRepository
+    private let chatLocalStore: ChatLocalStoreProviding
     private let chatSocketService: ChatSocketService
     private let userManager: UserManager
 
@@ -68,7 +68,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         currentUserId: String,
         mediaUploadManager: MediaUploadManager,
         networkMonitor: NetworkMonitor,
-        chatLocalStore: RealmChatRepository,
+        chatLocalStore: ChatLocalStoreProviding,
         chatSocketService: ChatSocketService,
         userManager: UserManager,
         currentUserName: String = "나",
@@ -349,7 +349,8 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             roomId: roomId,
             content: content,
             sender: sender,
-            files: attachments.compactMap { $0.localURLString }
+            files: attachments.compactMap { $0.localURLString },
+            uploadProgress: 0
         )
         .sink { success in
             print("임시 메시지 저장 \(success ? "성공" : "실패")")

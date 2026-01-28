@@ -83,7 +83,10 @@ final class CommunityCoordinator: Coordinator {
             tokenManager: dependencies.tokenManager
         )
         viewModel.coordinator = self
-        let viewController = UserProfileViewController(viewModel: viewModel)
+        let viewController = UserProfileViewController(
+            viewModel: viewModel,
+            liveActivityManager: dependencies.liveActivityManager
+        )
         navigationController.pushViewController(viewController, animated: true)
     }
 

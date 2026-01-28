@@ -20,14 +20,14 @@ final class PaymentViewModel: BaseViewModel, ViewModelType {
     }
 
     private let paymentRequest: PaymentRequest
-    private let paymentService: PaymentService
+    private let paymentService: PaymentServicing
     private let retrySubject = PassthroughSubject<Void, Never>()
 
     let webView: WKWebView
 
     init(
         paymentRequest: PaymentRequest,
-        paymentService: PaymentService
+        paymentService: PaymentServicing
     ) {
         self.paymentRequest = paymentRequest
         self.paymentService = paymentService

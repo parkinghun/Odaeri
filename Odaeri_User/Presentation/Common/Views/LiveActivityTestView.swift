@@ -9,7 +9,11 @@ import SwiftUI
 
 @available(iOS 16.2, *)
 struct LiveActivityTestView: View {
-    private let manager = LiveActivityManager.shared
+    private let manager: LiveActivityManager
+
+    init(manager: LiveActivityManager) {
+        self.manager = manager
+    }
 
     var body: some View {
         NavigationView {
@@ -116,6 +120,6 @@ struct LiveActivityTestView: View {
 @available(iOS 16.2, *)
 struct LiveActivityTestView_Previews: PreviewProvider {
     static var previews: some View {
-        LiveActivityTestView()
+        LiveActivityTestView(manager: LiveActivityManager.shared)
     }
 }

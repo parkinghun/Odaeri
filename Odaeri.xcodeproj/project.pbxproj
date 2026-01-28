@@ -143,7 +143,7 @@
 		B58F3C802F1DC74900A9550B /* Exceptions for "Odaeri_User" folder in "OrderPickupWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Presentation/Common/Managers/LiveActivityManager.swift,
+				Application/Services/Managers/LiveActivityManager.swift,
 				Presentation/Common/Views/LiveActivityTestView.swift,
 			);
 			target = B58F3C612F1DC72400A9550B /* OrderPickupWidgetExtension */;

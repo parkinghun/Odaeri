@@ -15,8 +15,8 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
 
     private let storeRepository: StoreRepository
     private let orderRepository: OrderRepository
-    private let locationManager: LocationManager
-    private let routeManager: RouteManager
+    private let locationManager: LocationManaging
+    private let routeManager: RouteManaging
     private let storeId: String
     private let errorSubject = PassthroughSubject<String, Never>()
     private let isProcessingCheckoutSubject = CurrentValueSubject<Bool, Never>(false)
@@ -26,8 +26,8 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
         storeId: String,
         storeRepository: StoreRepository,
         orderRepository: OrderRepository,
-        locationManager: LocationManager,
-        routeManager: RouteManager
+        locationManager: LocationManaging,
+        routeManager: RouteManaging
     ) {
         self.storeId = storeId
         self.storeRepository = storeRepository

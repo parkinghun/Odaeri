@@ -11,14 +11,14 @@ import UIKit
 
 final class CommunityPostViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: CommunityCoordinator?
-    private let locationManager: LocationManager
+    private let locationManager: LocationManaging
     private let backgroundManager: PostBackgroundManager
     private let postRepository: CommunityPostRepository
     let postToEdit: CommunityPostEntity?
 
     init(
         postToEdit: CommunityPostEntity? = nil,
-        locationManager: LocationManager,
+        locationManager: LocationManaging,
         backgroundManager: PostBackgroundManager,
         postRepository: CommunityPostRepository
     ) {

@@ -39,7 +39,10 @@ final class ProfileCoordinator: Coordinator {
             tokenManager: dependencies.tokenManager
         )
         viewModel.coordinator = self
-        let viewController = UserProfileViewController(viewModel: viewModel)
+        let viewController = UserProfileViewController(
+            viewModel: viewModel,
+            liveActivityManager: dependencies.liveActivityManager
+        )
         navigationController.setViewControllers([viewController], animated: false)
     }
 

@@ -11,17 +11,18 @@ final class UserDependencyContainer {
     let tokenManager: TokenManager = .shared
     let userManager: UserManager = .shared
     let notificationCenter: NotificationCenter = .default
-    let webViewManager: WebViewManager = .shared
-    let locationManager: LocationManager = .shared
-    let routeManager: RouteManager = .shared
+    let webViewManager: WebViewManaging = WebViewManager.shared
+    let locationManager: LocationManaging = LocationManager.shared
+    let routeManager: RouteManaging = RouteManager.shared
+    let liveActivityManager: LiveActivityManager = .shared
     let networkMonitor: NetworkMonitor = .shared
     let chatSocketService: ChatSocketService = .shared
     let chatRoomContextManager: ChatRoomContextManager = .shared
-    let chatLocalStore: RealmChatRepository = .shared
+    let chatLocalStore: ChatLocalStoreProviding = RealmChatRepository.shared
     let mediaUploadManager: MediaUploadManager = .shared
     let appMediaService: AppMediaService = .shared
     let navigationService: NavigationService = .shared
-    let paymentService: PaymentService = .shared
+    let paymentService: PaymentServicing = PaymentService.shared
     let attendanceService: AttendanceServiceProtocol = AttendanceService.shared
     let postBackgroundManager: PostBackgroundManager = .shared
 

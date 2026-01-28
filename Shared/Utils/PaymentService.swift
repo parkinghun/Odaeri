@@ -53,7 +53,7 @@ struct PaymentRequest {
     }
 }
 
-final class PaymentService {
+final class PaymentService: PaymentServicing {
     static let shared = PaymentService()
 
     private enum PaymentConfig {

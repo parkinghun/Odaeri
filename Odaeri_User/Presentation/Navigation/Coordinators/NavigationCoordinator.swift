@@ -22,17 +22,20 @@ final class NavigationCoordinator: Coordinator {
     private let route: MKRoute
     private let destination: StoreEntity
     private let navigationService: NavigationService
+    private let routeManager: RouteManaging
 
     init(
         navigationController: UINavigationController,
         route: MKRoute,
         destination: StoreEntity,
-        navigationService: NavigationService
+        navigationService: NavigationService,
+        routeManager: RouteManaging
     ) {
         self.navigationController = navigationController
         self.route = route
         self.destination = destination
         self.navigationService = navigationService
+        self.routeManager = routeManager
     }
 
     func start() {
@@ -67,29 +70,23 @@ final class NavigationCoordinator: Coordinator {
 
     func requestReroute(to destination: StoreEntity) {
         guard let currentLocation = navigationService.currentLocation else { return }
-
-        let request = MKDirections.Request()
-        request.source = MKMapItem(placemark: MKPlacemark(coordinate: currentLocation.coordinate))
-        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(
+        let destinationCoordinate = CLLocationCoordinate2D(
             latitude: destination.latitude,
             longitude: destination.longitude
-        )))
-        request.transportType = .walking
+        )
 
-        let directions = MKDirections(request: request)
-        directions.calculate { response, error in
-            if let error = error {
+        Task { [weak self] in
+            guard let self = self else { return }
+            do {
+                let newRoute = try await self.routeManager.calculateWalkingRoute(
+                    from: currentLocation.coordinate,
+                    to: destinationCoordinate
+                )
+                self.navigationService.stopNavigation()
+                self.navigationService.startNavigation(with: newRoute)
+            } catch {
                 print("Failed to calculate new route: \(error.localizedDescription)")
-                return
             }
-
-            guard let newRoute = response?.routes.first else {
-                print("No route found")
-                return
-            }
-
-            self.navigationService.stopNavigation()
-            self.navigationService.startNavigation(with: newRoute)
         }
     }
 }

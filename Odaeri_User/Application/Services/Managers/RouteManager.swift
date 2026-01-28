@@ -9,7 +9,7 @@ import Foundation
 import MapKit
 
 /// 출발지 / 목적지 좌표를 받아 MKRoute 를 생성하는 비즈니스 로직
-final class RouteManager {
+final class RouteManager: RouteManaging {
     static let shared = RouteManager()
 
     /// 성인 평균 보폭 (미터)

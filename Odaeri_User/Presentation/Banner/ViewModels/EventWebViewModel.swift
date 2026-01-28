@@ -12,13 +12,13 @@ final class EventWebViewModel: BaseViewModel, ViewModelType {
     private let path: String
     private let bannerRepository: BannerRepository
     private let attendanceService: AttendanceServiceProtocol
-    private let webViewManager: WebViewManager
+    private let webViewManager: WebViewManaging
 
     init(
         path: String,
         bannerRepository: BannerRepository,
         attendanceService: AttendanceServiceProtocol,
-        webViewManager: WebViewManager
+        webViewManager: WebViewManaging
     ) {
         self.path = path
         self.bannerRepository = bannerRepository

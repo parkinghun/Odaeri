@@ -13,6 +13,7 @@ import CoreLocation
 final class HomeViewController: BaseViewController<HomeViewModel> {
     override var navigationBarHidden: Bool { true }
     private let notificationCenter: NotificationCenter
+    private let routeManager: RouteManaging
     private let locationView = LocationView()
 
     private lazy var collectionView: UICollectionView = {
@@ -46,8 +47,13 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     private var lastTabBarInset: CGFloat = 0
     private var currentKeywords: [String] = []
 
-    init(viewModel: HomeViewModel, notificationCenter: NotificationCenter) {
+    init(
+        viewModel: HomeViewModel,
+        notificationCenter: NotificationCenter,
+        routeManager: RouteManaging
+    ) {
         self.notificationCenter = notificationCenter
+        self.routeManager = routeManager
         super.init(viewModel: viewModel)
     }
 
@@ -519,7 +525,8 @@ private extension HomeViewController {
         let popularShopCellRegistration = UICollectionView.CellRegistration<PopularShopCell, StoreEntity> { [weak self] cell, indexPath, store in
             guard let self = self else { return }
             let resolvedStore = self.storeCache[store.storeId] ?? store
-            cell.configure(with: resolvedStore, currentLocation: self.currentLocation)
+            let distanceInfo = self.makeDistanceInfo(for: resolvedStore)
+            cell.configure(with: resolvedStore, distanceText: distanceInfo.distanceText, stepsText: distanceInfo.stepsText)
 
             // 좋아요 버튼 이벤트 연결
             cell.cancellables.removeAll()
@@ -548,7 +555,8 @@ private extension HomeViewController {
         let shopListCellRegistration = UICollectionView.CellRegistration<ShopListCell, StoreEntity> { [weak self] cell, indexPath, store in
             guard let self = self else { return }
             let resolvedStore = self.storeCache[store.storeId] ?? store
-            cell.configure(with: resolvedStore, currentLocation: self.currentLocation)
+            let distanceInfo = self.makeDistanceInfo(for: resolvedStore)
+            cell.configure(with: resolvedStore, distanceText: distanceInfo.distanceText, stepsText: distanceInfo.stepsText)
 
             // 좋아요 버튼 이벤트 연결
             cell.cancellables.removeAll()
@@ -660,6 +668,23 @@ private extension HomeViewController {
         snapshot.appendSections(HomeSection.allCases)
         snapshot.appendItems([.category], toSection: .topHeader)
         dataSource?.apply(snapshot, animatingDifferences: false)
+    }
+}
+
+private extension HomeViewController {
+    func makeDistanceInfo(for store: StoreEntity) -> (distanceText: String, stepsText: String) {
+        guard let currentLocation = currentLocation else {
+            return ("--km", "--보")
+        }
+
+        let distance = routeManager.calculateDistance(
+            from: currentLocation.coordinate,
+            to: CLLocationCoordinate2D(latitude: store.latitude, longitude: store.longitude)
+        )
+        let distanceText = String(format: "%.1fkm", distance)
+        let estimatedSteps = routeManager.calculateEstimatedSteps(distanceInKm: distance)
+        let stepsText = "\(estimatedSteps)보"
+        return (distanceText, stepsText)
     }
 }
 

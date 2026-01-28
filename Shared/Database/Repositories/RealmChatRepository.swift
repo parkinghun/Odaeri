@@ -13,7 +13,7 @@ enum RealmError: Error {
     case missingUserSession
 }
 
-final class RealmChatRepository {
+final class RealmChatRepository: ChatLocalStoreProviding {
     static let shared = RealmChatRepository(
         provider: RealmConfigurationProvider(),
         session: UserManager.shared

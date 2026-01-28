@@ -19,12 +19,12 @@ final class PaymentCoordinator: Coordinator {
     weak var delegate: PaymentCoordinatorDelegate?
 
     private let paymentRequest: PaymentRequest
-    private let paymentService: PaymentService
+    private let paymentService: PaymentServicing
 
     init(
         navigationController: UINavigationController,
         paymentRequest: PaymentRequest,
-        paymentService: PaymentService
+        paymentService: PaymentServicing
     ) {
         self.navigationController = navigationController
         self.paymentRequest = paymentRequest

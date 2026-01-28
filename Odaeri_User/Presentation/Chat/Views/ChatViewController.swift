@@ -15,7 +15,7 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     
     private let chatSocketService: ChatSocketService
     private let chatRoomContextManager: ChatRoomContextManager
-    private let chatLocalStore: RealmChatRepository
+    private let chatLocalStore: ChatLocalStoreProviding
     private let appMediaService: AppMediaService
     private let notificationCenter: NotificationCenter
 
@@ -55,7 +55,7 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
         viewModel: ChatViewModel,
         chatSocketService: ChatSocketService,
         chatRoomContextManager: ChatRoomContextManager,
-        chatLocalStore: RealmChatRepository,
+        chatLocalStore: ChatLocalStoreProviding,
         appMediaService: AppMediaService,
         notificationCenter: NotificationCenter
     ) {

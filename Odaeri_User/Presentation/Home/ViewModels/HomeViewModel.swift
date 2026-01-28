@@ -14,7 +14,7 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
 
     private let storeRepository: StoreRepository
     private let bannerRepository: BannerRepository
-    private let locationManager: LocationManager
+    private let locationManager: LocationManaging
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let errorSubject = PassthroughSubject<String, Never>()
 
@@ -33,7 +33,7 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
     init(
         storeRepository: StoreRepository,
         bannerRepository: BannerRepository,
-        locationManager: LocationManager
+        locationManager: LocationManaging
     ) {
         self.storeRepository = storeRepository
         self.bannerRepository = bannerRepository

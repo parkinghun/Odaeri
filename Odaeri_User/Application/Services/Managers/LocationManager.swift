@@ -10,7 +10,7 @@ import CoreLocation
 import Combine
 
 /// GPS 위치 수신 및 위치 권한
-final class LocationManager: NSObject {
+final class LocationManager: NSObject, LocationManaging {
     static let shared = LocationManager()
     
     // MARK: - Properties

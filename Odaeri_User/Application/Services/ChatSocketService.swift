@@ -34,10 +34,17 @@ enum SocketIOStatus {
 }
 
 final class ChatSocketService {
-    static let shared = ChatSocketService()
+    static let shared = ChatSocketService(
+        localStore: RealmChatRepository.shared,
+        networkMonitor: NetworkMonitor.shared,
+        tokenManager: TokenManager.shared,
+        userManager: UserManager.shared
+    )
 
-    private let realmRepo = RealmChatRepository.shared
-    private let networkMonitor = NetworkMonitor.shared
+    private let localStore: ChatLocalStoreProviding
+    private let networkMonitor: NetworkMonitor
+    private let tokenManager: TokenManager
+    private let userManager: UserManager
     private var cancellables = Set<AnyCancellable>()
 
     private var manager: SocketManager?
@@ -56,7 +63,16 @@ final class ChatSocketService {
     /// 최초 연결 여부 (방별로 추적)
     private var isFirstConnection: [String: Bool] = [:]
 
-    private init() {
+    init(
+        localStore: ChatLocalStoreProviding,
+        networkMonitor: NetworkMonitor,
+        tokenManager: TokenManager,
+        userManager: UserManager
+    ) {
+        self.localStore = localStore
+        self.networkMonitor = networkMonitor
+        self.tokenManager = tokenManager
+        self.userManager = userManager
         hapticGenerator.prepare()
         setupNetworkMonitoring()
     }
@@ -101,7 +117,7 @@ final class ChatSocketService {
             return
         }
 
-        guard let accessToken = TokenManager.shared.accessToken else {
+        guard let accessToken = tokenManager.accessToken else {
             print("토큰 없음: Socket 연결 불가")
             connectionStatus.send(.error("로그인 필요"))
             return
@@ -218,7 +234,7 @@ final class ChatSocketService {
         files: [String] = []
     ) {
         guard socket?.status == .connected else {
-            realmRepo.updateMessageStatus(chatId: tempId, status: .failed)
+            localStore.updateMessageStatus(chatId: tempId, status: .failed)
             return
         }
 
@@ -297,7 +313,7 @@ final class ChatSocketService {
         print("Socket 연결 완료: \(roomId)")
 
         // Realm 읽음 처리
-        realmRepo.markAllMessagesAsRead(roomId: roomId)
+        localStore.markAllMessagesAsRead(roomId: roomId)
             .sink(receiveValue: { success in
                 if success {
                     print("채팅방 진입: 모든 메시지 읽음 처리 완료")
@@ -315,11 +331,11 @@ final class ChatSocketService {
         let entity = ChatEntity(from: response)
         provideHapticFeedback()
 
-        realmRepo.saveMessageWithRoomUpdate(
+        localStore.saveMessageWithRoomUpdate(
             entity,
             isRead: true,
             shouldIncrementUnread: false,
-            currentUserId: UserManager.shared.currentUser?.userId ?? ""
+            currentUserId: userManager.currentUser?.userId ?? ""
         )
         .sink { success in
             if success {

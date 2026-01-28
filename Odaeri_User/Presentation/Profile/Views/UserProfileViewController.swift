@@ -11,6 +11,7 @@ import SnapKit
 import SwiftUI
 
 final class UserProfileViewController: BaseViewController<UserProfileViewModel> {
+    private let liveActivityManager: LiveActivityManager
     private let headerView = UserProfileHeaderView()
     private let emptyView = UserProfileEmptyView()
     private let viewDidLoadSubject = PassthroughSubject<Void, Never>()
@@ -31,6 +32,11 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
     private var profileImageUrl: String?
 
     override var navigationBarHidden: Bool { false }
+
+    init(viewModel: UserProfileViewModel, liveActivityManager: LiveActivityManager) {
+        self.liveActivityManager = liveActivityManager
+        super.init(viewModel: viewModel)
+    }
 
     private let tabContainer = UIView()
     private let tabStackView = UIStackView()
@@ -337,7 +343,7 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
 
     @available(iOS 16.2, *)
     private func showLiveActivityTest() {
-        let testView = LiveActivityTestView()
+        let testView = LiveActivityTestView(manager: liveActivityManager)
         let hostingController = UIHostingController(rootView: testView)
         hostingController.modalPresentationStyle = .pageSheet
 

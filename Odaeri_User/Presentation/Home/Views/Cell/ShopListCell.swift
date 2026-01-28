@@ -8,7 +8,6 @@
 import UIKit
 import SnapKit
 import Combine
-import CoreLocation
 
 final class ShopListCell: BaseCollectionViewCell {
     
@@ -309,7 +308,7 @@ final class ShopListCell: BaseCollectionViewCell {
         }
     }
     
-    func configure(with store: StoreEntity, currentLocation: CLLocation?) {
+    func configure(with store: StoreEntity, distanceText: String, stepsText: String) {
         mainImageView.setImage(url: store.storeImageUrls.first)
         subImageView1.setImage(url: store.storeImageUrls.count > 1 ? store.storeImageUrls[1] : nil)
         subImageView2.setImage(url: store.storeImageUrls.count > 2 ? store.storeImageUrls[2] : nil)
@@ -324,20 +323,8 @@ final class ShopListCell: BaseCollectionViewCell {
         likeButton.configure(storeId: store.storeId, isPicked: store.isPick)
 
         picchelinImageView.isHidden = !store.isPicchelin
-
-        if let currentLocation = currentLocation {
-            let distance = RouteManager.shared.calculateDistance(
-                from: currentLocation.coordinate,
-                to: CLLocationCoordinate2D(latitude: store.latitude, longitude: store.longitude)
-            )
-            distanceLabel.text = String(format: "%.1fkm", distance)
-
-            let estimatedSteps = RouteManager.shared.calculateEstimatedSteps(distanceInKm: distance)
-            runLabel.text = "\(estimatedSteps)보"
-        } else {
-            distanceLabel.text = "--km"
-            runLabel.text = "--보"
-        }
+        distanceLabel.text = distanceText
+        runLabel.text = stepsText
 
         timeLabel.text = store.close
 
