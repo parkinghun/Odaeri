@@ -15,7 +15,7 @@ final class ChatRoomViewModel: BaseViewModel, ViewModelType {
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let errorSubject = PassthroughSubject<String, Never>()
 
-    init(chatRepository: ChatRepository = ChatRepositoryImpl()) {
+    init(chatRepository: ChatRepository) {
         self.chatRepository = chatRepository
     }
 

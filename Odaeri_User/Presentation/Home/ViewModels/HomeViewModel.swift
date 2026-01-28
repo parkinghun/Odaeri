@@ -31,8 +31,8 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
     private var currentIsPick: Bool?
 
     init(
-        storeRepository: StoreRepository = StoreRepositoryImpl(),
-        bannerRepository: BannerRepository = BannerRepositoryImpl(),
+        storeRepository: StoreRepository,
+        bannerRepository: BannerRepository,
         locationManager: LocationManager = .shared
     ) {
         self.storeRepository = storeRepository

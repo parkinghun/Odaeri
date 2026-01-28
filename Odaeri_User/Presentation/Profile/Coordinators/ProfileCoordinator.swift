@@ -25,7 +25,15 @@ final class ProfileCoordinator: Coordinator {
 
     func start() {
         let targetUserId = UserManager.shared.currentUser?.userId ?? ""
-        let viewModel = UserProfileViewModel(targetUserId: targetUserId)
+        let videoRepository = VideoRepositoryImpl()
+        let viewModel = UserProfileViewModel(
+            targetUserId: targetUserId,
+            communityRepository: CommunityPostRepositoryImpl(),
+            chatRepository: ChatRepositoryImpl(),
+            userRepository: UserRepositoryImpl(),
+            getSavedVideoIdsUseCase: DefaultGetSavedVideoIdsUseCase(),
+            getVideoListUseCase: DefaultGetVideoListUseCase(repository: videoRepository)
+        )
         viewModel.coordinator = self
         let viewController = UserProfileViewController(viewModel: viewModel)
         navigationController.setViewControllers([viewController], animated: false)
@@ -36,7 +44,7 @@ final class ProfileCoordinator: Coordinator {
     }
 
     func showEditProfile() {
-        let viewModel = UserProfileEditViewModel()
+        let viewModel = UserProfileEditViewModel(userRepository: UserRepositoryImpl())
         let viewController = UserProfileEditViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
     }
@@ -83,10 +91,14 @@ final class ProfileCoordinator: Coordinator {
 
                 let getStreamURLUseCase = DefaultGetVideoStreamURLUseCase(repository: repository)
                 let toggleVideoLikeUseCase = DefaultToggleVideoLikeUseCase(repository: repository)
+                let toggleSaveVideoUseCase = DefaultToggleSaveVideoUseCase()
+                let checkVideoSavedUseCase = DefaultCheckVideoSavedUseCase()
                 let viewModel = StreamingDetailViewModel(
                     video: video,
                     getStreamURLUseCase: getStreamURLUseCase,
-                    toggleVideoLikeUseCase: toggleVideoLikeUseCase
+                    toggleVideoLikeUseCase: toggleVideoLikeUseCase,
+                    toggleSaveVideoUseCase: toggleSaveVideoUseCase,
+                    checkVideoSavedUseCase: checkVideoSavedUseCase
                 )
                 let playerManager = StreamingPlayerManager(videoRepository: repository)
                 let viewController = StreamingDetailViewController(

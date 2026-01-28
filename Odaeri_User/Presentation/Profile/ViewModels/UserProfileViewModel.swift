@@ -47,13 +47,11 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
         targetUserId: String,
         initialNick: String? = nil,
         initialProfileImage: String? = nil,
-        communityRepository: CommunityPostRepository = CommunityPostRepositoryImpl(),
-        chatRepository: ChatRepository = ChatRepositoryImpl(),
-        userRepository: UserRepository = UserRepositoryImpl(),
-        getSavedVideoIdsUseCase: GetSavedVideoIdsUseCase = DefaultGetSavedVideoIdsUseCase(),
-        getVideoListUseCase: GetVideoListUseCase = DefaultGetVideoListUseCase(
-            repository: VideoRepositoryImpl()
-        )
+        communityRepository: CommunityPostRepository,
+        chatRepository: ChatRepository,
+        userRepository: UserRepository,
+        getSavedVideoIdsUseCase: GetSavedVideoIdsUseCase,
+        getVideoListUseCase: GetVideoListUseCase
     ) {
         self.targetUserId = targetUserId
         self.communityRepository = communityRepository

@@ -37,10 +37,14 @@ final class StreamingCoordinator: Coordinator {
         let repository = VideoRepositoryImpl()
         let getStreamURLUseCase = DefaultGetVideoStreamURLUseCase(repository: repository)
         let toggleVideoLikeUseCase = DefaultToggleVideoLikeUseCase(repository: repository)
+        let toggleSaveVideoUseCase = DefaultToggleSaveVideoUseCase()
+        let checkVideoSavedUseCase = DefaultCheckVideoSavedUseCase()
         let viewModel = StreamingDetailViewModel(
             video: video,
             getStreamURLUseCase: getStreamURLUseCase,
-            toggleVideoLikeUseCase: toggleVideoLikeUseCase
+            toggleVideoLikeUseCase: toggleVideoLikeUseCase,
+            toggleSaveVideoUseCase: toggleSaveVideoUseCase,
+            checkVideoSavedUseCase: checkVideoSavedUseCase
         )
         let playerManager = StreamingPlayerManager(videoRepository: repository)
         let viewController = StreamingDetailViewController(video: video, viewModel: viewModel, playerManager: playerManager)
@@ -49,7 +53,11 @@ final class StreamingCoordinator: Coordinator {
     }
 
     func presentShareSheet(from presenter: UIViewController, payload: ShareCardPayload) {
-        let viewModel = ShareTargetPickerViewModel(sharePayload: payload)
+        let viewModel = ShareTargetPickerViewModel(
+            sharePayload: payload,
+            chatRepository: ChatRepositoryImpl(),
+            userRepository: UserRepositoryImpl()
+        )
         let viewController = ShareTargetPickerViewController(viewModel: viewModel)
         viewController.modalPresentationStyle = .pageSheet
 

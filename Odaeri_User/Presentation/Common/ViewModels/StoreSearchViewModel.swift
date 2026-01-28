@@ -68,8 +68,8 @@ final class StoreSearchViewModel: BaseViewModel, ViewModelType {
     init(
         viewType: StoreSearchViewType,
         initialSearchQuery: String? = nil,
-        storeRepository: StoreRepository = StoreRepositoryImpl(),
-        orderRepository: OrderRepository = OrderRepositoryImpl()
+        storeRepository: StoreRepository,
+        orderRepository: OrderRepository
     ) {
         self.viewType = viewType
         self.initialSearchQuery = initialSearchQuery

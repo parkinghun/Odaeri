@@ -24,8 +24,8 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
 
     init(
         storeId: String,
-        storeRepository: StoreRepository = StoreRepositoryImpl(),
-        orderRepository: OrderRepository = OrderRepositoryImpl(),
+        storeRepository: StoreRepository,
+        orderRepository: OrderRepository,
         locationManager: LocationManager = .shared,
         routeManager: RouteManager = .shared
     ) {

@@ -15,7 +15,7 @@ final class EventWebViewModel: BaseViewModel, ViewModelType {
 
     init(
         path: String,
-        bannerRepository: BannerRepository = BannerRepositoryImpl(),
+        bannerRepository: BannerRepository,
         attendanceService: AttendanceServiceProtocol = AttendanceService.shared
     ) {
         self.path = path

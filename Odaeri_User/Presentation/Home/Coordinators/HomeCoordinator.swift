@@ -30,7 +30,10 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
     }
 
     func start() {
-        let homeViewModel = HomeViewModel()
+        let homeViewModel = HomeViewModel(
+            storeRepository: StoreRepositoryImpl(),
+            bannerRepository: BannerRepositoryImpl()
+        )
         homeViewModel.coordinator = self
         let homeViewController = HomeViewController(viewModel: homeViewModel)
         navigationController.setViewControllers([homeViewController], animated: false)
@@ -75,7 +78,11 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
     }
 
     func showStoreDetail(storeId: String) {
-        let viewModel = ShopDetailViewModel(storeId: storeId)
+        let viewModel = ShopDetailViewModel(
+            storeId: storeId,
+            storeRepository: StoreRepositoryImpl(),
+            orderRepository: OrderRepositoryImpl()
+        )
         viewModel.coordinator = self
         let viewController = ShopDetailViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
@@ -85,7 +92,8 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
         let viewModel = StoreReviewViewModel(
             storeId: storeId,
             storeName: storeName,
-            storeImageUrl: storeImageUrl
+            storeImageUrl: storeImageUrl,
+            repository: StoreReviewRepositoryImpl()
         )
         viewModel.coordinator = self
         let viewController = StoreReviewViewController(viewModel: viewModel)
@@ -98,7 +106,10 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
     }
 
     func showReviewWrite(mode: ReviewWriteMode) {
-        let viewModel = ReviewWriteViewModel(mode: mode)
+        let viewModel = ReviewWriteViewModel(
+            mode: mode,
+            repository: StoreReviewRepositoryImpl()
+        )
         viewModel.coordinator = self
         let viewController = ReviewWriteViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
@@ -109,10 +120,16 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
     }
 
     func showUserProfile(userId: String, nick: String? = nil, profileImage: String? = nil) {
+        let videoRepository = VideoRepositoryImpl()
         let viewModel = UserProfileViewModel(
             targetUserId: userId,
             initialNick: nick,
-            initialProfileImage: profileImage
+            initialProfileImage: profileImage,
+            communityRepository: CommunityPostRepositoryImpl(),
+            chatRepository: ChatRepositoryImpl(),
+            userRepository: UserRepositoryImpl(),
+            getSavedVideoIdsUseCase: DefaultGetSavedVideoIdsUseCase(),
+            getVideoListUseCase: DefaultGetVideoListUseCase(repository: videoRepository)
         )
         viewModel.coordinator = self
         let viewController = UserProfileViewController(viewModel: viewModel)
@@ -120,13 +137,21 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
     }
 
     func showEventWeb(path: String) {
-        let viewModel = EventWebViewModel(path: path)
+        let viewModel = EventWebViewModel(
+            path: path,
+            bannerRepository: BannerRepositoryImpl()
+        )
         let viewController = EventWebViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
     }
 
     func showStoreSearch(with keyword: String? = nil) {
-        let viewModel = StoreSearchViewModel(viewType: .home, initialSearchQuery: keyword)
+        let viewModel = StoreSearchViewModel(
+            viewType: .home,
+            initialSearchQuery: keyword,
+            storeRepository: StoreRepositoryImpl(),
+            orderRepository: OrderRepositoryImpl()
+        )
         let viewController = StoreSearchViewController(viewModel: viewModel, viewType: .home)
         viewController.delegate = self
         navigationController.pushViewController(viewController, animated: true)
@@ -201,10 +226,14 @@ extension HomeCoordinator: UserProfileCoordinating {
 
                 let getStreamURLUseCase = DefaultGetVideoStreamURLUseCase(repository: repository)
                 let toggleVideoLikeUseCase = DefaultToggleVideoLikeUseCase(repository: repository)
+                let toggleSaveVideoUseCase = DefaultToggleSaveVideoUseCase()
+                let checkVideoSavedUseCase = DefaultCheckVideoSavedUseCase()
                 let viewModel = StreamingDetailViewModel(
                     video: video,
                     getStreamURLUseCase: getStreamURLUseCase,
-                    toggleVideoLikeUseCase: toggleVideoLikeUseCase
+                    toggleVideoLikeUseCase: toggleVideoLikeUseCase,
+                    toggleSaveVideoUseCase: toggleSaveVideoUseCase,
+                    checkVideoSavedUseCase: checkVideoSavedUseCase
                 )
                 let playerManager = StreamingPlayerManager(videoRepository: repository)
                 let viewController = StreamingDetailViewController(

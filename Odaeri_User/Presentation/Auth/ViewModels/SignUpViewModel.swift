@@ -19,7 +19,7 @@ final class SignUpViewModel: BaseViewModel, ViewModelType {
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let signUpErrorSubject = PassthroughSubject<String, Never>()
 
-    init(repository: UserRepository = UserRepositoryImpl()) {
+    init(repository: UserRepository) {
         self.repository = repository
     }
 

@@ -18,7 +18,7 @@ final class UserProfileEditViewModel: BaseViewModel, ViewModelType {
     private let initialNickSubject = CurrentValueSubject<String, Never>("")
     private let initialProfileImageSubject = CurrentValueSubject<String, Never>("")
 
-    init(userRepository: UserRepository = UserRepositoryImpl()) {
+    init(userRepository: UserRepository) {
         self.userRepository = userRepository
     }
 

@@ -22,20 +22,27 @@ final class OrderCoordinator: Coordinator, ReviewWriteCoordinating {
     }
 
     func start() {
-        let orderViewModel = OrderViewModel()
+        let orderViewModel = OrderViewModel(orderRepository: OrderRepositoryImpl())
         orderViewModel.coordinator = self
         let orderViewController = OrderViewController(viewModel: orderViewModel)
         navigationController.setViewControllers([orderViewController], animated: false)
     }
 
     func showStoreDetail(storeId: String) {
-        let viewModel = ShopDetailViewModel(storeId: storeId)
+        let viewModel = ShopDetailViewModel(
+            storeId: storeId,
+            storeRepository: StoreRepositoryImpl(),
+            orderRepository: OrderRepositoryImpl()
+        )
         let viewController = ShopDetailViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
     }
 
     func showReviewWrite(mode: ReviewWriteMode) {
-        let viewModel = ReviewWriteViewModel(mode: mode)
+        let viewModel = ReviewWriteViewModel(
+            mode: mode,
+            repository: StoreReviewRepositoryImpl()
+        )
         viewModel.coordinator = self
         let viewController = ReviewWriteViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)

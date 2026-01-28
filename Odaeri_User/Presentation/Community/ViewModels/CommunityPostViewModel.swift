@@ -20,7 +20,7 @@ final class CommunityPostViewModel: BaseViewModel, ViewModelType {
         postToEdit: CommunityPostEntity? = nil,
         locationManager: LocationManager = .shared,
         backgroundManager: PostBackgroundManager = .shared,
-        postRepository: CommunityPostRepository = CommunityPostRepositoryImpl()
+        postRepository: CommunityPostRepository
     ) {
         self.postToEdit = postToEdit
         self.locationManager = locationManager

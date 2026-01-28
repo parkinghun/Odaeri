@@ -43,7 +43,7 @@ final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
     private let submitSubject = PassthroughSubject<Void, Never>()
     private var existingImageUrls: [String] = []
 
-    init(mode: ReviewWriteMode, repository: StoreReviewRepository = StoreReviewRepositoryImpl()) {
+    init(mode: ReviewWriteMode, repository: StoreReviewRepository) {
         self.mode = mode
         self.repository = repository
         self.ratingSubject = CurrentValueSubject<Int, Never>(mode.initialRating)

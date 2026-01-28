@@ -31,7 +31,7 @@ final class StoreReviewViewModel: BaseViewModel, ViewModelType {
         storeId: String,
         storeName: String,
         storeImageUrl: String?,
-        repository: StoreReviewRepository = StoreReviewRepositoryImpl()
+        repository: StoreReviewRepository
     ) {
         self.storeId = storeId
         self.storeName = storeName

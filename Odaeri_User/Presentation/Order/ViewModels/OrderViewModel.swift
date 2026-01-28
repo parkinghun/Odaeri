@@ -16,7 +16,7 @@ final class OrderViewModel: BaseViewModel, ViewModelType {
     private let errorSubject = PassthroughSubject<String, Never>()
     private var orderEntityCache: [String: OrderListItemEntity] = [:]
 
-    init(orderRepository: OrderRepository = OrderRepositoryImpl()) {
+    init(orderRepository: OrderRepository) {
         self.orderRepository = orderRepository
     }
 

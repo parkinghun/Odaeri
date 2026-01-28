@@ -49,8 +49,8 @@ final class ShareTargetPickerViewModel: BaseViewModel, ViewModelType {
 
     init(
         sharePayload: ShareCardPayload,
-        chatRepository: ChatRepository = ChatRepositoryImpl(),
-        userRepository: UserRepository = UserRepositoryImpl()
+        chatRepository: ChatRepository,
+        userRepository: UserRepository
     ) {
         self.sharePayload = sharePayload
         self.chatRepository = chatRepository

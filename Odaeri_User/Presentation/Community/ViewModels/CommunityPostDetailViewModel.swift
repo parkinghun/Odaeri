@@ -38,8 +38,8 @@ final class CommunityPostDetailViewModel: BaseViewModel, ViewModelType {
 
     init(
         postId: String,
-        postRepository: CommunityPostRepository = CommunityPostRepositoryImpl(),
-        commentRepository: CommunityCommentRepository = CommunityCommentRepositoryImpl()
+        postRepository: CommunityPostRepository,
+        commentRepository: CommunityCommentRepository
     ) {
         self.postId = postId
         self.postRepository = postRepository

@@ -25,33 +25,55 @@ final class CommunityCoordinator: Coordinator {
     }
 
     func start() {
-        let communityViewModel = CommunityViewModel()
+        let communityViewModel = CommunityViewModel(
+            postRepository: CommunityPostRepositoryImpl(),
+            bannerRepository: BannerRepositoryImpl()
+        )
         communityViewModel.coordinator = self
         let communityViewController = CommunityViewController(viewModel: communityViewModel)
         navigationController.setViewControllers([communityViewController], animated: false)
     }
 
     func showEventWeb(path: String) {
-        let viewModel = EventWebViewModel(path: path)
+        let viewModel = EventWebViewModel(
+            path: path,
+            bannerRepository: BannerRepositoryImpl()
+        )
         let viewController = EventWebViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
     }
 
     func showStoreDetail(storeId: String) {
-        let viewModel = ShopDetailViewModel(storeId: storeId)
+        let viewModel = ShopDetailViewModel(
+            storeId: storeId,
+            storeRepository: StoreRepositoryImpl(),
+            orderRepository: OrderRepositoryImpl()
+        )
         let viewController = ShopDetailViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
     }
 
     func showUserProfile(userId: String) {
-        let viewModel = UserProfileViewModel(targetUserId: userId)
+        let videoRepository = VideoRepositoryImpl()
+        let viewModel = UserProfileViewModel(
+            targetUserId: userId,
+            communityRepository: CommunityPostRepositoryImpl(),
+            chatRepository: ChatRepositoryImpl(),
+            userRepository: UserRepositoryImpl(),
+            getSavedVideoIdsUseCase: DefaultGetSavedVideoIdsUseCase(),
+            getVideoListUseCase: DefaultGetVideoListUseCase(repository: videoRepository)
+        )
         viewModel.coordinator = self
         let viewController = UserProfileViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
     }
 
     func showPostDetail(postId: String) {
-        let viewModel = CommunityPostDetailViewModel(postId: postId)
+        let viewModel = CommunityPostDetailViewModel(
+            postId: postId,
+            postRepository: CommunityPostRepositoryImpl(),
+            commentRepository: CommunityCommentRepositoryImpl()
+        )
         viewModel.coordinator = self
         let viewController = CommunityPostDetailViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
@@ -65,14 +87,18 @@ final class CommunityCoordinator: Coordinator {
     }
 
     func showStoreSearch() {
-        let viewModel = StoreSearchViewModel(viewType: .community)
+        let viewModel = StoreSearchViewModel(
+            viewType: .community,
+            storeRepository: StoreRepositoryImpl(),
+            orderRepository: OrderRepositoryImpl()
+        )
         let viewController = StoreSearchViewController(viewModel: viewModel, viewType: .community)
         viewController.delegate = self
         navigationController.pushViewController(viewController, animated: true)
     }
 
     private func openWritePost() {
-        let viewModel = CommunityPostViewModel()
+        let viewModel = CommunityPostViewModel(postRepository: CommunityPostRepositoryImpl())
         viewModel.coordinator = self
         let viewController = CommunityPostViewController(viewType: .create, viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
@@ -106,7 +132,10 @@ extension CommunityCoordinator: UserProfileCoordinating {
     }
 
     func openEditPost(with post: CommunityPostEntity) {
-        let viewModel = CommunityPostViewModel(postToEdit: post)
+        let viewModel = CommunityPostViewModel(
+            postToEdit: post,
+            postRepository: CommunityPostRepositoryImpl()
+        )
         viewModel.coordinator = self
         let viewController = CommunityPostViewController(viewType: .edit, viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
@@ -138,10 +167,14 @@ extension CommunityCoordinator: UserProfileCoordinating {
 
                 let getStreamURLUseCase = DefaultGetVideoStreamURLUseCase(repository: repository)
                 let toggleVideoLikeUseCase = DefaultToggleVideoLikeUseCase(repository: repository)
+                let toggleSaveVideoUseCase = DefaultToggleSaveVideoUseCase()
+                let checkVideoSavedUseCase = DefaultCheckVideoSavedUseCase()
                 let viewModel = StreamingDetailViewModel(
                     video: video,
                     getStreamURLUseCase: getStreamURLUseCase,
-                    toggleVideoLikeUseCase: toggleVideoLikeUseCase
+                    toggleVideoLikeUseCase: toggleVideoLikeUseCase,
+                    toggleSaveVideoUseCase: toggleSaveVideoUseCase,
+                    checkVideoSavedUseCase: checkVideoSavedUseCase
                 )
                 let playerManager = StreamingPlayerManager(videoRepository: repository)
                 let viewController = StreamingDetailViewController(

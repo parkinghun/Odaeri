@@ -17,7 +17,7 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let loginErrorSubject = PassthroughSubject<String, Never>()
 
-    init(repository: UserRepository = UserRepositoryImpl()) {
+    init(repository: UserRepository) {
         self.repository = repository
     }
 

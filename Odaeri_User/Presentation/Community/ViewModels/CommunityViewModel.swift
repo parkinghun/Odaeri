@@ -33,8 +33,8 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
     private var likeSubjects: [String: PassthroughSubject<Bool, Never>] = [:]
 
     init(
-        postRepository: CommunityPostRepository = CommunityPostRepositoryImpl(),
-        bannerRepository: BannerRepository = BannerRepositoryImpl(),
+        postRepository: CommunityPostRepository,
+        bannerRepository: BannerRepository,
         locationManager: LocationManager = .shared
     ) {
         self.postRepository = postRepository

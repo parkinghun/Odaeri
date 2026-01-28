@@ -101,8 +101,8 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
         video: VideoEntity,
         getStreamURLUseCase: GetVideoStreamURLUseCase,
         toggleVideoLikeUseCase: ToggleVideoLikeUseCase,
-        toggleSaveVideoUseCase: ToggleSaveVideoUseCase = DefaultToggleSaveVideoUseCase(),
-        checkVideoSavedUseCase: CheckVideoSavedUseCase = DefaultCheckVideoSavedUseCase()
+        toggleSaveVideoUseCase: ToggleSaveVideoUseCase,
+        checkVideoSavedUseCase: CheckVideoSavedUseCase
     ) {
         self.video = video
         self.getStreamURLUseCase = getStreamURLUseCase
