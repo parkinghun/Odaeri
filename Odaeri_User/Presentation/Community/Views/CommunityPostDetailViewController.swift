@@ -10,6 +10,9 @@ import Combine
 import SnapKit
 
 final class CommunityPostDetailViewController: BaseViewController<CommunityPostDetailViewModel> {
+    private let notificationCenter: NotificationCenter
+    private let appMediaService: AppMediaService
+    private let userManager: UserManager
     private let scrollView = UIScrollView()
     private let contentView = UIView()
 
@@ -110,6 +113,22 @@ final class CommunityPostDetailViewController: BaseViewController<CommunityPostD
         static let contentInset: CGFloat = AppSpacing.large
     }
 
+    init(
+        viewModel: CommunityPostDetailViewModel,
+        notificationCenter: NotificationCenter,
+        appMediaService: AppMediaService,
+        userManager: UserManager
+    ) {
+        self.notificationCenter = notificationCenter
+        self.appMediaService = appMediaService
+        self.userManager = userManager
+        super.init(viewModel: viewModel)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
     override func setupUI() {
         super.setupUI()
         view.backgroundColor = AppColor.gray0
@@ -159,13 +178,13 @@ final class CommunityPostDetailViewController: BaseViewController<CommunityPostD
     }
 
     private func setupKeyboardObservers() {
-        NotificationCenter.default.addObserver(
+        notificationCenter.addObserver(
             self,
             selector: #selector(keyboardWillShow(_:)),
             name: UIResponder.keyboardWillShowNotification,
             object: nil
         )
-        NotificationCenter.default.addObserver(
+        notificationCenter.addObserver(
             self,
             selector: #selector(keyboardWillHide(_:)),
             name: UIResponder.keyboardWillHideNotification,
@@ -197,7 +216,7 @@ final class CommunityPostDetailViewController: BaseViewController<CommunityPostD
     }
 
     deinit {
-        NotificationCenter.default.removeObserver(self)
+        notificationCenter.removeObserver(self)
     }
 
     override func bind() {
@@ -280,7 +299,7 @@ final class CommunityPostDetailViewController: BaseViewController<CommunityPostD
         mediaBannerView.isInteractionEnabled = true
         mediaBannerView.onVideoSelected = { [weak self] url in
             guard let self = self else { return }
-            AppMediaService.shared.playVideo(url: url, from: self)
+            appMediaService.playVideo(url: url, from: self)
         }
 
         likeButton.tapPublisher
@@ -289,7 +308,7 @@ final class CommunityPostDetailViewController: BaseViewController<CommunityPostD
             }
             .store(in: &cancellables)
 
-        commentInputView.configure(profileImageUrl: UserManager.shared.currentUser?.profileImage)
+        commentInputView.configure(profileImageUrl: userManager.currentUser?.profileImage)
         commentInputView.onSendTapped = { [weak self] content in
             guard let self = self else { return }
             let mode = self.commentInputView.getCurrentMode()

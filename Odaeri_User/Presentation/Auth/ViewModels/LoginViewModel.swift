@@ -12,13 +12,21 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: AuthCoordinator?
 
     private let repository: UserRepository
+    private let tokenManager: TokenManager
+    private let userManager: UserManager
     private let currentEmail = CurrentValueSubject<String, Never>("")
     private let currentPassword = CurrentValueSubject<String, Never>("")
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let loginErrorSubject = PassthroughSubject<String, Never>()
 
-    init(repository: UserRepository) {
+    init(
+        repository: UserRepository,
+        tokenManager: TokenManager,
+        userManager: UserManager
+    ) {
         self.repository = repository
+        self.tokenManager = tokenManager
+        self.userManager = userManager
     }
 
     struct Input {
@@ -132,7 +140,7 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
         let email = currentEmail.value
         let password = currentPassword.value
 
-        guard let deviceToken = TokenManager.shared.deviceToken else {
+        guard let deviceToken = tokenManager.deviceToken else {
             loginErrorSubject.send("디바이스 토큰이 없습니다. 앱을 재시작해주세요.")
             return
         }
@@ -152,13 +160,13 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
                     }
                 },
                 receiveValue: { userResult in
-                    TokenManager.shared.saveTokens(
+                    self.tokenManager.saveTokens(
                         accessToken: userResult.accessToken,
                         refreshToken: userResult.refreshToken
                     )
 
                     let user = UserEntity(from: userResult)
-                    UserManager.shared.saveUser(user)
+                    self.userManager.saveUser(user)
 
                     completion()
                 }
@@ -167,7 +175,7 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
     }
 
     private func performKakaoLogin(completion: @escaping () -> Void) {
-        guard let deviceToken = TokenManager.shared.deviceToken else {
+        guard let deviceToken = tokenManager.deviceToken else {
             loginErrorSubject.send("디바이스 토큰이 없습니다. 앱을 재시작해주세요.")
             return
         }
@@ -199,7 +207,7 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
     private func performAppleLogin(completion: @escaping () -> Void) {
         print("[LoginViewModel] performAppleLogin called")
 
-        guard let deviceToken = TokenManager.shared.deviceToken else {
+        guard let deviceToken = tokenManager.deviceToken else {
             print("[LoginViewModel] ERROR: deviceToken is nil")
             loginErrorSubject.send("디바이스 토큰이 없습니다. 앱을 재시작해주세요.")
             return

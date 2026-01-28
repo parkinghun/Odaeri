@@ -12,15 +12,18 @@ final class EventWebViewModel: BaseViewModel, ViewModelType {
     private let path: String
     private let bannerRepository: BannerRepository
     private let attendanceService: AttendanceServiceProtocol
+    private let webViewManager: WebViewManager
 
     init(
         path: String,
         bannerRepository: BannerRepository,
-        attendanceService: AttendanceServiceProtocol = AttendanceService.shared
+        attendanceService: AttendanceServiceProtocol,
+        webViewManager: WebViewManager
     ) {
         self.path = path
         self.bannerRepository = bannerRepository
         self.attendanceService = attendanceService
+        self.webViewManager = webViewManager
     }
 
     struct Input {
@@ -42,7 +45,7 @@ final class EventWebViewModel: BaseViewModel, ViewModelType {
         let urlRequestPublisher = input.viewDidLoad
             .compactMap { [weak self] _ -> URLRequest? in
                 guard let self = self else { return nil }
-                return WebViewManager.shared.createURLRequest(for: self.path)
+                return self.webViewManager.createURLRequest(for: self.path)
             }
             .eraseToAnyPublisher()
 

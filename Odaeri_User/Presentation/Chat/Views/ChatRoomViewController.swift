@@ -17,7 +17,8 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
     private let roomSelectedSubject = PassthroughSubject<String, Never>()
     private var realmToken: NotificationToken?
     private var realmRooms: Results<ChatRoomObject>?
-    private let currentUserId = UserManager.shared.currentUser?.userId ?? "current_user"
+    private let currentUserId: String
+    private let chatLocalStore: RealmChatRepository
 
     private typealias DataSource = UITableViewDiffableDataSource<Section, ChatRoomDisplayModel>
     private typealias Snapshot = NSDiffableDataSourceSnapshot<Section, ChatRoomDisplayModel>
@@ -50,6 +51,20 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
 
     private enum Layout {
         static let cellHeight: CGFloat = 80
+    }
+
+    init(
+        viewModel: ChatRoomViewModel,
+        chatLocalStore: RealmChatRepository,
+        currentUserId: String
+    ) {
+        self.chatLocalStore = chatLocalStore
+        self.currentUserId = currentUserId
+        super.init(viewModel: viewModel)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 
     deinit {
@@ -116,7 +131,7 @@ final class ChatRoomViewController: BaseViewController<ChatRoomViewModel> {
     }
 
     private func setupRealmObserver() {
-        realmRooms = RealmChatRepository.shared.observeRooms()
+        realmRooms = chatLocalStore.observeRooms()
 
         realmToken = realmRooms?.observe { [weak self] changes in
             guard let self = self else { return }

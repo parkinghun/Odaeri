@@ -26,8 +26,8 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
         storeId: String,
         storeRepository: StoreRepository,
         orderRepository: OrderRepository,
-        locationManager: LocationManager = .shared,
-        routeManager: RouteManager = .shared
+        locationManager: LocationManager,
+        routeManager: RouteManager
     ) {
         self.storeId = storeId
         self.storeRepository = storeRepository

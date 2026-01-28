@@ -17,34 +17,48 @@ final class OrderCoordinator: Coordinator, ReviewWriteCoordinating {
 
     weak var delegate: HomeCoordinatorDelegate?
 
-    init(navigationController: UINavigationController) {
+    private let dependencies: UserDependencyContainer
+
+    init(navigationController: UINavigationController, dependencies: UserDependencyContainer) {
         self.navigationController = navigationController
+        self.dependencies = dependencies
     }
 
     func start() {
-        let orderViewModel = OrderViewModel(orderRepository: OrderRepositoryImpl())
+        let orderViewModel = OrderViewModel(orderRepository: dependencies.orderRepository)
         orderViewModel.coordinator = self
-        let orderViewController = OrderViewController(viewModel: orderViewModel)
+        let orderViewController = OrderViewController(
+            viewModel: orderViewModel,
+            notificationCenter: dependencies.notificationCenter
+        )
         navigationController.setViewControllers([orderViewController], animated: false)
     }
 
     func showStoreDetail(storeId: String) {
         let viewModel = ShopDetailViewModel(
             storeId: storeId,
-            storeRepository: StoreRepositoryImpl(),
-            orderRepository: OrderRepositoryImpl()
+            storeRepository: dependencies.storeRepository,
+            orderRepository: dependencies.orderRepository,
+            locationManager: dependencies.locationManager,
+            routeManager: dependencies.routeManager
         )
-        let viewController = ShopDetailViewController(viewModel: viewModel)
+        let viewController = ShopDetailViewController(
+            viewModel: viewModel,
+            notificationCenter: dependencies.notificationCenter
+        )
         navigationController.pushViewController(viewController, animated: true)
     }
 
     func showReviewWrite(mode: ReviewWriteMode) {
         let viewModel = ReviewWriteViewModel(
             mode: mode,
-            repository: StoreReviewRepositoryImpl()
+            repository: dependencies.storeReviewRepository
         )
         viewModel.coordinator = self
-        let viewController = ReviewWriteViewController(viewModel: viewModel)
+        let viewController = ReviewWriteViewController(
+            viewModel: viewModel,
+            notificationCenter: dependencies.notificationCenter
+        )
         navigationController.pushViewController(viewController, animated: true)
     }
 

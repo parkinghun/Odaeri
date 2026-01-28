@@ -12,11 +12,19 @@ final class ChatRoomViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: ChatCoordinator?
 
     private let chatRepository: ChatRepository
+    private let chatLocalStore: RealmChatRepository
+    private let userManager: UserManager
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let errorSubject = PassthroughSubject<String, Never>()
 
-    init(chatRepository: ChatRepository) {
+    init(
+        chatRepository: ChatRepository,
+        chatLocalStore: RealmChatRepository,
+        userManager: UserManager
+    ) {
         self.chatRepository = chatRepository
+        self.chatLocalStore = chatLocalStore
+        self.userManager = userManager
     }
 
     struct Input {
@@ -75,7 +83,7 @@ final class ChatRoomViewModel: BaseViewModel, ViewModelType {
 
     private func saveChatRoomsToRealm(_ rooms: [ChatRoomEntity]) {
         rooms.forEach { room in
-            RealmChatRepository.shared.saveRoom(room)
+            chatLocalStore.saveRoom(room)
                 .sink { success in
                     if !success {
                         print("채팅방 저장 실패: \(room.roomId)")
@@ -86,14 +94,14 @@ final class ChatRoomViewModel: BaseViewModel, ViewModelType {
     }
 
     private func openChatRoom(roomId: String) {
-        guard let realmRoom = RealmChatRepository.shared.observeRooms()?
+        guard let realmRoom = chatLocalStore.observeRooms()?
             .filter("roomId == %@", roomId)
             .first else {
             coordinator?.showChatRoom(roomId: roomId, title: "알 수 없음")
             return
         }
 
-        let currentUserId = UserManager.shared.currentUser?.userId ?? "current_user"
+        let currentUserId = userManager.currentUser?.userId ?? "current_user"
         let participantEntities = Array(realmRoom.participants.map { $0.toEntity() })
         guard let opponent = participantEntities.first(where: { $0.userId != currentUserId }) else {
             coordinator?.showChatRoom(roomId: roomId, title: "알 수 없음")

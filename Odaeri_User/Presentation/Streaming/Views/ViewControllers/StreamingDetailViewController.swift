@@ -15,6 +15,7 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
     private let video: VideoEntity
     private let playerManager: StreamingPlayerManager
     private weak var pipController: AVPictureInPictureController?
+    private let notificationCenter: NotificationCenter
 
     weak var coordinator: StreamingCoordinator?
 
@@ -100,9 +101,15 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
     private let viewDidLoadSubject = PassthroughSubject<Void, Never>()
     private let hapticGenerator = UIImpactFeedbackGenerator(style: .light)
 
-    init(video: VideoEntity, viewModel: StreamingDetailViewModel, playerManager: StreamingPlayerManager) {
+    init(
+        video: VideoEntity,
+        viewModel: StreamingDetailViewModel,
+        playerManager: StreamingPlayerManager,
+        notificationCenter: NotificationCenter
+    ) {
         self.video = video
         self.playerManager = playerManager
+        self.notificationCenter = notificationCenter
         super.init(viewModel: viewModel)
     }
 
@@ -131,7 +138,7 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
     }
 
     deinit {
-        NotificationCenter.default.removeObserver(self)
+        notificationCenter.removeObserver(self)
     }
 
     override func viewDidLayoutSubviews() {
@@ -224,14 +231,14 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
     }
 
     private func setupNotifications() {
-        NotificationCenter.default.addObserver(
+        notificationCenter.addObserver(
             self,
             selector: #selector(handleAppDidEnterBackground),
             name: UIApplication.didEnterBackgroundNotification,
             object: nil
         )
 
-        NotificationCenter.default.addObserver(
+        notificationCenter.addObserver(
             self,
             selector: #selector(handleAppWillEnterForeground),
             name: UIApplication.willEnterForegroundNotification,

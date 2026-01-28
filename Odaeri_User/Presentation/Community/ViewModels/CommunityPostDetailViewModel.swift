@@ -31,6 +31,8 @@ final class CommunityPostDetailViewModel: BaseViewModel, ViewModelType {
     let postId: String
     private let postRepository: CommunityPostRepository
     private let commentRepository: CommunityCommentRepository
+    private let userManager: UserManager
+    private let notificationCenter: NotificationCenter
     private let postSubject = CurrentValueSubject<CommunityPostEntity?, Never>(nil)
     private let commentsSubject = CurrentValueSubject<[CommunityPostCommentEntity], Never>([])
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
@@ -39,11 +41,15 @@ final class CommunityPostDetailViewModel: BaseViewModel, ViewModelType {
     init(
         postId: String,
         postRepository: CommunityPostRepository,
-        commentRepository: CommunityCommentRepository
+        commentRepository: CommunityCommentRepository,
+        userManager: UserManager,
+        notificationCenter: NotificationCenter
     ) {
         self.postId = postId
         self.postRepository = postRepository
         self.commentRepository = commentRepository
+        self.userManager = userManager
+        self.notificationCenter = notificationCenter
     }
 
     func transform(input: Input) -> Output {
@@ -186,9 +192,9 @@ final class CommunityPostDetailViewModel: BaseViewModel, ViewModelType {
         let currentComments = commentsSubject.value
         let currentPost = postSubject.value
 
-        let currentUserId = UserManager.shared.currentUser?.userId ?? ""
-        let currentUserNick = UserManager.shared.currentUser?.nick ?? ""
-        let currentUserProfileImage = UserManager.shared.currentUser?.profileImage
+        let currentUserId = userManager.currentUser?.userId ?? ""
+        let currentUserNick = userManager.currentUser?.nick ?? ""
+        let currentUserProfileImage = userManager.currentUser?.profileImage
 
         let tempComment: CommunityPostCommentEntity
         if let parentId = parentId {
@@ -400,7 +406,7 @@ final class CommunityPostDetailViewModel: BaseViewModel, ViewModelType {
             likeCount: post.likeCount,
             commentCount: commentCount
         )
-        NotificationCenter.default.post(
+        notificationCenter.post(
             name: .communityPostInteractionDidUpdate,
             object: info
         )

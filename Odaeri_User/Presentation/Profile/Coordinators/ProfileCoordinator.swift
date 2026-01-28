@@ -19,20 +19,24 @@ final class ProfileCoordinator: Coordinator {
     weak var delegate: ProfileCoordinatorDelegate?
     private var cancellables = Set<AnyCancellable>()
 
-    init(navigationController: UINavigationController) {
+    private let dependencies: UserDependencyContainer
+
+    init(navigationController: UINavigationController, dependencies: UserDependencyContainer) {
         self.navigationController = navigationController
+        self.dependencies = dependencies
     }
 
     func start() {
-        let targetUserId = UserManager.shared.currentUser?.userId ?? ""
-        let videoRepository = VideoRepositoryImpl()
+        let targetUserId = dependencies.userManager.currentUser?.userId ?? ""
         let viewModel = UserProfileViewModel(
             targetUserId: targetUserId,
-            communityRepository: CommunityPostRepositoryImpl(),
-            chatRepository: ChatRepositoryImpl(),
-            userRepository: UserRepositoryImpl(),
-            getSavedVideoIdsUseCase: DefaultGetSavedVideoIdsUseCase(),
-            getVideoListUseCase: DefaultGetVideoListUseCase(repository: videoRepository)
+            communityRepository: dependencies.communityPostRepository,
+            chatRepository: dependencies.chatRepository,
+            userRepository: dependencies.userRepository,
+            getSavedVideoIdsUseCase: dependencies.makeGetSavedVideoIdsUseCase(),
+            getVideoListUseCase: dependencies.makeGetVideoListUseCase(),
+            userManager: dependencies.userManager,
+            tokenManager: dependencies.tokenManager
         )
         viewModel.coordinator = self
         let viewController = UserProfileViewController(viewModel: viewModel)
@@ -44,7 +48,10 @@ final class ProfileCoordinator: Coordinator {
     }
 
     func showEditProfile() {
-        let viewModel = UserProfileEditViewModel(userRepository: UserRepositoryImpl())
+        let viewModel = UserProfileEditViewModel(
+            userRepository: dependencies.userRepository,
+            userManager: dependencies.userManager
+        )
         let viewController = UserProfileEditViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
     }
@@ -66,15 +73,17 @@ final class ProfileCoordinator: Coordinator {
     }
 
     func showChatRoom(roomId: String, title: String?) {
-        let chatCoordinator = ChatCoordinator(navigationController: navigationController)
+        let chatCoordinator = ChatCoordinator(
+            navigationController: navigationController,
+            dependencies: dependencies
+        )
         chatCoordinator.delegate = self
         addChild(chatCoordinator)
         chatCoordinator.showChatRoom(roomId: roomId, title: title)
     }
 
     func showSavedVideo(videoId: String) {
-        let repository = VideoRepositoryImpl()
-        let useCase = DefaultGetVideoListUseCase(repository: repository)
+        let useCase = self.dependencies.makeGetVideoListUseCase()
 
         useCase.execute(next: nil, limit: nil)
             .receive(on: DispatchQueue.main)
@@ -89,10 +98,10 @@ final class ProfileCoordinator: Coordinator {
                     return
                 }
 
-                let getStreamURLUseCase = DefaultGetVideoStreamURLUseCase(repository: repository)
-                let toggleVideoLikeUseCase = DefaultToggleVideoLikeUseCase(repository: repository)
-                let toggleSaveVideoUseCase = DefaultToggleSaveVideoUseCase()
-                let checkVideoSavedUseCase = DefaultCheckVideoSavedUseCase()
+                let getStreamURLUseCase = self.dependencies.makeGetVideoStreamURLUseCase()
+                let toggleVideoLikeUseCase = self.dependencies.makeToggleVideoLikeUseCase()
+                let toggleSaveVideoUseCase = self.dependencies.makeToggleSaveVideoUseCase()
+                let checkVideoSavedUseCase = self.dependencies.makeCheckVideoSavedUseCase()
                 let viewModel = StreamingDetailViewModel(
                     video: video,
                     getStreamURLUseCase: getStreamURLUseCase,
@@ -100,14 +109,18 @@ final class ProfileCoordinator: Coordinator {
                     toggleSaveVideoUseCase: toggleSaveVideoUseCase,
                     checkVideoSavedUseCase: checkVideoSavedUseCase
                 )
-                let playerManager = StreamingPlayerManager(videoRepository: repository)
+                let playerManager = StreamingPlayerManager(videoRepository: self.dependencies.videoRepository)
                 let viewController = StreamingDetailViewController(
                     video: video,
                     viewModel: viewModel,
-                    playerManager: playerManager
+                    playerManager: playerManager,
+                    notificationCenter: self.dependencies.notificationCenter
                 )
 
-                let streamingCoordinator = StreamingCoordinator(navigationController: self.navigationController)
+                let streamingCoordinator = StreamingCoordinator(
+                    navigationController: self.navigationController,
+                    dependencies: self.dependencies
+                )
                 self.addChild(streamingCoordinator)
                 viewController.coordinator = streamingCoordinator
 

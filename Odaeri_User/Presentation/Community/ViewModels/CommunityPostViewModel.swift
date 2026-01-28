@@ -18,8 +18,8 @@ final class CommunityPostViewModel: BaseViewModel, ViewModelType {
 
     init(
         postToEdit: CommunityPostEntity? = nil,
-        locationManager: LocationManager = .shared,
-        backgroundManager: PostBackgroundManager = .shared,
+        locationManager: LocationManager,
+        backgroundManager: PostBackgroundManager,
         postRepository: CommunityPostRepository
     ) {
         self.postToEdit = postToEdit

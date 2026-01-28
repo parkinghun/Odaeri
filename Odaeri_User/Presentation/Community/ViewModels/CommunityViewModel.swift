@@ -15,6 +15,9 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
     private let postRepository: CommunityPostRepository
     private let bannerRepository: BannerRepository
     private let locationManager: LocationManager
+    private let routeManager: RouteManager
+    private let notificationCenter: NotificationCenter
+    private let userManager: UserManager
 
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let errorSubject = PassthroughSubject<String, Never>()
@@ -35,23 +38,29 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
     init(
         postRepository: CommunityPostRepository,
         bannerRepository: BannerRepository,
-        locationManager: LocationManager = .shared
+        locationManager: LocationManager,
+        routeManager: RouteManager,
+        notificationCenter: NotificationCenter,
+        userManager: UserManager
     ) {
         self.postRepository = postRepository
         self.bannerRepository = bannerRepository
         self.locationManager = locationManager
+        self.routeManager = routeManager
+        self.notificationCenter = notificationCenter
+        self.userManager = userManager
         super.init()
         setupPostUpdateObserver()
     }
 
     private func setupPostUpdateObserver() {
-        NotificationCenter.default.publisher(for: .communityPostDidUpdate)
+        notificationCenter.publisher(for: .communityPostDidUpdate)
             .sink { [weak self] _ in
                 self?.fetchPosts()
             }
             .store(in: &cancellables)
 
-        NotificationCenter.default.publisher(for: .communityPostInteractionDidUpdate)
+        notificationCenter.publisher(for: .communityPostInteractionDidUpdate)
             .compactMap { $0.object as? CommunityPostInteractionUpdateInfo }
             .sink { [weak self] info in
                 self?.applyPostInteractionUpdate(info)
@@ -489,7 +498,7 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
 
         let storeInfoText = storeInfoText(from: post.store)
 
-        let currentUserId = UserManager.shared.currentUser?.userId ?? ""
+        let currentUserId = userManager.currentUser?.userId ?? ""
         let isMyPost = post.creator.userId == currentUserId
 
         return CommunityPostItemViewModel(
@@ -528,7 +537,7 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
         longitude: Double
     ) -> String {
         guard let location else { return "--" }
-        let distance = RouteManager.shared.calculateDistance(
+        let distance = routeManager.calculateDistance(
             from: location.coordinate,
             to: CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         )

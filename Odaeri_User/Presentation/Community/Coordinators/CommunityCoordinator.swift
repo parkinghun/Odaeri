@@ -20,24 +20,37 @@ final class CommunityCoordinator: Coordinator {
     weak var delegate: CommunityCoordinatorDelegate?
     private var cancellables = Set<AnyCancellable>()
 
-    init(navigationController: UINavigationController) {
+    private let dependencies: UserDependencyContainer
+
+    init(navigationController: UINavigationController, dependencies: UserDependencyContainer) {
         self.navigationController = navigationController
+        self.dependencies = dependencies
     }
 
     func start() {
         let communityViewModel = CommunityViewModel(
-            postRepository: CommunityPostRepositoryImpl(),
-            bannerRepository: BannerRepositoryImpl()
+            postRepository: dependencies.communityPostRepository,
+            bannerRepository: dependencies.bannerRepository,
+            locationManager: dependencies.locationManager,
+            routeManager: dependencies.routeManager,
+            notificationCenter: dependencies.notificationCenter,
+            userManager: dependencies.userManager
         )
         communityViewModel.coordinator = self
-        let communityViewController = CommunityViewController(viewModel: communityViewModel)
+        let communityViewController = CommunityViewController(
+            viewModel: communityViewModel,
+            chatLocalStore: dependencies.chatLocalStore,
+            appMediaService: dependencies.appMediaService
+        )
         navigationController.setViewControllers([communityViewController], animated: false)
     }
 
     func showEventWeb(path: String) {
         let viewModel = EventWebViewModel(
             path: path,
-            bannerRepository: BannerRepositoryImpl()
+            bannerRepository: dependencies.bannerRepository,
+            attendanceService: dependencies.attendanceService,
+            webViewManager: dependencies.webViewManager
         )
         let viewController = EventWebViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
@@ -46,22 +59,28 @@ final class CommunityCoordinator: Coordinator {
     func showStoreDetail(storeId: String) {
         let viewModel = ShopDetailViewModel(
             storeId: storeId,
-            storeRepository: StoreRepositoryImpl(),
-            orderRepository: OrderRepositoryImpl()
+            storeRepository: dependencies.storeRepository,
+            orderRepository: dependencies.orderRepository,
+            locationManager: dependencies.locationManager,
+            routeManager: dependencies.routeManager
         )
-        let viewController = ShopDetailViewController(viewModel: viewModel)
+        let viewController = ShopDetailViewController(
+            viewModel: viewModel,
+            notificationCenter: dependencies.notificationCenter
+        )
         navigationController.pushViewController(viewController, animated: true)
     }
 
     func showUserProfile(userId: String) {
-        let videoRepository = VideoRepositoryImpl()
         let viewModel = UserProfileViewModel(
             targetUserId: userId,
-            communityRepository: CommunityPostRepositoryImpl(),
-            chatRepository: ChatRepositoryImpl(),
-            userRepository: UserRepositoryImpl(),
-            getSavedVideoIdsUseCase: DefaultGetSavedVideoIdsUseCase(),
-            getVideoListUseCase: DefaultGetVideoListUseCase(repository: videoRepository)
+            communityRepository: dependencies.communityPostRepository,
+            chatRepository: dependencies.chatRepository,
+            userRepository: dependencies.userRepository,
+            getSavedVideoIdsUseCase: dependencies.makeGetSavedVideoIdsUseCase(),
+            getVideoListUseCase: dependencies.makeGetVideoListUseCase(),
+            userManager: dependencies.userManager,
+            tokenManager: dependencies.tokenManager
         )
         viewModel.coordinator = self
         let viewController = UserProfileViewController(viewModel: viewModel)
@@ -71,16 +90,26 @@ final class CommunityCoordinator: Coordinator {
     func showPostDetail(postId: String) {
         let viewModel = CommunityPostDetailViewModel(
             postId: postId,
-            postRepository: CommunityPostRepositoryImpl(),
-            commentRepository: CommunityCommentRepositoryImpl()
+            postRepository: dependencies.communityPostRepository,
+            commentRepository: dependencies.communityCommentRepository,
+            userManager: dependencies.userManager,
+            notificationCenter: dependencies.notificationCenter
         )
         viewModel.coordinator = self
-        let viewController = CommunityPostDetailViewController(viewModel: viewModel)
+        let viewController = CommunityPostDetailViewController(
+            viewModel: viewModel,
+            notificationCenter: dependencies.notificationCenter,
+            appMediaService: dependencies.appMediaService,
+            userManager: dependencies.userManager
+        )
         navigationController.pushViewController(viewController, animated: true)
     }
 
     func showChat() {
-        let chatCoordinator = ChatCoordinator(navigationController: navigationController)
+        let chatCoordinator = ChatCoordinator(
+            navigationController: navigationController,
+            dependencies: dependencies
+        )
         chatCoordinator.delegate = self
         addChild(chatCoordinator)
         chatCoordinator.start()
@@ -89,8 +118,8 @@ final class CommunityCoordinator: Coordinator {
     func showStoreSearch() {
         let viewModel = StoreSearchViewModel(
             viewType: .community,
-            storeRepository: StoreRepositoryImpl(),
-            orderRepository: OrderRepositoryImpl()
+            storeRepository: dependencies.storeRepository,
+            orderRepository: dependencies.orderRepository
         )
         let viewController = StoreSearchViewController(viewModel: viewModel, viewType: .community)
         viewController.delegate = self
@@ -98,7 +127,12 @@ final class CommunityCoordinator: Coordinator {
     }
 
     private func openWritePost() {
-        let viewModel = CommunityPostViewModel(postRepository: CommunityPostRepositoryImpl())
+        let viewModel = CommunityPostViewModel(
+            postToEdit: nil,
+            locationManager: dependencies.locationManager,
+            backgroundManager: dependencies.postBackgroundManager,
+            postRepository: dependencies.communityPostRepository
+        )
         viewModel.coordinator = self
         let viewController = CommunityPostViewController(viewType: .create, viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
@@ -134,7 +168,9 @@ extension CommunityCoordinator: UserProfileCoordinating {
     func openEditPost(with post: CommunityPostEntity) {
         let viewModel = CommunityPostViewModel(
             postToEdit: post,
-            postRepository: CommunityPostRepositoryImpl()
+            locationManager: dependencies.locationManager,
+            backgroundManager: dependencies.postBackgroundManager,
+            postRepository: dependencies.communityPostRepository
         )
         viewModel.coordinator = self
         let viewController = CommunityPostViewController(viewType: .edit, viewModel: viewModel)
@@ -142,15 +178,17 @@ extension CommunityCoordinator: UserProfileCoordinating {
     }
 
     func showChatRoom(roomId: String, title: String?) {
-        let chatCoordinator = ChatCoordinator(navigationController: navigationController)
+        let chatCoordinator = ChatCoordinator(
+            navigationController: navigationController,
+            dependencies: dependencies
+        )
         chatCoordinator.delegate = self
         addChild(chatCoordinator)
         chatCoordinator.showChatRoom(roomId: roomId, title: title)
     }
 
     func showSavedVideo(videoId: String) {
-        let repository = VideoRepositoryImpl()
-        let useCase = DefaultGetVideoListUseCase(repository: repository)
+        let useCase = self.dependencies.makeGetVideoListUseCase()
 
         useCase.execute(next: nil, limit: nil)
             .receive(on: DispatchQueue.main)
@@ -165,10 +203,10 @@ extension CommunityCoordinator: UserProfileCoordinating {
                     return
                 }
 
-                let getStreamURLUseCase = DefaultGetVideoStreamURLUseCase(repository: repository)
-                let toggleVideoLikeUseCase = DefaultToggleVideoLikeUseCase(repository: repository)
-                let toggleSaveVideoUseCase = DefaultToggleSaveVideoUseCase()
-                let checkVideoSavedUseCase = DefaultCheckVideoSavedUseCase()
+                let getStreamURLUseCase = self.dependencies.makeGetVideoStreamURLUseCase()
+                let toggleVideoLikeUseCase = self.dependencies.makeToggleVideoLikeUseCase()
+                let toggleSaveVideoUseCase = self.dependencies.makeToggleSaveVideoUseCase()
+                let checkVideoSavedUseCase = self.dependencies.makeCheckVideoSavedUseCase()
                 let viewModel = StreamingDetailViewModel(
                     video: video,
                     getStreamURLUseCase: getStreamURLUseCase,
@@ -176,14 +214,18 @@ extension CommunityCoordinator: UserProfileCoordinating {
                     toggleSaveVideoUseCase: toggleSaveVideoUseCase,
                     checkVideoSavedUseCase: checkVideoSavedUseCase
                 )
-                let playerManager = StreamingPlayerManager(videoRepository: repository)
+                let playerManager = StreamingPlayerManager(videoRepository: self.dependencies.videoRepository)
                 let viewController = StreamingDetailViewController(
                     video: video,
                     viewModel: viewModel,
-                    playerManager: playerManager
+                    playerManager: playerManager,
+                    notificationCenter: self.dependencies.notificationCenter
                 )
 
-                let streamingCoordinator = StreamingCoordinator(navigationController: self.navigationController)
+                let streamingCoordinator = StreamingCoordinator(
+                    navigationController: self.navigationController,
+                    dependencies: self.dependencies
+                )
                 self.addChild(streamingCoordinator)
                 viewController.coordinator = streamingCoordinator
 
@@ -193,9 +235,9 @@ extension CommunityCoordinator: UserProfileCoordinating {
     }
 
     func didFinishLogout() {
-        TokenManager.shared.clearTokens()
-        UserManager.shared.clearUser()
-        NotificationCenter.default.post(name: .unauthorizedAccess, object: nil)
+        dependencies.tokenManager.clearTokens()
+        dependencies.userManager.clearUser()
+        dependencies.notificationCenter.post(name: .unauthorizedAccess, object: nil)
     }
 
     private func showPlaceholderAlert(title: String, message: String) {
@@ -216,7 +258,7 @@ extension CommunityCoordinator: StoreSearchDelegate {
         navigationController.popViewController(animated: true)
 
         if let postVC = navigationController.viewControllers.last as? CommunityPostViewController {
-            let storeRepository = StoreRepositoryImpl()
+            let storeRepository = dependencies.storeRepository
             var cancellable: AnyCancellable?
 
             cancellable = storeRepository.fetchStoreDetail(storeId: storeId)

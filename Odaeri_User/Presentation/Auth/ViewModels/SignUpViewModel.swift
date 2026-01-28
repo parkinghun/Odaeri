@@ -12,6 +12,8 @@ final class SignUpViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: AuthCoordinator?
 
     private let repository: UserRepository
+    private let tokenManager: TokenManager
+    private let userManager: UserManager
     private let currentEmail = CurrentValueSubject<String, Never>("")
     private let currentPassword = CurrentValueSubject<String, Never>("")
     private let currentNick = CurrentValueSubject<String, Never>("")
@@ -19,8 +21,14 @@ final class SignUpViewModel: BaseViewModel, ViewModelType {
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let signUpErrorSubject = PassthroughSubject<String, Never>()
 
-    init(repository: UserRepository) {
+    init(
+        repository: UserRepository,
+        tokenManager: TokenManager,
+        userManager: UserManager
+    ) {
         self.repository = repository
+        self.tokenManager = tokenManager
+        self.userManager = userManager
     }
 
     struct Input {
@@ -112,7 +120,7 @@ private extension SignUpViewModel {
         let nick = currentNick.value
         let phone = currentPhone.value.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard let deviceToken = TokenManager.shared.deviceToken else {
+        guard let deviceToken = tokenManager.deviceToken else {
             signUpErrorSubject.send("디바이스 토큰이 없습니다. 앱을 재시작해주세요.")
             return
         }
@@ -135,13 +143,13 @@ private extension SignUpViewModel {
                 }
             },
             receiveValue: { [weak self] userResult in
-                TokenManager.shared.saveTokens(
+                self?.tokenManager.saveTokens(
                     accessToken: userResult.accessToken,
                     refreshToken: userResult.refreshToken
                 )
 
                 let user = UserEntity(from: userResult)
-                UserManager.shared.saveUser(user)
+                self?.userManager.saveUser(user)
 
                 self?.coordinator?.didFinishLogin()
             }

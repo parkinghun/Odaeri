@@ -11,6 +11,46 @@ import Moya
 
 final class StoreReviewRepositoryImpl: StoreReviewRepository {
     private let provider = MoyaProvider<StoreReviewAPI>()
+    private let mediaUploadProvider = MoyaProvider<MediaUploadAPI>()
+
+    func uploadReviewImages(
+        storeId: String,
+        imageDataList: [Data]
+    ) -> AnyPublisher<[String], NetworkError> {
+        let multiparts = imageDataList.map { data in
+            MultipartFormData(
+                provider: .data(data),
+                name: "files",
+                fileName: "image_\(UUID().uuidString).jpg",
+                mimeType: "image/jpeg"
+            )
+        }
+
+        return mediaUploadProvider.requestPublisher(
+            .storeReviewUpload(storeId: storeId, files: multiparts)
+        )
+        .map { (response: StoreReviewImageUploadResponse) in
+            response.reviewImageUrls
+        }
+        .eraseToAnyPublisher()
+    }
+
+    func createReview(
+        storeId: String,
+        content: String,
+        rating: Int,
+        imageUrls: [String],
+        orderCode: String
+    ) -> AnyPublisher<StoreReviewDetailEntity, NetworkError> {
+        let request = StoreReviewRequest(
+            content: content,
+            rating: rating,
+            imageUrls: imageUrls,
+            orderCode: orderCode
+        )
+
+        return createReview(storeId: storeId, request: request)
+    }
 
     func createReview(
         storeId: String,
@@ -76,6 +116,22 @@ final class StoreReviewRepositoryImpl: StoreReviewRepository {
             StoreReviewDetailEntity(from: response)
         }
         .eraseToAnyPublisher()
+    }
+
+    func updateReview(
+        storeId: String,
+        reviewId: String,
+        content: String,
+        rating: Int,
+        imageUrls: [String]
+    ) -> AnyPublisher<StoreReviewDetailEntity, NetworkError> {
+        let request = StoreReviewRequest(
+            updateContent: content,
+            rating: rating,
+            imageUrls: imageUrls
+        )
+
+        return updateReview(storeId: storeId, reviewId: reviewId, request: request)
     }
 
     func deleteReview(

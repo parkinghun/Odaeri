@@ -10,6 +10,7 @@ import Combine
 import SnapKit
 
 final class StoreReviewViewController: BaseViewController<StoreReviewViewModel> {
+    private let notificationCenter: NotificationCenter
     private enum Section: Int, CaseIterable {
         case photo
         case reviews
@@ -56,6 +57,15 @@ final class StoreReviewViewController: BaseViewController<StoreReviewViewModel> 
         tableView.showsVerticalScrollIndicator = false
         return tableView
     }()
+
+    init(viewModel: StoreReviewViewModel, notificationCenter: NotificationCenter) {
+        self.notificationCenter = notificationCenter
+        super.init(viewModel: viewModel)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func setupUI() {
         super.setupUI()
@@ -123,7 +133,7 @@ final class StoreReviewViewController: BaseViewController<StoreReviewViewModel> 
             }
             .store(in: &cancellables)
 
-        NotificationCenter.default.publisher(for: .reviewUpdated)
+        notificationCenter.publisher(for: .reviewUpdated)
             .compactMap { $0.userInfo?["review"] as? StoreReviewDetailEntity }
             .sink { [weak self] review in
                 self?.reviewUpdatedSubject.send(review)

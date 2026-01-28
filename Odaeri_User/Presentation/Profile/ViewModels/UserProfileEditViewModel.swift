@@ -10,6 +10,7 @@ import Combine
 
 final class UserProfileEditViewModel: BaseViewModel, ViewModelType {
     private let userRepository: UserRepository
+    private let userManager: UserManager
     private let currentNick = CurrentValueSubject<String, Never>("")
     private let selectedImageData = CurrentValueSubject<Data?, Never>(nil)
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
@@ -18,8 +19,9 @@ final class UserProfileEditViewModel: BaseViewModel, ViewModelType {
     private let initialNickSubject = CurrentValueSubject<String, Never>("")
     private let initialProfileImageSubject = CurrentValueSubject<String, Never>("")
 
-    init(userRepository: UserRepository) {
+    init(userRepository: UserRepository, userManager: UserManager) {
         self.userRepository = userRepository
+        self.userManager = userManager
     }
 
     struct Input {
@@ -43,7 +45,7 @@ final class UserProfileEditViewModel: BaseViewModel, ViewModelType {
         input.viewDidLoad
             .sink { [weak self] _ in
                 guard let self else { return }
-                let user = UserManager.shared.currentUser
+                let user = self.userManager.currentUser
                 self.initialNickSubject.send(user?.nick ?? "")
                 self.initialProfileImageSubject.send(user?.profileImage ?? "")
                 self.currentNick.send(user?.nick ?? "")
@@ -133,7 +135,7 @@ private extension UserProfileEditViewModel {
                     }
                 },
                 receiveValue: { [weak self] user in
-                    UserManager.shared.saveUser(user)
+                    self?.userManager.saveUser(user)
                     self?.didUpdateSubject.send(())
                 }
             )

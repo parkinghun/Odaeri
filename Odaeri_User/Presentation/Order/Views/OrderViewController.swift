@@ -11,6 +11,7 @@ import SnapKit
 
 final class OrderViewController: BaseViewController<OrderViewModel> {
     override var navigationBarHidden: Bool { true }
+    private let notificationCenter: NotificationCenter
     private enum Section: Int, CaseIterable {
         case current
         case past
@@ -39,6 +40,15 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
         view.layer.cornerRadius = 16
         return view
     }()
+
+    init(viewModel: OrderViewModel, notificationCenter: NotificationCenter) {
+        self.notificationCenter = notificationCenter
+        super.init(viewModel: viewModel)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     private let noticeLabel: UILabel = {
         let label = UILabel()
@@ -354,7 +364,10 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
     }
 
     private func presentReceipt(order: OrderListItemEntity) {
-        let viewController = OrderReceiptViewController(order: order)
+        let viewController = OrderReceiptViewController(
+            order: order,
+            notificationCenter: notificationCenter
+        )
         viewController.onStoreTapped = { [weak self] storeId in
             guard let self else { return }
             viewController.dismiss(animated: true) { [weak self] in

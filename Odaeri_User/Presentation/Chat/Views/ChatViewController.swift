@@ -12,6 +12,12 @@ import QuartzCore
 
 final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPresentable {
     override var navigationBarHidden: Bool { false }
+    
+    private let chatSocketService: ChatSocketService
+    private let chatRoomContextManager: ChatRoomContextManager
+    private let chatLocalStore: RealmChatRepository
+    private let appMediaService: AppMediaService
+    private let notificationCenter: NotificationCenter
 
     private lazy var collectionView: UICollectionView = {
         let layout = ChatCollectionViewLayout()
@@ -44,6 +50,26 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     private enum Layout {
         static let paginationThreshold: CGFloat = ChatConstants.Pagination.threshold
     }
+
+    init(
+        viewModel: ChatViewModel,
+        chatSocketService: ChatSocketService,
+        chatRoomContextManager: ChatRoomContextManager,
+        chatLocalStore: RealmChatRepository,
+        appMediaService: AppMediaService,
+        notificationCenter: NotificationCenter
+    ) {
+        self.chatSocketService = chatSocketService
+        self.chatRoomContextManager = chatRoomContextManager
+        self.chatLocalStore = chatLocalStore
+        self.appMediaService = appMediaService
+        self.notificationCenter = notificationCenter
+        super.init(viewModel: viewModel)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     override func setupUI() {
         super.setupUI()
@@ -60,10 +86,10 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
 
-        ChatSocketService.shared.connect(to: viewModel.roomId)
-        ChatRoomContextManager.shared.enter(roomId: viewModel.roomId)
+        chatSocketService.connect(to: viewModel.roomId)
+        chatRoomContextManager.enter(roomId: viewModel.roomId)
 
-        RealmChatRepository.shared.markAllMessagesAsRead(roomId: viewModel.roomId)
+        chatLocalStore.markAllMessagesAsRead(roomId: viewModel.roomId)
             .sink { _ in }
             .store(in: &cancellables)
 
@@ -72,8 +98,8 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        ChatSocketService.shared.disconnect()
-        ChatRoomContextManager.shared.leave(roomId: viewModel.roomId)
+        chatSocketService.disconnect()
+        chatRoomContextManager.leave(roomId: viewModel.roomId)
         removeKeyboardObservers()
     }
     
@@ -397,14 +423,14 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     }
 
     private func setupKeyboardObservers() {
-        NotificationCenter.default.addObserver(
+        notificationCenter.addObserver(
             self,
             selector: #selector(keyboardWillShow(_:)),
             name: UIResponder.keyboardWillShowNotification,
             object: nil
         )
 
-        NotificationCenter.default.addObserver(
+        notificationCenter.addObserver(
             self,
             selector: #selector(keyboardWillHide(_:)),
             name: UIResponder.keyboardWillHideNotification,
@@ -413,12 +439,12 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     }
 
     private func removeKeyboardObservers() {
-        NotificationCenter.default.removeObserver(
+        notificationCenter.removeObserver(
             self,
             name: UIResponder.keyboardWillShowNotification,
             object: nil
         )
-        NotificationCenter.default.removeObserver(
+        notificationCenter.removeObserver(
             self,
             name: UIResponder.keyboardWillHideNotification,
             object: nil
@@ -525,11 +551,11 @@ extension ChatViewController: ChatMessageCellDelegate {
     }
     
     func chatMessageCell(_ cell: ChatMessageCell, didTapVideo url: String) {
-        AppMediaService.shared.playVideo(url: url, from: self)
+        appMediaService.playVideo(url: url, from: self)
     }
     
     func chatMessageCell(_ cell: ChatMessageCell, didTapFile fileInfo: ChatMessageContent.FileInfo) {
-        AppMediaService.shared.previewFile(url: fileInfo.url, fileName: fileInfo.fileName, from: self)
+        appMediaService.previewFile(url: fileInfo.url, fileName: fileInfo.fileName, from: self)
     }
 
     func chatMessageCell(_ cell: ChatMessageCell, didTapShareCard payload: ShareCardPayload) {

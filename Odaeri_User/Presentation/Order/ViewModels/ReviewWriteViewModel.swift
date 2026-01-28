@@ -8,7 +8,6 @@
 import Foundation
 import Combine
 import UIKit
-import Moya
 
 final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
     private enum Constant {
@@ -34,7 +33,6 @@ final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
 
     let mode: ReviewWriteMode
     private let repository: StoreReviewRepository
-    private let mediaUploadProvider = MoyaProvider<MediaUploadAPI>()
     weak var coordinator: ReviewWriteCoordinating?
 
     private let ratingSubject: CurrentValueSubject<Int, Never>
@@ -147,7 +145,7 @@ final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
     ) -> AnyPublisher<StoreReviewDetailEntity, NetworkError> {
         print("[ReviewWriteVM] Processing \(images.count) images for upload")
 
-        let multipartData = images.compactMap { image -> MultipartFormData? in
+        let processedImages = images.compactMap { image -> Data? in
             guard let imageData = image.processForUpload(
                 maxDimension: Constant.maxImageDimension,
                 compressionQuality: Constant.compressionQuality
@@ -157,16 +155,11 @@ final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
             }
 
             print("[ReviewWriteVM] Image processed: \(imageData.count) bytes")
-            return MultipartFormData(
-                provider: .data(imageData),
-                name: "files",
-                fileName: "image_\(UUID().uuidString).jpg",
-                mimeType: "image/jpeg"
-            )
+            return imageData
         }
 
-        guard multipartData.count == images.count else {
-            print("[ReviewWriteVM] Image processing failed - expected \(images.count), got \(multipartData.count)")
+        guard processedImages.count == images.count else {
+            print("[ReviewWriteVM] Image processing failed - expected \(images.count), got \(processedImages.count)")
             return Fail(error: NetworkError.unknown(NSError(
                 domain: "ReviewWriteViewModel",
                 code: -1,
@@ -182,14 +175,8 @@ final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
             ))).eraseToAnyPublisher()
         }
 
-        print("[ReviewWriteVM] Uploading \(multipartData.count) images to server")
-        return mediaUploadProvider.requestPublisher(
-            .storeReviewUpload(storeId: mode.storeId, files: multipartData)
-        )
-        .map { (response: StoreReviewImageUploadResponse) in
-            print("[ReviewWriteVM] Images uploaded successfully: \(response.reviewImageUrls)")
-            return response.reviewImageUrls
-        }
+        print("[ReviewWriteVM] Uploading \(processedImages.count) images to server")
+        return repository.uploadReviewImages(storeId: mode.storeId, imageDataList: processedImages)
         .flatMap { [weak self] imageUrls -> AnyPublisher<StoreReviewDetailEntity, NetworkError> in
             guard let self = self else {
                 return Fail(error: NetworkError.unknown(NSError(domain: "ReviewWriteViewModel", code: -1)))
@@ -197,16 +184,12 @@ final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
             }
 
             print("[ReviewWriteVM] Creating review with \(imageUrls.count) image URLs")
-            let request = StoreReviewRequest(
+            return self.repository.createReview(
+                storeId: self.mode.storeId,
                 content: content,
                 rating: rating,
                 imageUrls: imageUrls,
                 orderCode: orderCode
-            )
-
-            return self.repository.createReview(
-                storeId: self.mode.storeId,
-                request: request
             )
         }
         .eraseToAnyPublisher()
@@ -249,16 +232,12 @@ private extension ReviewWriteViewModel {
 
         if newImages.isEmpty {
             print("[ReviewWriteVM] Creating review without images")
-            let request = StoreReviewRequest(
+            return repository.createReview(
+                storeId: mode.storeId,
                 content: content,
                 rating: rating,
                 imageUrls: [],
                 orderCode: orderCode
-            )
-
-            return repository.createReview(
-                storeId: mode.storeId,
-                request: request
             )
         } else {
             print("[ReviewWriteVM] Uploading \(newImages.count) images first")
@@ -285,16 +264,12 @@ private extension ReviewWriteViewModel {
 
         if newImages.isEmpty {
             print("[ReviewWriteVM] Updating review with existing images only")
-            let request = StoreReviewRequest(
-                updateContent: content,
-                rating: rating,
-                imageUrls: existingImageUrls
-            )
-
             return repository.updateReview(
                 storeId: mode.storeId,
                 reviewId: reviewId,
-                request: request
+                content: content,
+                rating: rating,
+                imageUrls: existingImageUrls
             )
         } else {
             print("[ReviewWriteVM] Uploading \(newImages.count) new images for update")
@@ -315,7 +290,7 @@ private extension ReviewWriteViewModel {
     ) -> AnyPublisher<StoreReviewDetailEntity, NetworkError> {
         print("[ReviewWriteVM] Processing \(images.count) images for upload (update)")
 
-        let multipartData = images.compactMap { image -> MultipartFormData? in
+        let processedImages = images.compactMap { image -> Data? in
             guard let imageData = image.processForUpload(
                 maxDimension: Constant.maxImageDimension,
                 compressionQuality: Constant.compressionQuality
@@ -325,16 +300,11 @@ private extension ReviewWriteViewModel {
             }
 
             print("[ReviewWriteVM] Image processed: \(imageData.count) bytes")
-            return MultipartFormData(
-                provider: .data(imageData),
-                name: "files",
-                fileName: "image_\(UUID().uuidString).jpg",
-                mimeType: "image/jpeg"
-            )
+            return imageData
         }
 
-        guard multipartData.count == images.count else {
-            print("[ReviewWriteVM] Image processing failed - expected \(images.count), got \(multipartData.count)")
+        guard processedImages.count == images.count else {
+            print("[ReviewWriteVM] Image processing failed - expected \(images.count), got \(processedImages.count)")
             return Fail(error: NetworkError.unknown(NSError(
                 domain: "ReviewWriteViewModel",
                 code: -1,
@@ -342,14 +312,8 @@ private extension ReviewWriteViewModel {
             ))).eraseToAnyPublisher()
         }
 
-        print("[ReviewWriteVM] Uploading \(multipartData.count) images to server")
-        return mediaUploadProvider.requestPublisher(
-            .storeReviewUpload(storeId: mode.storeId, files: multipartData)
-        )
-        .map { (response: StoreReviewImageUploadResponse) in
-            print("[ReviewWriteVM] Images uploaded successfully: \(response.reviewImageUrls)")
-            return response.reviewImageUrls
-        }
+        print("[ReviewWriteVM] Uploading \(processedImages.count) images to server")
+        return repository.uploadReviewImages(storeId: mode.storeId, imageDataList: processedImages)
         .flatMap { [weak self] newImageUrls -> AnyPublisher<StoreReviewDetailEntity, NetworkError> in
             guard let self = self else {
                 return Fail(error: NetworkError.unknown(NSError(domain: "ReviewWriteViewModel", code: -1)))
@@ -359,16 +323,12 @@ private extension ReviewWriteViewModel {
             let allImageUrls = self.existingImageUrls + newImageUrls
             print("[ReviewWriteVM] Updating review with \(allImageUrls.count) total image URLs")
 
-            let request = StoreReviewRequest(
-                updateContent: content,
-                rating: rating,
-                imageUrls: allImageUrls
-            )
-
             return self.repository.updateReview(
                 storeId: self.mode.storeId,
                 reviewId: reviewId,
-                request: request
+                content: content,
+                rating: rating,
+                imageUrls: allImageUrls
             )
         }
         .eraseToAnyPublisher()

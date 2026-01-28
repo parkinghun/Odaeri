@@ -11,6 +11,7 @@ import Combine
 
 final class OrderReceiptViewController: UIViewController {
     private let order: OrderListItemEntity
+    private let notificationCenter: NotificationCenter
     private let transitionDelegate = OrderReceiptTransitioningDelegate()
     private var actionButton: UIButton?
 
@@ -38,8 +39,9 @@ final class OrderReceiptViewController: UIViewController {
         return stackView
     }()
 
-    init(order: OrderListItemEntity) {
+    init(order: OrderListItemEntity, notificationCenter: NotificationCenter) {
         self.order = order
+        self.notificationCenter = notificationCenter
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .custom
         transitioningDelegate = transitionDelegate
@@ -81,7 +83,7 @@ final class OrderReceiptViewController: UIViewController {
             $0.bottom.equalToSuperview().offset(-AppSpacing.large)
         }
 
-        NotificationCenter.default.addObserver(
+        notificationCenter.addObserver(
             self,
             selector: #selector(handleReviewCreated(_:)),
             name: .reviewCreated,

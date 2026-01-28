@@ -17,8 +17,11 @@ final class AuthCoordinator: Coordinator {
 
     weak var delegate: AuthCoordinatorDelegate?
 
-    init(navigationController: UINavigationController) {
+    private let dependencies: UserDependencyContainer
+
+    init(navigationController: UINavigationController, dependencies: UserDependencyContainer) {
         self.navigationController = navigationController
+        self.dependencies = dependencies
     }
 
     func start() {
@@ -26,14 +29,22 @@ final class AuthCoordinator: Coordinator {
     }
 
     private func showLogin() {
-        let viewModel = LoginViewModel(repository: UserRepositoryImpl())
+        let viewModel = LoginViewModel(
+            repository: dependencies.userRepository,
+            tokenManager: dependencies.tokenManager,
+            userManager: dependencies.userManager
+        )
         viewModel.coordinator = self
         let viewController = LoginViewController(viewModel: viewModel)
         navigationController.setViewControllers([viewController], animated: true)
     }
 
     func showSignUp() {
-        let viewModel = SignUpViewModel(repository: UserRepositoryImpl())
+        let viewModel = SignUpViewModel(
+            repository: dependencies.userRepository,
+            tokenManager: dependencies.tokenManager,
+            userManager: dependencies.userManager
+        )
         viewModel.coordinator = self
         let viewController = SignUpViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)

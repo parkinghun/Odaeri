@@ -12,6 +12,8 @@ import SnapKit
 final class CommunityViewController: BaseViewController<CommunityViewModel> {
     override var navigationBarHidden: Bool { true }
     private let searchBar = SearchBar()
+    private let chatLocalStore: RealmChatRepository
+    private let appMediaService: AppMediaService
 
     private let chatButton: UIButton = {
         let button = UIButton()
@@ -98,6 +100,20 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
     private enum Layout {
         static let actionButtonSize: CGFloat = 40
         static let badgeSize: CGFloat = 10
+    }
+
+    init(
+        viewModel: CommunityViewModel,
+        chatLocalStore: RealmChatRepository,
+        appMediaService: AppMediaService
+    ) {
+        self.chatLocalStore = chatLocalStore
+        self.appMediaService = appMediaService
+        super.init(viewModel: viewModel)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
     
     override func setupUI() {
@@ -253,7 +269,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             }
             .store(in: &cancellables)
 
-        RealmChatRepository.shared.hasAnyUnreadRoom()
+        chatLocalStore.hasAnyUnreadRoom()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] hasUnread in
                 self?.chatBadgeView.isHidden = !hasUnread
@@ -277,7 +293,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
             cell.configure(with: item)
             cell.onVideoSelected = { [weak self] videoURL in
                 guard let self = self else { return }
-                AppMediaService.shared.playVideo(url: videoURL, from: self)
+                self.appMediaService.playVideo(url: videoURL, from: self)
             }
             cell.onStoreInfoTapped = { [weak self] storeId in
                 self?.storeSelectedSubject.send(storeId)

@@ -12,6 +12,7 @@ import CoreLocation
 
 final class HomeViewController: BaseViewController<HomeViewModel> {
     override var navigationBarHidden: Bool { true }
+    private let notificationCenter: NotificationCenter
     private let locationView = LocationView()
 
     private lazy var collectionView: UICollectionView = {
@@ -44,6 +45,15 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     private var storeCache: [String: StoreEntity] = [:]
     private var lastTabBarInset: CGFloat = 0
     private var currentKeywords: [String] = []
+
+    init(viewModel: HomeViewModel, notificationCenter: NotificationCenter) {
+        self.notificationCenter = notificationCenter
+        super.init(viewModel: viewModel)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     override func setupUI() {
         super.setupUI()
@@ -166,7 +176,7 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
             }
             .store(in: &cancellables)
 
-        NotificationCenter.default.publisher(for: .storeLikeUpdated)
+        notificationCenter.publisher(for: .storeLikeUpdated)
             .compactMap { $0.userInfo?["info"] as? StoreLikeUpdateInfo }
             .sink { [weak self] info in
                 self?.applyStoreLikeUpdate(

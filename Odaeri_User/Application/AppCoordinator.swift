@@ -13,8 +13,7 @@ final class AppCoordinator: Coordinator {
     var childCoordinators: [Coordinator] = []
 
     private let window: UIWindow
-    private let tokenManager = TokenManager.shared
-    private let userRepository: UserRepository
+    private let dependencies: UserDependencyContainer
     private var cancellables = Set<AnyCancellable>()
     private var mainCoordinator: MainCoordinator?
     private var pendingChatRoomId: String?
@@ -23,11 +22,11 @@ final class AppCoordinator: Coordinator {
         self.window = window
         self.navigationController = UINavigationController()
         self.navigationController.isNavigationBarHidden = true
-        self.userRepository = UserRepositoryImpl()
+        self.dependencies = UserDependencyContainer()
     }
 
     deinit {
-        NotificationCenter.default.removeObserver(self)
+        dependencies.notificationCenter.removeObserver(self)
     }
 
     func start() {
@@ -39,21 +38,21 @@ final class AppCoordinator: Coordinator {
     }
 
     private func setupNotificationObservers() {
-        NotificationCenter.default.addObserver(
+        dependencies.notificationCenter.addObserver(
             self,
             selector: #selector(handleUnauthorizedAccess),
             name: .unauthorizedAccess,
             object: nil
         )
 
-        NotificationCenter.default.addObserver(
+        dependencies.notificationCenter.addObserver(
             self,
             selector: #selector(handleRefreshTokenExpired),
             name: .refreshTokenExpired,
             object: nil
         )
 
-        NotificationCenter.default.addObserver(
+        dependencies.notificationCenter.addObserver(
             self,
             selector: #selector(handleSessionInvalidated),
             name: .sessionInvalidated,
@@ -65,7 +64,7 @@ final class AppCoordinator: Coordinator {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
 
-            self.tokenManager.clearTokens()
+            self.dependencies.tokenManager.clearTokens()
 
             let alert = UIAlertController(
                 title: "인증 오류",
@@ -85,7 +84,7 @@ final class AppCoordinator: Coordinator {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
 
-            self.tokenManager.clearTokens()
+            self.dependencies.tokenManager.clearTokens()
             self.navigationController.dismiss(animated: false)
             self.showAuthFlow()
         }
@@ -115,7 +114,7 @@ final class AppCoordinator: Coordinator {
     }
 
     private func checkAuthenticationStatus() {
-        if tokenManager.isLoggedIn {
+        if dependencies.tokenManager.isLoggedIn {
             restoreCurrentUserIfNeeded()
         } else {
             showAuthFlow()
@@ -123,12 +122,12 @@ final class AppCoordinator: Coordinator {
     }
 
     private func restoreCurrentUserIfNeeded() {
-        if UserManager.shared.currentUser != nil {
+        if dependencies.userManager.currentUser != nil {
             showMainFlow()
             return
         }
 
-        userRepository.getMyProfile()
+        dependencies.userRepository.getMyProfile()
             .sink(
                 receiveCompletion: { [weak self] completion in
                     if case .failure = completion {
@@ -136,7 +135,7 @@ final class AppCoordinator: Coordinator {
                     }
                 },
                 receiveValue: { [weak self] user in
-                    UserManager.shared.saveUser(user)
+                    self?.dependencies.userManager.saveUser(user)
                     self?.showMainFlow()
                 }
             )
@@ -146,7 +145,10 @@ final class AppCoordinator: Coordinator {
     func showMainFlow() {
         childCoordinators.removeAll()
 
-        let mainCoordinator = MainCoordinator(navigationController: navigationController)
+        let mainCoordinator = MainCoordinator(
+            navigationController: navigationController,
+            dependencies: dependencies
+        )
         mainCoordinator.delegate = self
         self.mainCoordinator = mainCoordinator
         addChild(mainCoordinator)
@@ -161,26 +163,29 @@ final class AppCoordinator: Coordinator {
     }
 
     private func retryPendingPayments() {
-        let pendingCount = PaymentService.shared.getPendingPaymentsCount()
+        let pendingCount = dependencies.paymentService.getPendingPaymentsCount()
         guard pendingCount > 0 else { return }
 
         print("앱 시작 시 pending payment \(pendingCount)개 재검증 시작")
-        PaymentService.shared.retryPendingPayments()
+        dependencies.paymentService.retryPendingPayments()
     }
 
     func showAuthFlow() {
         childCoordinators.removeAll()
         mainCoordinator = nil
 
-        let authCoordinator = AuthCoordinator(navigationController: navigationController)
+        let authCoordinator = AuthCoordinator(
+            navigationController: navigationController,
+            dependencies: dependencies
+        )
         authCoordinator.delegate = self
         addChild(authCoordinator)
         authCoordinator.start()
     }
 
     func handleChatDeepLink(roomId: String) {
-        if tokenManager.isLoggedIn {
-            if UserManager.shared.currentUser != nil {
+        if dependencies.tokenManager.isLoggedIn {
+            if dependencies.userManager.currentUser != nil {
                 showMainFlow()
                 mainCoordinator?.showChatRoom(roomId: roomId)
                 return

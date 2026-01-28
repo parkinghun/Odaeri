@@ -20,27 +20,34 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
     weak var delegate: HomeCoordinatorDelegate?
     private var cancellables = Set<AnyCancellable>()
 
-    init(navigationController: UINavigationController) {
+    private let dependencies: UserDependencyContainer
+
+    init(navigationController: UINavigationController, dependencies: UserDependencyContainer) {
         self.navigationController = navigationController
+        self.dependencies = dependencies
         setupNotificationObservers()
     }
 
     deinit {
-        NotificationCenter.default.removeObserver(self)
+        dependencies.notificationCenter.removeObserver(self)
     }
 
     func start() {
         let homeViewModel = HomeViewModel(
-            storeRepository: StoreRepositoryImpl(),
-            bannerRepository: BannerRepositoryImpl()
+            storeRepository: dependencies.storeRepository,
+            bannerRepository: dependencies.bannerRepository,
+            locationManager: dependencies.locationManager
         )
         homeViewModel.coordinator = self
-        let homeViewController = HomeViewController(viewModel: homeViewModel)
+        let homeViewController = HomeViewController(
+            viewModel: homeViewModel,
+            notificationCenter: dependencies.notificationCenter
+        )
         navigationController.setViewControllers([homeViewController], animated: false)
     }
 
     private func setupNotificationObservers() {
-        NotificationCenter.default.addObserver(
+        dependencies.notificationCenter.addObserver(
             self,
             selector: #selector(handlePendingPaymentValidated(_:)),
             name: .pendingPaymentValidated,
@@ -80,11 +87,16 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
     func showStoreDetail(storeId: String) {
         let viewModel = ShopDetailViewModel(
             storeId: storeId,
-            storeRepository: StoreRepositoryImpl(),
-            orderRepository: OrderRepositoryImpl()
+            storeRepository: dependencies.storeRepository,
+            orderRepository: dependencies.orderRepository,
+            locationManager: dependencies.locationManager,
+            routeManager: dependencies.routeManager
         )
         viewModel.coordinator = self
-        let viewController = ShopDetailViewController(viewModel: viewModel)
+        let viewController = ShopDetailViewController(
+            viewModel: viewModel,
+            notificationCenter: dependencies.notificationCenter
+        )
         navigationController.pushViewController(viewController, animated: true)
     }
 
@@ -93,10 +105,13 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
             storeId: storeId,
             storeName: storeName,
             storeImageUrl: storeImageUrl,
-            repository: StoreReviewRepositoryImpl()
+            repository: dependencies.storeReviewRepository
         )
         viewModel.coordinator = self
-        let viewController = StoreReviewViewController(viewModel: viewModel)
+        let viewController = StoreReviewViewController(
+            viewModel: viewModel,
+            notificationCenter: dependencies.notificationCenter
+        )
         navigationController.pushViewController(viewController, animated: true)
     }
 
@@ -108,10 +123,13 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
     func showReviewWrite(mode: ReviewWriteMode) {
         let viewModel = ReviewWriteViewModel(
             mode: mode,
-            repository: StoreReviewRepositoryImpl()
+            repository: dependencies.storeReviewRepository
         )
         viewModel.coordinator = self
-        let viewController = ReviewWriteViewController(viewModel: viewModel)
+        let viewController = ReviewWriteViewController(
+            viewModel: viewModel,
+            notificationCenter: dependencies.notificationCenter
+        )
         navigationController.pushViewController(viewController, animated: true)
     }
 
@@ -120,16 +138,17 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
     }
 
     func showUserProfile(userId: String, nick: String? = nil, profileImage: String? = nil) {
-        let videoRepository = VideoRepositoryImpl()
         let viewModel = UserProfileViewModel(
             targetUserId: userId,
             initialNick: nick,
             initialProfileImage: profileImage,
-            communityRepository: CommunityPostRepositoryImpl(),
-            chatRepository: ChatRepositoryImpl(),
-            userRepository: UserRepositoryImpl(),
-            getSavedVideoIdsUseCase: DefaultGetSavedVideoIdsUseCase(),
-            getVideoListUseCase: DefaultGetVideoListUseCase(repository: videoRepository)
+            communityRepository: dependencies.communityPostRepository,
+            chatRepository: dependencies.chatRepository,
+            userRepository: dependencies.userRepository,
+            getSavedVideoIdsUseCase: dependencies.makeGetSavedVideoIdsUseCase(),
+            getVideoListUseCase: dependencies.makeGetVideoListUseCase(),
+            userManager: dependencies.userManager,
+            tokenManager: dependencies.tokenManager
         )
         viewModel.coordinator = self
         let viewController = UserProfileViewController(viewModel: viewModel)
@@ -139,7 +158,9 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
     func showEventWeb(path: String) {
         let viewModel = EventWebViewModel(
             path: path,
-            bannerRepository: BannerRepositoryImpl()
+            bannerRepository: dependencies.bannerRepository,
+            attendanceService: dependencies.attendanceService,
+            webViewManager: dependencies.webViewManager
         )
         let viewController = EventWebViewController(viewModel: viewModel)
         navigationController.pushViewController(viewController, animated: true)
@@ -149,8 +170,8 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
         let viewModel = StoreSearchViewModel(
             viewType: .home,
             initialSearchQuery: keyword,
-            storeRepository: StoreRepositoryImpl(),
-            orderRepository: OrderRepositoryImpl()
+            storeRepository: dependencies.storeRepository,
+            orderRepository: dependencies.orderRepository
         )
         let viewController = StoreSearchViewController(viewModel: viewModel, viewType: .home)
         viewController.delegate = self
@@ -160,7 +181,8 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
     func showPayment(paymentRequest: PaymentRequest) {
         let paymentCoordinator = PaymentCoordinator(
             navigationController: navigationController,
-            paymentRequest: paymentRequest
+            paymentRequest: paymentRequest,
+            paymentService: dependencies.paymentService
         )
         paymentCoordinator.delegate = self
         addChild(paymentCoordinator)
@@ -171,7 +193,8 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
         let navigationCoordinator = NavigationCoordinator(
             navigationController: navigationController,
             route: route,
-            destination: destination
+            destination: destination,
+            navigationService: dependencies.navigationService
         )
         navigationCoordinator.delegate = self
         addChild(navigationCoordinator)
@@ -201,15 +224,17 @@ extension HomeCoordinator: UserProfileCoordinating {
     }
 
     func showChatRoom(roomId: String, title: String?) {
-        let chatCoordinator = ChatCoordinator(navigationController: navigationController)
+        let chatCoordinator = ChatCoordinator(
+            navigationController: navigationController,
+            dependencies: dependencies
+        )
         chatCoordinator.delegate = self
         addChild(chatCoordinator)
         chatCoordinator.showChatRoom(roomId: roomId, title: title)
     }
 
     func showSavedVideo(videoId: String) {
-        let repository = VideoRepositoryImpl()
-        let useCase = DefaultGetVideoListUseCase(repository: repository)
+                let useCase = self.dependencies.makeGetVideoListUseCase()
 
         useCase.execute(next: nil, limit: nil)
             .receive(on: DispatchQueue.main)
@@ -224,10 +249,10 @@ extension HomeCoordinator: UserProfileCoordinating {
                     return
                 }
 
-                let getStreamURLUseCase = DefaultGetVideoStreamURLUseCase(repository: repository)
-                let toggleVideoLikeUseCase = DefaultToggleVideoLikeUseCase(repository: repository)
-                let toggleSaveVideoUseCase = DefaultToggleSaveVideoUseCase()
-                let checkVideoSavedUseCase = DefaultCheckVideoSavedUseCase()
+                let getStreamURLUseCase = self.dependencies.makeGetVideoStreamURLUseCase()
+                let toggleVideoLikeUseCase = self.dependencies.makeToggleVideoLikeUseCase()
+                let toggleSaveVideoUseCase = self.dependencies.makeToggleSaveVideoUseCase()
+                let checkVideoSavedUseCase = self.dependencies.makeCheckVideoSavedUseCase()
                 let viewModel = StreamingDetailViewModel(
                     video: video,
                     getStreamURLUseCase: getStreamURLUseCase,
@@ -235,14 +260,18 @@ extension HomeCoordinator: UserProfileCoordinating {
                     toggleSaveVideoUseCase: toggleSaveVideoUseCase,
                     checkVideoSavedUseCase: checkVideoSavedUseCase
                 )
-                let playerManager = StreamingPlayerManager(videoRepository: repository)
+                let playerManager = StreamingPlayerManager(videoRepository: self.dependencies.videoRepository)
                 let viewController = StreamingDetailViewController(
                     video: video,
                     viewModel: viewModel,
-                    playerManager: playerManager
+                    playerManager: playerManager,
+                    notificationCenter: self.dependencies.notificationCenter
                 )
 
-                let streamingCoordinator = StreamingCoordinator(navigationController: self.navigationController)
+                let streamingCoordinator = StreamingCoordinator(
+                    navigationController: self.navigationController,
+                    dependencies: self.dependencies
+                )
                 self.addChild(streamingCoordinator)
                 viewController.coordinator = streamingCoordinator
 

@@ -21,19 +21,26 @@ final class NavigationCoordinator: Coordinator {
 
     private let route: MKRoute
     private let destination: StoreEntity
+    private let navigationService: NavigationService
 
     init(
         navigationController: UINavigationController,
         route: MKRoute,
-        destination: StoreEntity
+        destination: StoreEntity,
+        navigationService: NavigationService
     ) {
         self.navigationController = navigationController
         self.route = route
         self.destination = destination
+        self.navigationService = navigationService
     }
 
     func start() {
-        let viewModel = NavigationViewModel(route: route, destination: destination)
+        let viewModel = NavigationViewModel(
+            route: route,
+            destination: destination,
+            navigationService: navigationService
+        )
         viewModel.coordinator = self
         let viewController = NavigationViewController(viewModel: viewModel)
 
@@ -59,7 +66,7 @@ final class NavigationCoordinator: Coordinator {
     }
 
     func requestReroute(to destination: StoreEntity) {
-        guard let currentLocation = NavigationService.shared.currentLocation else { return }
+        guard let currentLocation = navigationService.currentLocation else { return }
 
         let request = MKDirections.Request()
         request.source = MKMapItem(placemark: MKPlacemark(coordinate: currentLocation.coordinate))
@@ -81,8 +88,8 @@ final class NavigationCoordinator: Coordinator {
                 return
             }
 
-            NavigationService.shared.stopNavigation()
-            NavigationService.shared.startNavigation(with: newRoute)
+            self.navigationService.stopNavigation()
+            self.navigationService.startNavigation(with: newRoute)
         }
     }
 }

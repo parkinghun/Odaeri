@@ -19,41 +19,64 @@ final class ChatCoordinator: Coordinator {
     weak var delegate: ChatCoordinatorDelegate?
     private var cancellables = Set<AnyCancellable>()
 
-    init(navigationController: UINavigationController) {
+    private let dependencies: UserDependencyContainer
+
+    init(navigationController: UINavigationController, dependencies: UserDependencyContainer) {
         self.navigationController = navigationController
+        self.dependencies = dependencies
     }
 
     func start() {
-        let viewModel = ChatRoomViewModel(chatRepository: ChatRepositoryImpl())
+        let viewModel = ChatRoomViewModel(
+            chatRepository: dependencies.chatRepository,
+            chatLocalStore: dependencies.chatLocalStore,
+            userManager: dependencies.userManager
+        )
         viewModel.coordinator = self
-        let viewController = ChatRoomViewController(viewModel: viewModel)
+        let viewController = ChatRoomViewController(
+            viewModel: viewModel,
+            chatLocalStore: dependencies.chatLocalStore,
+            currentUserId: dependencies.userManager.currentUser?.userId ?? "current_user"
+        )
         navigationController.pushViewController(viewController, animated: true)
     }
 
     func showChatRoom(roomId: String, title: String? = nil) {
-        let chatRepository = ChatRepositoryImpl()
-        let currentUser = UserManager.shared.currentUser
+        let currentUser = dependencies.userManager.currentUser
         let viewModel = ChatViewModel(
-            chatRepository: chatRepository,
+            chatRepository: dependencies.chatRepository,
             roomId: roomId,
             currentUserId: currentUser?.userId ?? "",
+            mediaUploadManager: dependencies.mediaUploadManager,
+            networkMonitor: dependencies.networkMonitor,
+            chatLocalStore: dependencies.chatLocalStore,
+            chatSocketService: dependencies.chatSocketService,
+            userManager: dependencies.userManager,
             currentUserName: currentUser?.nick ?? "나",
             title: title
         )
         viewModel.coordinator = self
-        let viewController = ChatViewController(viewModel: viewModel)
+        let viewController = ChatViewController(
+            viewModel: viewModel,
+            chatSocketService: dependencies.chatSocketService,
+            chatRoomContextManager: dependencies.chatRoomContextManager,
+            chatLocalStore: dependencies.chatLocalStore,
+            appMediaService: dependencies.appMediaService,
+            notificationCenter: dependencies.notificationCenter
+        )
         navigationController.pushViewController(viewController, animated: true)
     }
 
     func showUserProfile(userId: String) {
-        let videoRepository = VideoRepositoryImpl()
         let viewModel = UserProfileViewModel(
             targetUserId: userId,
-            communityRepository: CommunityPostRepositoryImpl(),
-            chatRepository: ChatRepositoryImpl(),
-            userRepository: UserRepositoryImpl(),
-            getSavedVideoIdsUseCase: DefaultGetSavedVideoIdsUseCase(),
-            getVideoListUseCase: DefaultGetVideoListUseCase(repository: videoRepository)
+            communityRepository: dependencies.communityPostRepository,
+            chatRepository: dependencies.chatRepository,
+            userRepository: dependencies.userRepository,
+            getSavedVideoIdsUseCase: dependencies.makeGetSavedVideoIdsUseCase(),
+            getVideoListUseCase: dependencies.makeGetVideoListUseCase(),
+            userManager: dependencies.userManager,
+            tokenManager: dependencies.tokenManager
         )
         viewModel.coordinator = self
         let viewController = UserProfileViewController(viewModel: viewModel)
@@ -61,8 +84,7 @@ final class ChatCoordinator: Coordinator {
     }
 
     func showSharedVideo(videoId: String) {
-        let repository = VideoRepositoryImpl()
-        let useCase = DefaultGetVideoListUseCase(repository: repository)
+        let useCase = self.dependencies.makeGetVideoListUseCase()
 
         useCase.execute(next: nil, limit: nil)
             .receive(on: DispatchQueue.main)
@@ -77,10 +99,10 @@ final class ChatCoordinator: Coordinator {
                     return
                 }
 
-                let getStreamURLUseCase = DefaultGetVideoStreamURLUseCase(repository: repository)
-                let toggleVideoLikeUseCase = DefaultToggleVideoLikeUseCase(repository: repository)
-                let toggleSaveVideoUseCase = DefaultToggleSaveVideoUseCase()
-                let checkVideoSavedUseCase = DefaultCheckVideoSavedUseCase()
+                let getStreamURLUseCase = self.dependencies.makeGetVideoStreamURLUseCase()
+                let toggleVideoLikeUseCase = self.dependencies.makeToggleVideoLikeUseCase()
+                let toggleSaveVideoUseCase = self.dependencies.makeToggleSaveVideoUseCase()
+                let checkVideoSavedUseCase = self.dependencies.makeCheckVideoSavedUseCase()
                 let viewModel = StreamingDetailViewModel(
                     video: video,
                     getStreamURLUseCase: getStreamURLUseCase,
@@ -88,14 +110,18 @@ final class ChatCoordinator: Coordinator {
                     toggleSaveVideoUseCase: toggleSaveVideoUseCase,
                     checkVideoSavedUseCase: checkVideoSavedUseCase
                 )
-                let playerManager = StreamingPlayerManager(videoRepository: repository)
+                let playerManager = StreamingPlayerManager(videoRepository: self.dependencies.videoRepository)
                 let viewController = StreamingDetailViewController(
                     video: video,
                     viewModel: viewModel,
-                    playerManager: playerManager
+                    playerManager: playerManager,
+                    notificationCenter: self.dependencies.notificationCenter
                 )
 
-                let streamingCoordinator = StreamingCoordinator(navigationController: self.navigationController)
+                let streamingCoordinator = StreamingCoordinator(
+                    navigationController: self.navigationController,
+                    dependencies: self.dependencies
+                )
                 self.addChild(streamingCoordinator)
                 viewController.coordinator = streamingCoordinator
 
@@ -149,9 +175,9 @@ extension ChatCoordinator: UserProfileCoordinating {
     }
 
     func didFinishLogout() {
-        TokenManager.shared.clearTokens()
-        UserManager.shared.clearUser()
-        NotificationCenter.default.post(name: .unauthorizedAccess, object: nil)
+        dependencies.tokenManager.clearTokens()
+        dependencies.userManager.clearUser()
+        dependencies.notificationCenter.post(name: .unauthorizedAccess, object: nil)
     }
 
     private func showPlaceholderAlert(title: String, message: String) {

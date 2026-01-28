@@ -20,7 +20,7 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
     init(
         route: MKRoute,
         destination: StoreEntity,
-        navigationService: NavigationService = .shared
+        navigationService: NavigationService
     ) {
         self.route = route
         self.destination = destination

@@ -11,6 +11,7 @@ import SnapKit
 import PhotosUI
 
 final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> {
+    private let notificationCenter: NotificationCenter
     private enum Constant {
         static let horizontalInset: CGFloat = AppSpacing.screenMargin
         static let contentMinLength = 10
@@ -27,6 +28,16 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
     private let contentSubject = CurrentValueSubject<String, Never>("")
     private let imagesSubject = CurrentValueSubject<[UIImage], Never>([])
     private let submitSubject = PassthroughSubject<Void, Never>()
+
+    init(viewModel: ReviewWriteViewModel, notificationCenter: NotificationCenter) {
+        self.notificationCenter = notificationCenter
+        self.ratingSubject = CurrentValueSubject<Int, Never>(viewModel.mode.initialRating)
+        super.init(viewModel: viewModel)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     private var existingImageUrls: [String] = [] {
         didSet {
@@ -139,11 +150,6 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
     }()
 
     private var ratingButtons: [UIButton] = []
-
-    override init(viewModel: ReviewWriteViewModel) {
-        self.ratingSubject = CurrentValueSubject<Int, Never>(viewModel.mode.initialRating)
-        super.init(viewModel: viewModel)
-    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -301,7 +307,7 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
                 switch self.viewModel.mode {
                 case .create:
                     if let orderCode = self.viewModel.mode.orderCode {
-                        NotificationCenter.default.post(
+                        self.notificationCenter.post(
                             name: .reviewCreated,
                             object: nil,
                             userInfo: ["review": review, "orderCode": orderCode]
@@ -309,7 +315,7 @@ final class ReviewWriteViewController: BaseViewController<ReviewWriteViewModel> 
                         print("[ReviewWrite] Notification posted")
                     }
                 case .edit:
-                    NotificationCenter.default.post(
+                    self.notificationCenter.post(
                         name: .reviewUpdated,
                         object: nil,
                         userInfo: ["review": review]

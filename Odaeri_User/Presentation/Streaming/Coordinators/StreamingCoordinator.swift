@@ -20,13 +20,15 @@ final class StreamingCoordinator: Coordinator {
     private var activePIPViewController: StreamingDetailViewController?
     private var activePIPVideo: VideoEntity?
 
-    init(navigationController: UINavigationController) {
+    private let dependencies: UserDependencyContainer
+
+    init(navigationController: UINavigationController, dependencies: UserDependencyContainer) {
         self.navigationController = navigationController
+        self.dependencies = dependencies
     }
 
     func start() {
-        let repository = VideoRepositoryImpl()
-        let useCase = DefaultGetVideoListUseCase(repository: repository)
+        let useCase = dependencies.makeGetVideoListUseCase()
         let viewModel = StreamingListViewModel(getVideoListUseCase: useCase)
         viewModel.coordinator = self
         let viewController = StreamingListViewController(viewModel: viewModel)
@@ -34,11 +36,10 @@ final class StreamingCoordinator: Coordinator {
     }
 
     func showVideoDetail(video: VideoEntity) {
-        let repository = VideoRepositoryImpl()
-        let getStreamURLUseCase = DefaultGetVideoStreamURLUseCase(repository: repository)
-        let toggleVideoLikeUseCase = DefaultToggleVideoLikeUseCase(repository: repository)
-        let toggleSaveVideoUseCase = DefaultToggleSaveVideoUseCase()
-        let checkVideoSavedUseCase = DefaultCheckVideoSavedUseCase()
+        let getStreamURLUseCase = dependencies.makeGetVideoStreamURLUseCase()
+        let toggleVideoLikeUseCase = dependencies.makeToggleVideoLikeUseCase()
+        let toggleSaveVideoUseCase = dependencies.makeToggleSaveVideoUseCase()
+        let checkVideoSavedUseCase = dependencies.makeCheckVideoSavedUseCase()
         let viewModel = StreamingDetailViewModel(
             video: video,
             getStreamURLUseCase: getStreamURLUseCase,
@@ -46,8 +47,13 @@ final class StreamingCoordinator: Coordinator {
             toggleSaveVideoUseCase: toggleSaveVideoUseCase,
             checkVideoSavedUseCase: checkVideoSavedUseCase
         )
-        let playerManager = StreamingPlayerManager(videoRepository: repository)
-        let viewController = StreamingDetailViewController(video: video, viewModel: viewModel, playerManager: playerManager)
+        let playerManager = StreamingPlayerManager(videoRepository: dependencies.videoRepository)
+        let viewController = StreamingDetailViewController(
+            video: video,
+            viewModel: viewModel,
+            playerManager: playerManager,
+            notificationCenter: dependencies.notificationCenter
+        )
         viewController.coordinator = self
         navigationController.pushViewController(viewController, animated: true)
     }
@@ -55,8 +61,9 @@ final class StreamingCoordinator: Coordinator {
     func presentShareSheet(from presenter: UIViewController, payload: ShareCardPayload) {
         let viewModel = ShareTargetPickerViewModel(
             sharePayload: payload,
-            chatRepository: ChatRepositoryImpl(),
-            userRepository: UserRepositoryImpl()
+            chatRepository: dependencies.chatRepository,
+            userRepository: dependencies.userRepository,
+            userManager: dependencies.userManager
         )
         let viewController = ShareTargetPickerViewController(viewModel: viewModel)
         viewController.modalPresentationStyle = .pageSheet

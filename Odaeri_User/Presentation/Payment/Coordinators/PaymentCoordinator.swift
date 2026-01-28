@@ -19,19 +19,22 @@ final class PaymentCoordinator: Coordinator {
     weak var delegate: PaymentCoordinatorDelegate?
 
     private let paymentRequest: PaymentRequest
+    private let paymentService: PaymentService
 
     init(
         navigationController: UINavigationController,
-        paymentRequest: PaymentRequest
+        paymentRequest: PaymentRequest,
+        paymentService: PaymentService
     ) {
         self.navigationController = navigationController
         self.paymentRequest = paymentRequest
+        self.paymentService = paymentService
     }
 
     func start() {
         let viewModel = PaymentViewModel(
             paymentRequest: paymentRequest,
-            paymentService: PaymentService.shared
+            paymentService: paymentService
         )
         viewModel.coordinator = self
         let viewController = PaymentViewController(viewModel: viewModel)

@@ -19,9 +19,11 @@ final class MainCoordinator: Coordinator {
 
     private let tabBarController = CustomTabBarController()
     private var communityCoordinator: CommunityCoordinator?
+    private let dependencies: UserDependencyContainer
 
-    init(navigationController: UINavigationController) {
+    init(navigationController: UINavigationController, dependencies: UserDependencyContainer) {
         self.navigationController = navigationController
+        self.dependencies = dependencies
     }
 
     func start() {
@@ -41,31 +43,46 @@ private extension MainCoordinator {
 
         switch item {
         case .home:
-            let homeCoordinator = HomeCoordinator(navigationController: tabNavigationController)
+            let homeCoordinator = HomeCoordinator(
+                navigationController: tabNavigationController,
+                dependencies: dependencies
+            )
             homeCoordinator.delegate = self
             addChild(homeCoordinator)
             homeCoordinator.start()
 
         case .order:
-            let orderCoordinator = OrderCoordinator(navigationController: tabNavigationController)
+            let orderCoordinator = OrderCoordinator(
+                navigationController: tabNavigationController,
+                dependencies: dependencies
+            )
             orderCoordinator.delegate = self
             addChild(orderCoordinator)
             orderCoordinator.start()
             
         case .streaming:
-            let streamingCoordinator = StreamingCoordinator(navigationController: tabNavigationController)
+            let streamingCoordinator = StreamingCoordinator(
+                navigationController: tabNavigationController,
+                dependencies: dependencies
+            )
             addChild(streamingCoordinator)
             streamingCoordinator.start()
             
         case .community:
-            let communityCoordinator = CommunityCoordinator(navigationController: tabNavigationController)
+            let communityCoordinator = CommunityCoordinator(
+                navigationController: tabNavigationController,
+                dependencies: dependencies
+            )
             communityCoordinator.delegate = self
             addChild(communityCoordinator)
             communityCoordinator.start()
             self.communityCoordinator = communityCoordinator
             
         case .profile:
-            let profileCoordinator = ProfileCoordinator(navigationController: tabNavigationController)
+            let profileCoordinator = ProfileCoordinator(
+                navigationController: tabNavigationController,
+                dependencies: dependencies
+            )
             profileCoordinator.delegate = self
             addChild(profileCoordinator)
             profileCoordinator.start()

@@ -17,7 +17,10 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     private let currentUserId: String
     private let currentUserName: String
     let title: String?
-    private let networkMonitor = NetworkMonitor.shared
+    private let networkMonitor: NetworkMonitor
+    private let chatLocalStore: RealmChatRepository
+    private let chatSocketService: ChatSocketService
+    private let userManager: UserManager
 
     private var realmToken: NotificationToken?
     private let chatItemsSubject = CurrentValueSubject<[ChatItem], Never>([])
@@ -64,7 +67,11 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         chatRepository: ChatRepository,
         roomId: String,
         currentUserId: String,
-        mediaUploadManager: MediaUploadManager = .shared,
+        mediaUploadManager: MediaUploadManager,
+        networkMonitor: NetworkMonitor,
+        chatLocalStore: RealmChatRepository,
+        chatSocketService: ChatSocketService,
+        userManager: UserManager,
         currentUserName: String = "나",
         title: String? = nil
     ) {
@@ -72,6 +79,10 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         self.roomId = roomId
         self.currentUserId = currentUserId
         self.mediaUploadManager = mediaUploadManager
+        self.networkMonitor = networkMonitor
+        self.chatLocalStore = chatLocalStore
+        self.chatSocketService = chatSocketService
+        self.userManager = userManager
         self.currentUserName = currentUserName
         self.title = title
     }
@@ -103,7 +114,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     }
 
     private func setupRealmObserver() {
-        let messages = RealmChatRepository.shared.observeMessagesDescending(roomId: roomId)
+        let messages = chatLocalStore.observeMessagesDescending(roomId: roomId)
 
         realmToken = messages?.observe { [weak self] changes in
             guard let self = self else { return }
@@ -212,7 +223,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             isLoadingMoreSubject.send(true)
             currentLimit += pageSize
 
-            let messages = RealmChatRepository.shared.observeMessagesDescending(roomId: roomId)
+            let messages = chatLocalStore.observeMessagesDescending(roomId: roomId)
             if let results = messages {
                 updateChatItems(from: results, isInitial: false)
             }
@@ -230,7 +241,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         isFetchingNextPage = true
         isLoadingMoreSubject.send(true)
 
-        let oldestCreatedAt = RealmChatRepository.shared.oldestMessageCreatedAt(roomId: roomId)
+        let oldestCreatedAt = chatLocalStore.oldestMessageCreatedAt(roomId: roomId)
 
         chatRepository.fetchChatHistory(roomId: roomId, next: oldestCreatedAt)
             .sink(
@@ -262,7 +273,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
 
         isSyncing = true
 
-        let latestCreatedAt = RealmChatRepository.shared.latestMessageCreatedAt(roomId: roomId)
+        let latestCreatedAt = chatLocalStore.latestMessageCreatedAt(roomId: roomId)
         let latestCreatedAtDate = latestCreatedAt.flatMap { DateFormatter.iso8601.date(from: $0) }
 
         chatRepository.fetchChatHistory(roomId: roomId, next: latestCreatedAt)
@@ -284,7 +295,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     }
 
     private func saveMessagesToRealm(_ entities: [ChatEntity]) {
-        RealmChatRepository.shared.saveMessages(entities)
+        chatLocalStore.saveMessages(entities)
             .sink { _ in }
             .store(in: &cancellables)
     }
@@ -294,7 +305,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             .removeDuplicates()
             .sink { [weak self] isConnected in
                 guard let self = self, !isConnected else { return }
-                RealmChatRepository.shared.markSendingMessagesFailed(roomId: self.roomId)
+                self.chatLocalStore.markSendingMessagesFailed(roomId: self.roomId)
                     .sink { _ in }
                     .store(in: &self.cancellables)
             }
@@ -302,7 +313,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     }
 
     private func setupReconnectionObserver() {
-        ChatSocketService.shared.reconnectionPublisher
+        chatSocketService.reconnectionPublisher
             .debounce(for: .seconds(0.5), scheduler: DispatchQueue.main)
             .filter { [weak self] reconnectedRoomId in
                 guard let self = self else { return false }
@@ -341,10 +352,10 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         let sender = ChatParticipantEntity(
             userId: currentUserId,
             nick: currentUserName,
-            profileImage: UserManager.shared.currentUser?.profileImage ?? ""
+            profileImage: userManager.currentUser?.profileImage ?? ""
         )
 
-        RealmChatRepository.shared.saveTempMessage(
+        chatLocalStore.saveTempMessage(
             tempId: tempId,
             roomId: roomId,
             content: content,
@@ -364,20 +375,20 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     }
 
     private func updateMessageStatus(tempId: String, status: ChatMessageStatus) {
-        RealmChatRepository.shared.updateMessageStatus(chatId: tempId, status: status)
+        chatLocalStore.updateMessageStatus(chatId: tempId, status: status)
             .sink { _ in }
             .store(in: &cancellables)
     }
 
     private func updateUploadProgress(tempId: String, progress: Float) {
-        RealmChatRepository.shared.updateUploadProgress(chatId: tempId, progress: progress)
+        chatLocalStore.updateUploadProgress(chatId: tempId, progress: progress)
             .sink { _ in }
             .store(in: &cancellables)
     }
 
     private func updateTempMessageToReal(tempId: String, realMessage: ChatEntity) {
         cancelTimeout(for: tempId)
-        RealmChatRepository.shared.updateMessageId(from: tempId, to: realMessage)
+        chatLocalStore.updateMessageId(from: tempId, to: realMessage)
             .sink { success in
                 if success {
                     print("임시 메시지를 실제 메시지로 교체 완료: \(tempId) → \(realMessage.chatId)")
@@ -387,7 +398,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     }
 
     func retryMessage(messageId: String) {
-        RealmChatRepository.shared.fetchMessage(chatId: messageId)
+        chatLocalStore.fetchMessage(chatId: messageId)
             .sink { [weak self] entity in
                 guard let self = self, let entity = entity else { return }
                 self.updateMessageStatus(tempId: messageId, status: .sending)
@@ -406,13 +417,13 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         uploadCancellables[messageId]?.cancel()
         uploadCancellables.removeValue(forKey: messageId)
 
-        RealmChatRepository.shared.fetchMessage(chatId: messageId)
+        chatLocalStore.fetchMessage(chatId: messageId)
             .sink { [weak self] entity in
                 guard let self = self else { return }
                 if let entity = entity {
                     self.removeLocalFiles(from: entity.files)
                 }
-                RealmChatRepository.shared.deleteMessage(chatId: messageId)
+                self.chatLocalStore.deleteMessage(chatId: messageId)
                     .sink { _ in }
                     .store(in: &self.cancellables)
             }

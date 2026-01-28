@@ -33,7 +33,7 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
     init(
         storeRepository: StoreRepository,
         bannerRepository: BannerRepository,
-        locationManager: LocationManager = .shared
+        locationManager: LocationManager
     ) {
         self.storeRepository = storeRepository
         self.bannerRepository = bannerRepository

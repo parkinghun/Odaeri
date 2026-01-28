@@ -32,6 +32,7 @@ final class ShareTargetPickerViewModel: BaseViewModel, ViewModelType {
 
     private let chatRepository: ChatRepository
     private let userRepository: UserRepository
+    private let userManager: UserManager
 
     private let itemsSubject = CurrentValueSubject<[ShareTargetDisplayModel], Never>([])
     private let loadingSubject = CurrentValueSubject<Bool, Never>(false)
@@ -50,11 +51,13 @@ final class ShareTargetPickerViewModel: BaseViewModel, ViewModelType {
     init(
         sharePayload: ShareCardPayload,
         chatRepository: ChatRepository,
-        userRepository: UserRepository
+        userRepository: UserRepository,
+        userManager: UserManager
     ) {
         self.sharePayload = sharePayload
         self.chatRepository = chatRepository
         self.userRepository = userRepository
+        self.userManager = userManager
     }
 
     func transform(input: Input) -> Output {
@@ -113,7 +116,7 @@ final class ShareTargetPickerViewModel: BaseViewModel, ViewModelType {
     }
 
     private func handleChatRooms(_ rooms: [ChatRoomEntity]) {
-        let currentUserId = UserManager.shared.currentUser?.userId ?? "current_user"
+        let currentUserId = userManager.currentUser?.userId ?? "current_user"
         var seen = Set<String>()
         var targets: [ShareTargetDisplayModel] = []
         var roomMap: [String: String] = [:]
@@ -165,7 +168,7 @@ final class ShareTargetPickerViewModel: BaseViewModel, ViewModelType {
     }
 
     private func handleSearchResults(_ results: [UserSearchResult]) {
-        let currentUserId = UserManager.shared.currentUser?.userId
+        let currentUserId = userManager.currentUser?.userId
         let targets = results
             .filter { $0.userId != currentUserId }
             .prefix(8)

@@ -10,6 +10,8 @@ import Combine
 import SnapKit
 
 final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
+    private let notificationCenter: NotificationCenter
+
     enum Section: Hashable {
         case imageCarousel
         case storeInfo
@@ -42,6 +44,15 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
     }()
 
     private var currentStore: StoreEntity?
+
+    init(viewModel: ShopDetailViewModel, notificationCenter: NotificationCenter) {
+        self.notificationCenter = notificationCenter
+        super.init(viewModel: viewModel)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     private let likeTapSubject = PassthroughSubject<Bool, Never>()
     private var estimatedTimeText: String = "예상 소요시간 --분 (--km)"
 
@@ -443,7 +454,7 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
     }
 
     private func notifyStoreLikeUpdated(store: StoreEntity) {
-        NotificationCenter.default.post(
+        notificationCenter.post(
             name: .storeLikeUpdated,
             object: nil,
             userInfo: ["info": StoreLikeUpdateInfo(

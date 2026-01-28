@@ -28,6 +28,8 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
     private let userRepository: UserRepository
     private let getSavedVideoIdsUseCase: GetSavedVideoIdsUseCase
     private let getVideoListUseCase: GetVideoListUseCase
+    private let userManager: UserManager
+    private let tokenManager: TokenManager
     private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let errorSubject = PassthroughSubject<String, Never>()
     private let headerSubject = CurrentValueSubject<UserProfileHeaderViewModel, Never>(
@@ -37,7 +39,7 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
     private var headerNick: String = ""
 
     private var isMe: Bool {
-        guard let myId = UserManager.shared.currentUser?.userId else {
+        guard let myId = userManager.currentUser?.userId else {
             return targetUserId.isEmpty
         }
         return targetUserId == myId
@@ -51,7 +53,9 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
         chatRepository: ChatRepository,
         userRepository: UserRepository,
         getSavedVideoIdsUseCase: GetSavedVideoIdsUseCase,
-        getVideoListUseCase: GetVideoListUseCase
+        getVideoListUseCase: GetVideoListUseCase,
+        userManager: UserManager,
+        tokenManager: TokenManager
     ) {
         self.targetUserId = targetUserId
         self.communityRepository = communityRepository
@@ -59,9 +63,11 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
         self.userRepository = userRepository
         self.getSavedVideoIdsUseCase = getSavedVideoIdsUseCase
         self.getVideoListUseCase = getVideoListUseCase
+        self.userManager = userManager
+        self.tokenManager = tokenManager
         super.init()
         if isMe {
-            updateHeader(from: UserManager.shared.currentUser, isMe: true)
+            updateHeader(from: userManager.currentUser, isMe: true)
             navigationItemSubject.send(.myMenu)
         } else {
             updateHeader(
@@ -110,7 +116,7 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
             .sink { [weak self] _ in
                 guard let self, self.isMe else { return }
                 self.restoreMyProfileIfNeeded {
-                    self.updateHeader(from: UserManager.shared.currentUser, isMe: self.isMe)
+                    self.updateHeader(from: self.userManager.currentUser, isMe: self.isMe)
                     self.fetchPosts(subject: postsSubject)
                 }
             }
@@ -223,7 +229,7 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
     }
 
     private func restoreMyProfileIfNeeded(completion: @escaping () -> Void) {
-        guard targetUserId.isEmpty || UserManager.shared.currentUser == nil else {
+        guard targetUserId.isEmpty || userManager.currentUser == nil else {
             completion()
             return
         }
@@ -237,7 +243,7 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
                     completion()
                 },
                 receiveValue: { [weak self] user in
-                    UserManager.shared.saveUser(user)
+                    self?.userManager.saveUser(user)
                     self?.targetUserId = user.userId
                     self?.updateHeader(from: user, isMe: true)
                     completion()
@@ -365,8 +371,8 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
                     }
                 },
                 receiveValue: { [weak self] _ in
-                    TokenManager.shared.clearTokens()
-                    UserManager.shared.clearUser()
+                    self?.tokenManager.clearTokens()
+                    self?.userManager.clearUser()
                     self?.coordinator?.didFinishLogout()
                 }
             )
