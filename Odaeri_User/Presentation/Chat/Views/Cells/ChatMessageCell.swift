@@ -221,6 +221,39 @@ final class ChatMessageCell: BaseCollectionViewCell {
         if let shareCardFrame = layoutData.shareCardFrame {
             shareCardView.frame = shareCardFrame
         }
+
+        let actionSize = actionStackView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+        let actionSpacing: CGFloat = 6
+
+        let mediaBottom = max(
+            bubbleView.frame.maxY,
+            imageGridView.frame.maxY,
+            videoView.frame.maxY,
+            fileView.frame.maxY,
+            shareCardView.frame.maxY
+        )
+
+        let actionX = timeLabel.isHidden
+            ? timeLabel.frame.minX
+            : timeLabel.frame.maxX + actionSpacing
+        let actionY = timeLabel.isHidden
+            ? timeLabel.frame.minY
+            : mediaBottom + 4
+
+        actionStackView.frame = CGRect(
+            x: actionX,
+            y: actionY,
+            width: actionSize.width,
+            height: actionSize.height
+        )
+
+        let hintSize = statusHintLabel.sizeThatFits(CGSize(width: 200, height: 20))
+        statusHintLabel.frame = CGRect(
+            x: timeLabel.frame.minX,
+            y: actionStackView.frame.maxY + 2,
+            width: hintSize.width,
+            height: hintSize.height
+        )
     }
 
     override func prepareForReuse() {
@@ -345,19 +378,22 @@ final class ChatMessageCell: BaseCollectionViewCell {
         configureStatusUI(status: layoutData.status, senderType: layoutData.senderType)
     }
 
-    private func applyStyle(for senderType: SenderType) {
+    func applyLayoutData(_ layoutData: ChatMessageCellLayoutData) {
+        currentLayoutData = layoutData
+        configure(with: layoutData)
+        setNeedsLayout()
+    }
+
+    private func applyStyle(for senderType: ChatSenderRole) {
         bubbleView.backgroundColor = senderType.bubbleBackgroundColor
     }
 
-    private func configureStatusUI(status: ChatMessageStatus, senderType: SenderType) {
+    private func configureStatusUI(status: ChatMessageStatus, senderType: ChatSenderRole) {
         let isMine = senderType == .me
         actionStackView.isHidden = !isMine
         errorIconImageView.isHidden = true
         activityIndicator.stopAnimating()
         statusHintLabel.isHidden = true
-
-        timeLabel.alpha = 1
-        timeLabel.textColor = AppColor.gray60
 
         guard isMine else {
             actionStackView.isHidden = true
@@ -367,17 +403,22 @@ final class ChatMessageCell: BaseCollectionViewCell {
         switch status {
         case .sending:
             activityIndicator.startAnimating()
-            timeLabel.alpha = 0.5
             actionStackView.isHidden = true
             statusHintLabel.isHidden = true
+            timeLabel.isHidden = false
+            timeLabel.alpha = 0.5
+            timeLabel.textColor = AppColor.gray60
         case .failed:
-            errorIconImageView.isHidden = false
-            timeLabel.textColor = AppColor.errorRed
             actionStackView.isHidden = false
-            statusHintLabel.isHidden = false
+            statusHintLabel.isHidden = true
+            errorIconImageView.isHidden = true
+            timeLabel.isHidden = true
         case .sent:
             actionStackView.isHidden = true
             statusHintLabel.isHidden = true
+            timeLabel.isHidden = false
+            timeLabel.alpha = 1
+            timeLabel.textColor = AppColor.gray60
         }
     }
 

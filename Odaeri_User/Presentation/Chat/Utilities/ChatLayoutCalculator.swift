@@ -18,7 +18,8 @@ struct ChatLayoutCalculator {
         static let nameHeight: CGFloat = 16
         static let timeSpacing: CGFloat = 2
         static let singleImageMaxSize: CGFloat = ChatConstants.Layout.singleImageMaxSize
-        static let gridSize: CGFloat = ChatConstants.Layout.gridSize
+        static let gridMaxWidth: CGFloat = ChatConstants.Layout.gridSize
+        static let imageGridSpacing: CGFloat = ChatConstants.Layout.imageGridSpacing
         static let contentSpacing: CGFloat = 4
         static let fileHeight: CGFloat = ChatConstants.Layout.fileHeight
         static let maxBubbleWidthRatio: CGFloat = ChatConstants.Layout.maxBubbleWidthRatio
@@ -120,7 +121,11 @@ struct ChatLayoutCalculator {
 
             case .imageGroup(let urls):
                 let imageCount = urls.count
-                let (gridWidth, gridHeight) = calculateImageGridSize(count: imageCount)
+                let (gridWidth, gridHeight) = calculateImageGridSize(
+                    count: imageCount,
+                    maxWidth: maxContentWidth,
+                    spacing: Layout.imageGridSpacing
+                )
 
                 imageGridFrame = CGRect(
                     x: 0,
@@ -135,17 +140,17 @@ struct ChatLayoutCalculator {
                 videoFrame = CGRect(
                     x: 0,
                     y: 0,
-                    width: Layout.gridSize,
-                    height: Layout.gridSize
+                    width: Layout.gridMaxWidth,
+                    height: Layout.gridMaxWidth
                 )
-                totalMediaHeight += Layout.gridSize
+                totalMediaHeight += Layout.gridMaxWidth
                 mediaCount += 1
 
             case .file:
                 fileFrame = CGRect(
                     x: 0,
                     y: 0,
-                    width: Layout.gridSize,
+                    width: Layout.gridMaxWidth,
                     height: Layout.fileHeight
                 )
                 totalMediaHeight += Layout.fileHeight
@@ -379,13 +384,39 @@ struct ChatLayoutCalculator {
         return ceil(size.height)
     }
 
-    private static func calculateImageGridSize(count: Int) -> (width: CGFloat, height: CGFloat) {
+    private static func calculateImageGridSize(
+        count: Int,
+        maxWidth: CGFloat,
+        spacing: CGFloat
+    ) -> (width: CGFloat, height: CGFloat) {
+        let width = min(Layout.gridMaxWidth, maxWidth)
+
         switch count {
         case 1:
-            return (Layout.singleImageMaxSize, Layout.singleImageMaxSize)
+            let size = min(Layout.singleImageMaxSize, width)
+            return (size, size)
+
+        case 2:
+            let cell = floor((width - spacing) / 2)
+            return (width, cell)
+
+        case 3:
+            let cell = floor((width - spacing) / 2)
+            let height = cell * 2 + spacing
+            return (width, height)
+
+        case 4:
+            let cell = floor((width - spacing) / 2)
+            let height = cell * 2 + spacing
+            return (width, height)
+
+        case 5:
+            let topCell = floor((width - spacing * 2) / 3)
+            let height = topCell + spacing + topCell
+            return (width, height)
 
         default:
-            return (Layout.gridSize, Layout.gridSize)
+            return (width, width)
         }
     }
 }

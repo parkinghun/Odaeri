@@ -51,7 +51,7 @@ struct ChatMapper {
             let previous = index > 0 ? sorted[index - 1] : nil
             let next = index < sorted.count - 1 ? sorted[index + 1] : nil
 
-            let senderType: SenderType = entity.sender.userId == currentUserId ? .me : .other
+            let senderType: ChatSenderRole = entity.sender.userId == currentUserId ? .me : .other
 
             let groupPosition = determineGroupPosition(
                 current: entity,
@@ -96,24 +96,6 @@ struct ChatMapper {
         }
 
         return result
-    }
-
-    static func calculateLayout(for item: ChatItem, containerWidth: CGFloat) -> ChatCellLayoutData {
-        switch item {
-        case .message(let displayModel):
-            let layoutData = ChatLayoutCalculator.calculateMessageLayout(
-                displayModel: displayModel,
-                containerWidth: containerWidth
-            )
-            return .message(layoutData)
-
-        case .dateSeparator(let separator):
-            let layoutData = ChatLayoutCalculator.calculateDateSeparatorLayout(
-                text: separator.text,
-                containerWidth: containerWidth
-            )
-            return .dateSeparator(layoutData)
-        }
     }
 
     private static func sortForDisplay(_ entities: [ChatEntity]) -> [ChatEntity] {
@@ -206,7 +188,7 @@ struct ChatMapper {
         }
 
         let timeDifference = abs(currentDate.timeIntervalSince(previousDate))
-        if timeDifference >= ChatConstants.Timing.messageGroupingInterval {
+        if timeDifference >= ChatTimingConstants.messageGroupingInterval {
             return true
         }
 
@@ -233,7 +215,7 @@ struct ChatMapper {
         }
 
         let timeDifference = abs(currentDate.timeIntervalSince(nextDate))
-        if timeDifference >= ChatConstants.Timing.messageGroupingInterval {
+        if timeDifference >= ChatTimingConstants.messageGroupingInterval {
             return true
         }
 

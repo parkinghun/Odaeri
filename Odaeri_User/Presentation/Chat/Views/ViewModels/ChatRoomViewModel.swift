@@ -97,13 +97,13 @@ final class ChatRoomViewModel: BaseViewModel, ViewModelType {
                     }
                 },
                 receiveValue: { [weak self] rooms in
-                    self?.saveChatRoomsToRealm(rooms)
+                    self?.saveChatRoomsToLocalStore(rooms)
                 }
             )
             .store(in: &cancellables)
     }
 
-    private func saveChatRoomsToRealm(_ rooms: [ChatRoomEntity]) {
+    private func saveChatRoomsToLocalStore(_ rooms: [ChatRoomEntity]) {
         rooms.forEach { room in
             chatLocalStore.saveRoom(room)
                 .sink { success in

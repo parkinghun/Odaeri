@@ -18,7 +18,7 @@ enum ChatMessageContent: Hashable {
         let url: String
         let fileName: String
         let fileSize: String?
-        let fileType: ChatInputAttachmentItem.FileType
+        let fileType: ChatFileType
     }
 }
 
@@ -108,7 +108,7 @@ extension ChatMessageContent {
 
             } else {
                 let fileName = fileName(from: file)
-                let fileType = ChatInputAttachmentItem.FileType.from(fileExtension: ext)
+                let fileType = ChatFileType.from(fileExtension: ext)
                 let fileInfo = FileInfo(
                     url: file,
                     fileName: fileName,

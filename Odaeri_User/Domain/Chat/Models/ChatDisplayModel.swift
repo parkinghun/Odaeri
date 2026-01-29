@@ -21,7 +21,7 @@ struct ChatDisplayModel: Hashable {
     let status: ChatMessageStatus
     let uploadProgress: Float?
 
-    let senderType: SenderType
+    let senderType: ChatSenderRole
     let groupPosition: MessageGroupPosition
 
     var showProfile: Bool {
@@ -40,11 +40,27 @@ struct ChatDisplayModel: Hashable {
         hasher.combine(id)
         hasher.combine(status.rawValue)
         hasher.combine(uploadProgress)
+        hasher.combine(content)
+        hasher.combine(files)
+        hasher.combine(contents)
+        hasher.combine(timeText)
+        hasher.combine(senderName)
+        hasher.combine(senderProfileImageUrl)
+        hasher.combine(senderType)
+        hasher.combine(groupPosition)
     }
 
     static func == (lhs: ChatDisplayModel, rhs: ChatDisplayModel) -> Bool {
         return lhs.id == rhs.id &&
             lhs.status == rhs.status &&
-            lhs.uploadProgress == rhs.uploadProgress
+            lhs.uploadProgress == rhs.uploadProgress &&
+            lhs.content == rhs.content &&
+            lhs.files == rhs.files &&
+            lhs.contents == rhs.contents &&
+            lhs.timeText == rhs.timeText &&
+            lhs.senderName == rhs.senderName &&
+            lhs.senderProfileImageUrl == rhs.senderProfileImageUrl &&
+            lhs.senderType == rhs.senderType &&
+            lhs.groupPosition == rhs.groupPosition
     }
 }

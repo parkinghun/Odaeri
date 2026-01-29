@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum MessageGroupPosition {
+enum MessageGroupPosition: Hashable {
     case first
     case middle
     case last
@@ -37,15 +37,6 @@ enum MessageGroupPosition {
             return true
         case .first, .middle:
             return false
-        }
-    }
-
-    var topSpacing: CGFloat {
-        switch self {
-        case .first, .single:
-            return AppSpacing.medium
-        case .middle, .last:
-            return AppSpacing.xxSmall
         }
     }
 }

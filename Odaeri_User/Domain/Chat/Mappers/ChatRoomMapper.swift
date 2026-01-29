@@ -6,6 +6,7 @@
 //
 
 import Foundation
+
 struct ChatRoomMapper {
     static func map(_ entities: [ChatRoomEntity], currentUserId: String) -> [ChatRoomDisplayModel] {
         return entities.map { entity in

@@ -12,8 +12,9 @@ enum ChatConstants {
     enum Layout {
         static let profileSize: CGFloat = 32
         static let maxBubbleWidthRatio: CGFloat = 0.7
-        static let singleImageMaxSize: CGFloat = 240
-        static let gridSize: CGFloat = 240
+        static let singleImageMaxSize: CGFloat = 250
+        static let gridSize: CGFloat = 250
+        static let imageGridSpacing: CGFloat = 2
         static let fileHeight: CGFloat = 60
         static let bubbleCornerRadius: CGFloat = 8
     }
@@ -25,8 +26,4 @@ enum ChatConstants {
         static let bottomThreshold: CGFloat = 100
     }
 
-    enum Timing {
-        static let gapDetectionThreshold: TimeInterval = 300
-        static let messageGroupingInterval: TimeInterval = 60
-    }
 }

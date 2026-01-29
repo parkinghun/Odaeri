@@ -21,7 +21,7 @@ final class ChatImageGridView: UIView {
     private enum Layout {
         static let viewCornerRadius: CGFloat = 12
         static let borderWidth: CGFloat = 0.5
-        static let spacing: CGFloat = 2
+        static let spacing: CGFloat = ChatConstants.Layout.imageGridSpacing
     }
 
     override init(frame: CGRect) {
@@ -65,41 +65,43 @@ final class ChatImageGridView: UIView {
     }
 
     private func layoutTwoImages(width: CGFloat, height: CGFloat, spacing: CGFloat) {
-        let halfWidth = (width - spacing) / 2
+        let cell = floor((width - spacing) / 2)
 
-        imageViews[0].frame = CGRect(x: 0, y: 0, width: halfWidth, height: height)
-        imageViews[1].frame = CGRect(x: halfWidth + spacing, y: 0, width: halfWidth, height: height)
+        imageViews[0].frame = CGRect(x: 0, y: 0, width: cell, height: cell)
+        imageViews[1].frame = CGRect(x: cell + spacing, y: 0, width: cell, height: cell)
     }
 
     private func layoutThreeImages(width: CGFloat, height: CGFloat, spacing: CGFloat) {
-        let halfWidth = (width - spacing) / 2
-        let halfHeight = (height - spacing) / 2
+        let cell = floor((width - spacing) / 2)
+        let rightX = cell + spacing
+        let rightTopY: CGFloat = 0
+        let rightBottomY = cell + spacing
 
-        imageViews[0].frame = CGRect(x: 0, y: 0, width: halfWidth, height: height)
-        imageViews[1].frame = CGRect(x: halfWidth + spacing, y: 0, width: halfWidth, height: halfHeight)
-        imageViews[2].frame = CGRect(x: halfWidth + spacing, y: halfHeight + spacing, width: halfWidth, height: halfHeight)
+        imageViews[0].frame = CGRect(x: 0, y: 0, width: cell, height: cell * 2 + spacing)
+        imageViews[1].frame = CGRect(x: rightX, y: rightTopY, width: cell, height: cell)
+        imageViews[2].frame = CGRect(x: rightX, y: rightBottomY, width: cell, height: cell)
     }
 
     private func layoutFourImages(width: CGFloat, height: CGFloat, spacing: CGFloat) {
-        let halfWidth = (width - spacing) / 2
-        let halfHeight = (height - spacing) / 2
+        let cell = floor((width - spacing) / 2)
 
-        imageViews[0].frame = CGRect(x: 0, y: 0, width: halfWidth, height: halfHeight)
-        imageViews[1].frame = CGRect(x: halfWidth + spacing, y: 0, width: halfWidth, height: halfHeight)
-        imageViews[2].frame = CGRect(x: 0, y: halfHeight + spacing, width: halfWidth, height: halfHeight)
-        imageViews[3].frame = CGRect(x: halfWidth + spacing, y: halfHeight + spacing, width: halfWidth, height: halfHeight)
+        imageViews[0].frame = CGRect(x: 0, y: 0, width: cell, height: cell)
+        imageViews[1].frame = CGRect(x: cell + spacing, y: 0, width: cell, height: cell)
+        imageViews[2].frame = CGRect(x: 0, y: cell + spacing, width: cell, height: cell)
+        imageViews[3].frame = CGRect(x: cell + spacing, y: cell + spacing, width: cell, height: cell)
     }
 
     private func layoutFiveImages(width: CGFloat, height: CGFloat, spacing: CGFloat) {
-        let halfHeight = (height - spacing) / 2
-        let topThirdWidth = (width - spacing * 2) / 3
-        let bottomHalfWidth = (width - spacing) / 2
+        let topCell = floor((width - spacing * 2) / 3)
+        let bottomHeight = topCell
+        let bottomRowY = topCell + spacing
+        let bottomHalfWidth = floor((width - spacing) / 2)
 
-        imageViews[0].frame = CGRect(x: 0, y: 0, width: topThirdWidth, height: halfHeight)
-        imageViews[1].frame = CGRect(x: topThirdWidth + spacing, y: 0, width: topThirdWidth, height: halfHeight)
-        imageViews[2].frame = CGRect(x: (topThirdWidth + spacing) * 2, y: 0, width: topThirdWidth, height: halfHeight)
-        imageViews[3].frame = CGRect(x: 0, y: halfHeight + spacing, width: bottomHalfWidth, height: halfHeight)
-        imageViews[4].frame = CGRect(x: bottomHalfWidth + spacing, y: halfHeight + spacing, width: bottomHalfWidth, height: halfHeight)
+        imageViews[0].frame = CGRect(x: 0, y: 0, width: topCell, height: topCell)
+        imageViews[1].frame = CGRect(x: topCell + spacing, y: 0, width: topCell, height: topCell)
+        imageViews[2].frame = CGRect(x: (topCell + spacing) * 2, y: 0, width: topCell, height: topCell)
+        imageViews[3].frame = CGRect(x: 0, y: bottomRowY, width: bottomHalfWidth, height: bottomHeight)
+        imageViews[4].frame = CGRect(x: bottomHalfWidth + spacing, y: bottomRowY, width: bottomHalfWidth, height: bottomHeight)
     }
 
     private func setupUI() {

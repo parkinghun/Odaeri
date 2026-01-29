@@ -169,7 +169,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
 
             let timeDifference = nextDate.timeIntervalSince(currentDate)
 
-            if timeDifference > ChatConstants.Timing.gapDetectionThreshold {
+            if timeDifference > ChatTimingConstants.gapDetectionThreshold {
                 let gapKey = "\(current.createdAt)-\(next.createdAt)"
                 if !detectedGaps.contains(gapKey) {
                     detectedGaps.insert(gapKey)
@@ -200,7 +200,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
                     }
 
                     if !filteredEntities.isEmpty {
-                        self.saveMessagesToRealm(filteredEntities)
+                        self.saveMessagesToLocalStore(filteredEntities)
                     }
                 }
             )
@@ -249,7 +249,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
                     if entities.isEmpty {
                         self.hasMoreRemoteData = false
                     } else {
-                        self.saveMessagesToRealm(entities)
+                        self.saveMessagesToLocalStore(entities)
                         self.currentLimit += self.pageSize
                     }
                 }
@@ -277,13 +277,13 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
                 receiveValue: { [weak self] entities in
                     guard let self = self else { return }
                     let filtered = self.filterNewMessages(entities, after: latestCreatedAtDate)
-                    self.saveMessagesToRealm(filtered)
+                    self.saveMessagesToLocalStore(filtered)
                 }
             )
             .store(in: &cancellables)
     }
 
-    private func saveMessagesToRealm(_ entities: [ChatEntity]) {
+    private func saveMessagesToLocalStore(_ entities: [ChatEntity]) {
         chatLocalStore.saveMessages(entities)
             .sink { _ in }
             .store(in: &cancellables)

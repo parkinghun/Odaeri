@@ -236,6 +236,10 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
                     return UICollectionViewCell()
                 }
                 cell.delegate = self
+                if let layoutData = self?.getLayoutData(for: indexPath),
+                   case .message(let messageLayoutData) = layoutData {
+                    cell.applyLayoutData(messageLayoutData)
+                }
                 return cell
 
             case .dateSeparator:
@@ -251,10 +255,10 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     }
 
     private func getLayoutData(for indexPath: IndexPath) -> ChatCellLayoutData? {
-        guard indexPath.item < chatItems.count else { return nil }
-        let item = chatItems[indexPath.item]
+        let item = dataSource.itemIdentifier(for: indexPath) ?? (indexPath.item < chatItems.count ? chatItems[indexPath.item] : nil)
+        guard let item = item else { return nil }
         let containerWidth = collectionView.bounds.width
-        let layoutData = ChatMapper.calculateLayout(for: item, containerWidth: containerWidth)
+        let layoutData = ChatLayoutProvider.calculateLayout(for: item, containerWidth: containerWidth)
         return layoutData
     }
     
@@ -339,6 +343,11 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
         snapshot.appendSections([.main])
         snapshot.appendItems(items)
 
+        let shouldReconfigure = hasAppliedInitialSnapshot && !isPagination && currentIds == lastItemIds
+        if shouldReconfigure {
+            snapshot.reconfigureItems(items)
+        }
+
         if !shouldAnimate {
             UIView.performWithoutAnimation {
                 dataSource.apply(snapshot, animatingDifferences: false) { [weak self] in
@@ -379,6 +388,7 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
         previousContentHeight: CGFloat,
         previousOffsetY: CGFloat
     ) {
+        collectionView.collectionViewLayout.invalidateLayout()
         if !hasAppliedInitialSnapshot && items.count > 0 {
             collectionView.isHidden = false
             collectionView.setNeedsLayout()

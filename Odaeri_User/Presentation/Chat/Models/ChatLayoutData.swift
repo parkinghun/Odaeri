@@ -40,7 +40,7 @@ struct ChatMessageCellLayoutData: Equatable {
     let contents: [ChatMessageContent]
     let status: ChatMessageStatus
     let uploadProgress: Float?
-    let senderType: SenderType
+    let senderType: ChatSenderRole
 
     func shouldUpdateLayout(_ prevLayout: ChatMessageCellLayoutData?) -> Bool {
         guard let prevLayout = prevLayout else { return true }
