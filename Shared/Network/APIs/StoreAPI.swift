@@ -10,7 +10,7 @@ import Moya
 
 enum StoreAPI {
     enum User {
-        case fetchNearbyStores(category: String?, lon: Double?, lat: Double?, distance: Int?, next: String?, limit: Int?, order_by: String)
+        case fetchNearbyStores(category: String?, lon: Double?, lat: Double?, maxDistance: Int?, next: String?, limit: Int?, order_by: String)
         case fetchStoreDetail(storeId: String)
         case toggleLike(storeId: String, status: Bool)
         case searchStores(name: String)

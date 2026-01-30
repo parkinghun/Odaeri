@@ -274,7 +274,7 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
             category: currentCategory,
             longitude: nil,
             latitude: nil,
-            distance: nil,
+            maxDistance: nil,
             next: nil,
             limit: 10,
             orderBy: currentSortType

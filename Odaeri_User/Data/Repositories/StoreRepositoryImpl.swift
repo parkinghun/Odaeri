@@ -16,7 +16,7 @@ final class StoreRepositoryImpl: StoreRepository {
         category: String?,
         longitude: Double?,
         latitude: Double?,
-        distance: Int?,
+        maxDistance: Int?,
         next: String?,
         limit: Int?,
         orderBy: String
@@ -25,7 +25,7 @@ final class StoreRepositoryImpl: StoreRepository {
             category: category,
             lon: longitude,
             lat: latitude,
-            distance: distance,
+            maxDistance: maxDistance,
             next: next,
             limit: limit,
             order_by: orderBy

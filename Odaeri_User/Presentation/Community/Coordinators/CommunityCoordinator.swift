@@ -122,7 +122,9 @@ final class CommunityCoordinator: Coordinator {
         let viewModel = StoreSearchViewModel(
             viewType: .community,
             storeRepository: dependencies.storeRepository,
-            orderRepository: dependencies.orderRepository
+            orderRepository: dependencies.orderRepository,
+            locationManager: dependencies.locationManager,
+            routeManager: dependencies.routeManager
         )
         let viewController = StoreSearchViewController(viewModel: viewModel, viewType: .community)
         viewController.delegate = self

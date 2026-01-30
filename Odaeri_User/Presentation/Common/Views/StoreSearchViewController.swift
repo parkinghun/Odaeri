@@ -14,7 +14,8 @@ final class StoreSearchViewController: BaseViewController<StoreSearchViewModel> 
 
     private let viewType: StoreSearchViewType
     private var currentState: StoreSearchViewState = .initial("")
-    private var searchResults: [StoreEntity] = []
+    private var searchResults: [StoreSearchListItem] = []
+    private var nearbyStores: [StoreSearchListItem] = []
     private var recentStores: [RecentStoreItem] = []
 
     private let searchBar: UISearchBar = {
@@ -134,6 +135,14 @@ final class StoreSearchViewController: BaseViewController<StoreSearchViewModel> 
             }
             .store(in: &cancellables)
 
+        output.nearbyStores
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] stores in
+                self?.nearbyStores = stores
+                self?.tableView.reloadData()
+            }
+            .store(in: &cancellables)
+
         output.recentStores
             .receive(on: DispatchQueue.main)
             .sink { [weak self] stores in
@@ -195,6 +204,8 @@ extension StoreSearchViewController: UITableViewDataSource {
         switch currentState {
         case .results:
             return searchResults.count
+        case .nearbyStores:
+            return nearbyStores.count
         case .recentStores:
             return recentStores.count
         default:
@@ -212,8 +223,11 @@ extension StoreSearchViewController: UITableViewDataSource {
 
         switch currentState {
         case .results:
-            let store = searchResults[indexPath.row]
-            cell.configure(with: store)
+            let item = searchResults[indexPath.row]
+            cell.configure(with: item)
+        case .nearbyStores:
+            let item = nearbyStores[indexPath.row]
+            cell.configure(with: item)
         case .recentStores:
             let item = recentStores[indexPath.row]
             cell.configure(with: item)
@@ -235,7 +249,9 @@ extension StoreSearchViewController: UITableViewDelegate {
 
         switch currentState {
         case .results:
-            storeId = searchResults[indexPath.row].storeId
+            storeId = searchResults[indexPath.row].store.storeId
+        case .nearbyStores:
+            storeId = nearbyStores[indexPath.row].store.storeId
         case .recentStores:
             storeId = recentStores[indexPath.row].store.id
         default:

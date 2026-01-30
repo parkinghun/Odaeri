@@ -27,6 +27,24 @@ final class StoreSearchCell: UITableViewCell {
         return label
     }()
 
+    private let distanceBadgeView: UIView = {
+        let view = UIView()
+        view.backgroundColor = AppColor.gray30
+        view.layer.cornerRadius = 10
+        view.isHidden = true
+        view.setContentHuggingPriority(.required, for: .horizontal)
+        view.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return view
+    }()
+
+    private let distanceBadgeLabel: UILabel = {
+        let label = UILabel()
+        label.font = AppFont.caption1
+        label.textColor = AppColor.gray90
+        label.numberOfLines = 1
+        return label
+    }()
+
     private let categoryLabel: UILabel = {
         let label = UILabel()
         label.font = AppFont.body3
@@ -51,14 +69,6 @@ final class StoreSearchCell: UITableViewCell {
         return label
     }()
 
-    private let chevronImageView: UIImageView = {
-        let imageView = UIImageView()
-        imageView.image = AppImage.chevron
-        imageView.tintColor = AppColor.gray60
-        imageView.contentMode = .scaleAspectFit
-        return imageView
-    }()
-
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupUI()
@@ -72,6 +82,8 @@ final class StoreSearchCell: UITableViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         storeImageView.resetImage()
+        distanceBadgeView.isHidden = true
+        distanceBadgeLabel.text = nil
     }
 
     private func setupUI() {
@@ -80,10 +92,11 @@ final class StoreSearchCell: UITableViewCell {
 
         contentView.addSubview(storeImageView)
         contentView.addSubview(storeNameLabel)
+        contentView.addSubview(distanceBadgeView)
+        distanceBadgeView.addSubview(distanceBadgeLabel)
         contentView.addSubview(categoryLabel)
         contentView.addSubview(addressLabel)
         contentView.addSubview(visitDateLabel)
-        contentView.addSubview(chevronImageView)
     }
 
     private func setupConstraints() {
@@ -96,33 +109,38 @@ final class StoreSearchCell: UITableViewCell {
         storeNameLabel.snp.makeConstraints {
             $0.top.equalToSuperview().inset(16)
             $0.leading.equalTo(storeImageView.snp.trailing).offset(12)
-            $0.trailing.equalTo(chevronImageView.snp.leading).offset(-12)
+            $0.trailing.lessThanOrEqualTo(distanceBadgeView.snp.leading).offset(-8)
+        }
+
+        distanceBadgeView.snp.makeConstraints {
+            $0.centerY.equalTo(storeNameLabel)
+            $0.leading.equalTo(storeNameLabel.snp.trailing).offset(8)
+            $0.height.equalTo(20)
+        }
+
+        distanceBadgeLabel.snp.makeConstraints {
+            $0.leading.trailing.equalToSuperview().inset(8)
+            $0.centerY.equalToSuperview()
         }
 
         categoryLabel.snp.makeConstraints {
             $0.top.equalTo(storeNameLabel.snp.bottom).offset(4)
             $0.leading.equalTo(storeImageView.snp.trailing).offset(12)
-            $0.trailing.equalTo(chevronImageView.snp.leading).offset(-12)
+            $0.trailing.equalToSuperview().inset(20)
         }
 
         addressLabel.snp.makeConstraints {
             $0.top.equalTo(categoryLabel.snp.bottom).offset(4)
             $0.leading.equalTo(storeImageView.snp.trailing).offset(12)
-            $0.trailing.equalTo(chevronImageView.snp.leading).offset(-12)
+            $0.trailing.equalToSuperview().inset(20)
             $0.bottom.equalToSuperview().inset(16)
         }
 
         visitDateLabel.snp.makeConstraints {
             $0.top.equalTo(categoryLabel.snp.bottom).offset(4)
             $0.leading.equalTo(storeImageView.snp.trailing).offset(12)
-            $0.trailing.equalTo(chevronImageView.snp.leading).offset(-12)
-            $0.bottom.equalToSuperview().inset(16)
-        }
-
-        chevronImageView.snp.makeConstraints {
-            $0.centerY.equalToSuperview()
             $0.trailing.equalToSuperview().inset(20)
-            $0.width.height.equalTo(20)
+            $0.bottom.equalToSuperview().inset(16)
         }
     }
 
@@ -130,10 +148,30 @@ final class StoreSearchCell: UITableViewCell {
         storeNameLabel.text = store.name
         categoryLabel.text = store.category
         addressLabel.text = store.address
+        addressLabel.isHidden = false
         visitDateLabel.isHidden = true
+        distanceBadgeView.isHidden = true
 
         storeImageView.layer.cornerRadius = 8
         storeImageView.setImage(url: store.storeImageUrls.first)
+    }
+
+    func configure(with item: StoreSearchListItem) {
+        storeNameLabel.text = item.store.name
+        categoryLabel.text = item.store.category
+        addressLabel.text = item.store.address
+        addressLabel.isHidden = false
+        visitDateLabel.isHidden = true
+
+        if let distanceText = item.distanceText {
+            distanceBadgeLabel.text = distanceText
+            distanceBadgeView.isHidden = false
+        } else {
+            distanceBadgeView.isHidden = true
+        }
+
+        storeImageView.layer.cornerRadius = 8
+        storeImageView.setImage(url: item.store.storeImageUrls.first)
     }
 
     func configure(with item: RecentStoreItem) {
@@ -141,6 +179,7 @@ final class StoreSearchCell: UITableViewCell {
         categoryLabel.text = item.store.category
         addressLabel.isHidden = true
         visitDateLabel.isHidden = false
+        distanceBadgeView.isHidden = true
 
         if let paidAt = item.paidAt {
             let calendar = Calendar.current
