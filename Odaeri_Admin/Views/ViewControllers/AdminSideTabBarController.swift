@@ -6,30 +6,24 @@
 //
 
 import UIKit
-import Combine
 import SnapKit
 
 final class AdminSideTabBarController: UIViewController {
-    private let sideTabBar = AdminSideTabBar()
-    private let dashboardController = AdminDashboardSplitViewController()
-    private let viewModel: AdminDashboardViewModel
-    private let selectedTabSubject = CurrentValueSubject<AdminDashboardTab, Never>(.inProgress)
-    private var cancellables = Set<AnyCancellable>()
+    private let sidebarView = AdminSidebarView()
+    private let contentContainer = UIView()
 
-    init(viewModel: AdminDashboardViewModel = AdminDashboardViewModel()) {
-        self.viewModel = viewModel
-        super.init(nibName: nil, bundle: nil)
-    }
+    private let orderManagementController = MainContainerViewController()
+    private let salesController = AdminSalesViewController()
+    private let storeManagementController = AdminStoreManagementContainerViewController()
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+    private var selectedItem: AdminSidebarItem = .orderManagement
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         bind()
         setupNotificationObservers()
+        showContent(for: selectedItem)
     }
 
     deinit {
@@ -39,118 +33,57 @@ final class AdminSideTabBarController: UIViewController {
     private func setupUI() {
         view.backgroundColor = AppColor.adminDark
 
-        addChild(sideTabBar)
-        addChild(dashboardController)
-        view.addSubview(sideTabBar.view)
-        view.addSubview(dashboardController.view)
-        sideTabBar.didMove(toParent: self)
-        dashboardController.didMove(toParent: self)
+        view.addSubview(sidebarView)
+        view.addSubview(contentContainer)
 
-        sideTabBar.view.snp.makeConstraints {
+        sidebarView.snp.makeConstraints {
             $0.leading.bottom.equalToSuperview()
             $0.top.equalTo(view.safeAreaLayoutGuide)
-            $0.width.equalTo(Layout.tabBarWidth)
+            $0.width.equalTo(Layout.sidebarWidth)
         }
 
-        dashboardController.view.snp.makeConstraints {
-            $0.leading.equalTo(sideTabBar.view.snp.trailing)
+        contentContainer.snp.makeConstraints {
+            $0.leading.equalTo(sidebarView.snp.trailing)
             $0.top.equalTo(view.safeAreaLayoutGuide)
             $0.bottom.trailing.equalToSuperview()
         }
     }
 
     private func bind() {
-        sideTabBar.selectionPublisher
-            .sink { [weak self] tab in
-                self?.selectedTabSubject.send(tab)
+        sidebarView.onSelectItem = { [weak self] item in
+            guard let self else { return }
+            if item == .settings {
+                self.presentSettings()
+                return
             }
-            .store(in: &cancellables)
+            self.selectedItem = item
+            self.showContent(for: item)
+        }
+    }
 
-        sideTabBar.settingsPublisher
-            .sink { [weak self] in
-                self?.presentSettings()
-            }
-            .store(in: &cancellables)
+    private func showContent(for item: AdminSidebarItem) {
+        let controller: UIViewController
+        switch item {
+        case .orderManagement:
+            controller = orderManagementController
+        case .sales:
+            controller = salesController
+        case .storeManagement:
+            controller = storeManagementController
+        case .settings:
+            return
+        }
 
-        let input = AdminDashboardViewModel.Input(
-            viewDidLoad: Just(()).eraseToAnyPublisher(),
-            refresh: Empty(completeImmediately: false).eraseToAnyPublisher(),
-            selectTab: selectedTabSubject.eraseToAnyPublisher(),
-            inProgressSort: dashboardController.inProgressSortPublisher,
-            completedSort: dashboardController.completedSortPublisher,
-            selectOrder: dashboardController.selectionPublisher,
-            updateStatus: dashboardController.statusUpdatePublisher
-        )
-        let output = viewModel.transform(input: input)
+        children.forEach { child in
+            child.willMove(toParent: nil)
+            child.view.removeFromSuperview()
+            child.removeFromParent()
+        }
 
-        output.sideTabBarItems
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] items in
-                self?.sideTabBar.updateItems(items)
-            }
-            .store(in: &cancellables)
-
-        output.selectedTab
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] tab in
-                self?.sideTabBar.updateSelection(tab)
-                self?.dashboardController.show(tab: tab)
-            }
-            .store(in: &cancellables)
-
-        output.inProgressNew
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] orders in
-                self?.dashboardController.updateInProgressNew(orders)
-            }
-            .store(in: &cancellables)
-
-        output.inProgressActive
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] orders in
-                self?.dashboardController.updateInProgressActive(orders)
-            }
-            .store(in: &cancellables)
-
-        output.completedOrders
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] orders in
-                self?.dashboardController.updateCompleted(orders)
-            }
-            .store(in: &cancellables)
-
-        output.orderLookupOrders
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] orders in
-                self?.dashboardController.updateOrderLookup(orders)
-            }
-            .store(in: &cancellables)
-
-        output.selectedOrder
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] order in
-                self?.dashboardController.updateOrder(order)
-            }
-            .store(in: &cancellables)
-
-        output.salesOrders
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] orders in
-                self?.dashboardController.updateSalesOrders(orders)
-            }
-            .store(in: &cancellables)
-
-        output.isLoading
-            .receive(on: DispatchQueue.main)
-            .sink { _ in }
-            .store(in: &cancellables)
-
-        output.error
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] message in
-                self?.dashboardController.showError(message: message)
-            }
-            .store(in: &cancellables)
+        addChild(controller)
+        contentContainer.addSubview(controller.view)
+        controller.view.snp.makeConstraints { $0.edges.equalToSuperview() }
+        controller.didMove(toParent: self)
     }
 
     private func setupNotificationObservers() {
@@ -199,9 +132,6 @@ final class AdminSideTabBarController: UIViewController {
 
     private func presentSettings() {
         let settingsViewController = AdminSettingsViewController()
-        settingsViewController.onStoreIdUpdated = { [weak self] in
-            self?.dashboardController.reloadStoreManagement()
-        }
         let navigationController = UINavigationController(rootViewController: settingsViewController)
         navigationController.modalPresentationStyle = .formSheet
         present(navigationController, animated: true)
@@ -209,5 +139,5 @@ final class AdminSideTabBarController: UIViewController {
 }
 
 private enum Layout {
-    static let tabBarWidth: CGFloat = 90
+    static let sidebarWidth: CGFloat = 220
 }

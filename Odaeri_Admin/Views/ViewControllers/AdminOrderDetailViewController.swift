@@ -2,7 +2,7 @@
 //  AdminOrderDetailViewController.swift
 //  Odaeri_Admin
 //
-//  Created by 박성훈 on 1/18/26.
+//  Created by 박성훈 on 01/30/26.
 //
 
 import UIKit
@@ -15,105 +15,182 @@ final class AdminOrderDetailViewController: UIViewController {
         updateStatusSubject.eraseToAnyPublisher()
     }
 
-    private var currentOrder: OrderListItemEntity?
-    private var pickupMinutes = Layout.defaultPickupMinutes
-
-    private let scrollView = UIScrollView()
-    private let contentView = UIView()
-    private let contentStack = UIStackView()
-
-    private let headerView = AdminOrderHeaderView()
-    private let summaryView = AdminOrderSummaryView()
-    private let menuView = AdminOrderMenuListView()
-    private let infoPanelView = AdminOrderInfoPanelView()
-
     private let emptyLabel: UILabel = {
         let label = UILabel()
         label.text = "왼쪽에서 주문을 선택하세요."
-        label.font = AppFont.body2
-        label.textColor = AppColor.gray60
+        label.font = UIFont.systemFont(ofSize: 18, weight: .medium)
+        label.textColor = UIColor.systemGray
         label.textAlignment = .center
         return label
     }()
 
+    private let cardView = UIView()
+    private let headerStack = UIStackView()
+    private let orderCodeLabel = UILabel()
+    private let timerBadgeLabel = UILabel()
+    private let statusLabel = UILabel()
+
+    private let scrollView = UIScrollView()
+    private let contentStack = UIStackView()
+
+    private let menuSectionView = UIView()
+    private let requestSectionView = UIView()
+    private let paymentSectionView = UIView()
+
+    private let footerContainer = UIView()
+    private let footerStack = UIStackView()
+    private let rejectButton = UIButton(type: .system)
+    private let actionButton = UIButton(type: .system)
+
+    private var currentOrder: Order?
+    private var currentOrderEntity: OrderListItemEntity?
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        navigationItem.hidesBackButton = true
         setupUI()
-        bind()
+        updateEmptyState()
+    }
+
+    func configure(order: Order?) {
+        currentOrder = order
+        currentOrderEntity = nil
+        updateEmptyState()
+        guard let order else { return }
+        applyOrder(order)
+    }
+
+    func configure(order: OrderListItemEntity?) {
+        currentOrderEntity = order
+        currentOrder = order.map { $0.toAdminOrder() }
+        updateEmptyState()
+        guard let mapped = currentOrder else { return }
+        applyOrder(mapped)
     }
 
     private func setupUI() {
-        view.backgroundColor = AppColor.gray0
+        view.backgroundColor = UIColor.systemGray6
 
         view.addSubview(emptyLabel)
         emptyLabel.snp.makeConstraints {
             $0.center.equalToSuperview()
         }
 
-        view.addSubview(scrollView)
+        view.addSubview(cardView)
+        cardView.backgroundColor = .white
+        cardView.layer.cornerRadius = 16
+        cardView.layer.shadowColor = UIColor.black.cgColor
+        cardView.layer.shadowOpacity = 0.08
+        cardView.layer.shadowOffset = CGSize(width: 0, height: 6)
+        cardView.layer.shadowRadius = 16
+
+        cardView.snp.makeConstraints {
+            $0.top.equalToSuperview().offset(24)
+            $0.leading.equalToSuperview().offset(24)
+            $0.trailing.equalToSuperview().offset(-24)
+            $0.bottom.equalToSuperview().offset(-24)
+        }
+
+        cardView.addSubview(scrollView)
+        cardView.addSubview(footerContainer)
+
+        footerContainer.backgroundColor = .white
+
+        footerContainer.snp.makeConstraints {
+            $0.leading.trailing.bottom.equalToSuperview()
+            $0.height.equalTo(60)
+        }
+
         scrollView.snp.makeConstraints {
-            $0.edges.equalToSuperview()
+            $0.top.leading.trailing.equalToSuperview()
+            $0.bottom.equalTo(footerContainer.snp.top)
         }
 
-        scrollView.addSubview(contentView)
-        contentView.snp.makeConstraints {
-            $0.edges.equalTo(scrollView.contentLayoutGuide)
-            $0.width.equalTo(scrollView.frameLayoutGuide)
+        scrollView.addSubview(headerStack)
+        scrollView.addSubview(contentStack)
+
+        headerStack.axis = .vertical
+        headerStack.spacing = 8
+
+        orderCodeLabel.font = UIFont.systemFont(ofSize: 28, weight: .bold)
+        orderCodeLabel.textColor = .black
+
+        timerBadgeLabel.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
+        timerBadgeLabel.textColor = .white
+        timerBadgeLabel.backgroundColor = UIColor.systemGray
+        timerBadgeLabel.layer.cornerRadius = 12
+        timerBadgeLabel.layer.masksToBounds = true
+        timerBadgeLabel.textAlignment = .center
+        timerBadgeLabel.setContentHuggingPriority(.required, for: .horizontal)
+        timerBadgeLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        statusLabel.font = UIFont.systemFont(ofSize: 16, weight: .bold)
+        statusLabel.textColor = UIColor.systemGray
+
+        let headerRow = UIStackView(arrangedSubviews: [orderCodeLabel, timerBadgeLabel])
+        headerRow.axis = .horizontal
+        headerRow.spacing = 12
+        headerRow.alignment = .center
+
+        headerStack.addArrangedSubview(headerRow)
+        headerStack.addArrangedSubview(statusLabel)
+
+        headerStack.snp.makeConstraints {
+            $0.top.equalTo(scrollView.contentLayoutGuide).offset(24)
+            $0.leading.equalTo(scrollView.contentLayoutGuide).offset(24)
+            $0.trailing.equalTo(scrollView.contentLayoutGuide).offset(-24)
         }
 
-        contentView.addSubview(contentStack)
+        timerBadgeLabel.snp.makeConstraints {
+            $0.height.equalTo(24)
+            $0.width.greaterThanOrEqualTo(72)
+        }
+
         contentStack.axis = .vertical
-        contentStack.spacing = Layout.sectionSpacing
+        contentStack.spacing = 20
+
+        scrollView.addSubview(contentStack)
         contentStack.snp.makeConstraints {
-            $0.edges.equalToSuperview().inset(Layout.pageInsets)
+            $0.top.equalTo(headerStack.snp.bottom).offset(20)
+            $0.leading.equalTo(scrollView.contentLayoutGuide).offset(24)
+            $0.trailing.equalTo(scrollView.contentLayoutGuide).offset(-24)
+            $0.bottom.equalTo(scrollView.contentLayoutGuide).offset(-24)
         }
 
-        let mainRowStack = UIStackView(arrangedSubviews: [summaryView, menuView])
-        mainRowStack.axis = .horizontal
-        mainRowStack.spacing = Layout.columnSpacing
-        mainRowStack.distribution = .fillEqually
+        configureMenuSection()
+        configureRequestSection()
+        configurePaymentSection()
 
-        contentStack.addArrangedSubview(headerView)
-        contentStack.addArrangedSubview(mainRowStack)
-        contentStack.addArrangedSubview(infoPanelView)
+        footerStack.axis = .horizontal
+        footerStack.spacing = 12
+        footerStack.distribution = .fillEqually
 
-        summaryView.snp.makeConstraints {
-            $0.height.greaterThanOrEqualTo(Layout.minimumSummaryHeight)
-        }
+        rejectButton.setTitle("거절", for: .normal)
+        rejectButton.setTitleColor(UIColor.systemRed, for: .normal)
+        rejectButton.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
+        rejectButton.backgroundColor = UIColor.systemGray5
+        rejectButton.layer.cornerRadius = 10
+        rejectButton.addTarget(self, action: #selector(handleReject), for: .touchUpInside)
 
-        menuView.snp.makeConstraints {
-            $0.height.greaterThanOrEqualTo(Layout.minimumMenuHeight)
+        actionButton.setTitle("접수", for: .normal)
+        actionButton.setTitleColor(.white, for: .normal)
+        actionButton.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
+        actionButton.backgroundColor = UIColor.systemGreen
+        actionButton.layer.cornerRadius = 10
+        actionButton.addTarget(self, action: #selector(handlePrimaryAction), for: .touchUpInside)
+
+        footerContainer.addSubview(footerStack)
+        footerStack.addArrangedSubview(rejectButton)
+        footerStack.addArrangedSubview(actionButton)
+
+        footerStack.snp.makeConstraints {
+            $0.edges.equalToSuperview().inset(12)
         }
     }
 
-    private func bind() {
-        headerView.onAccept = { [weak self] in
-            self?.updateStatusSubject.send(.approved)
-        }
-        headerView.onReject = { [weak self] in
-            self?.showRejectAlert()
-        }
-        infoPanelView.onIncrease = { [weak self] in
-            self?.adjustPickupMinutes(delta: Layout.pickupStep)
-        }
-        infoPanelView.onDecrease = { [weak self] in
-            self?.adjustPickupMinutes(delta: -Layout.pickupStep)
-        }
-    }
-
-    func configure(order: OrderListItemEntity?) {
-        currentOrder = order
-        pickupMinutes = Layout.defaultPickupMinutes
-        emptyLabel.isHidden = order != nil
-        scrollView.isHidden = order == nil
-
-        guard let order else { return }
-        let isStoreOpen = checkStoreOpen(closeTime: order.store.close)
-        headerView.configure(order: order, isStoreOpen: isStoreOpen)
-        summaryView.configure(order: order)
-        menuView.configure(order: order)
-        updatePickupInfo()
+    private func updateEmptyState() {
+        let hasOrder = currentOrder != nil
+        emptyLabel.isHidden = hasOrder
+        cardView.isHidden = !hasOrder
     }
 
     func showError(message: String) {
@@ -122,554 +199,217 @@ final class AdminOrderDetailViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    private func updatePickupInfo() {
-        guard let order = currentOrder else { return }
-        let baseDate = order.paidAt ?? order.createdAt ?? Date()
-        let deadline = Calendar.current.date(byAdding: .minute, value: pickupMinutes, to: baseDate) ?? baseDate
-        let deadlineText = DateFormatter.timeDisplay.string(from: deadline)
-        let paymentStatusText = order.paidAt == nil ? "결제 대기" : "결제 완료"
-        infoPanelView.update(
-            pickupMinutes: pickupMinutes,
-            pickupDeadlineText: "픽업 마감 \(deadlineText)",
-            paymentStatusText: paymentStatusText
-        )
+    private func applyOrder(_ order: Order) {
+        orderCodeLabel.text = order.orderCode
+        statusLabel.text = order.status.displayName
+        statusLabel.textColor = order.status.indicatorColor
+
+        let elapsedMinutes = max(0, Int(Date().timeIntervalSince(order.orderTime) / 60))
+        timerBadgeLabel.text = "경과 \(elapsedMinutes)분"
+
+        updateMenuSection(order)
+        updatePaymentSection(order)
+        updateActionButtons(status: order.status)
     }
 
-    private func adjustPickupMinutes(delta: Int) {
-        pickupMinutes = max(Layout.minimumPickupMinutes, min(Layout.maximumPickupMinutes, pickupMinutes + delta))
-        updatePickupInfo()
-    }
-
-    private func checkStoreOpen(closeTime: String) -> Bool {
-        guard let closeDate = Self.closeTimeFormatter.date(from: closeTime) else { return true }
-        let now = Date()
-        let calendar = Calendar.current
-        let closeComponents = calendar.dateComponents([.hour, .minute], from: closeDate)
-        var dayComponents = calendar.dateComponents([.year, .month, .day], from: now)
-        dayComponents.hour = closeComponents.hour
-        dayComponents.minute = closeComponents.minute
-        guard let todayClose = calendar.date(from: dayComponents) else { return true }
-        return now < todayClose
-    }
-
-    private func showRejectAlert() {
-        let alert = UIAlertController(title: "주문 거부", message: "거부 기능은 준비 중입니다.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "확인", style: .default))
-        present(alert, animated: true)
-    }
-
-    private static let closeTimeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ko_KR")
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
-}
-
-private final class AdminOrderHeaderView: UIView {
-    private let storeNameLabel = UILabel()
-    private let openBadge = AdminOrderOpenBadgeView()
-    private let orderCodeLabel = UILabel()
-    private let paidAtLabel = UILabel()
-    private let statusLabel = UILabel()
-    private let acceptButton = UIButton(type: .system)
-    private let rejectButton = UIButton(type: .system)
-    private let actionStack = UIStackView()
-
-    var onAccept: (() -> Void)?
-    var onReject: (() -> Void)?
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupUI()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupUI() {
-        backgroundColor = AppColor.gray0
-
-        storeNameLabel.font = AppFont.title1
-        storeNameLabel.textColor = AppColor.gray90
-
-        orderCodeLabel.font = AppFont.body2Bold
-        orderCodeLabel.textColor = AppColor.gray90
-
-        paidAtLabel.font = AppFont.body2
-        paidAtLabel.textColor = AppColor.gray75
-
-        statusLabel.font = AppFont.body2Bold
-        statusLabel.textColor = AppColor.gray0
-        statusLabel.textAlignment = .center
-        statusLabel.backgroundColor = AppColor.gray90
-        statusLabel.clipsToBounds = true
-
-        acceptButton.setTitle("수락", for: .normal)
-        acceptButton.setTitleColor(AppColor.gray0, for: .normal)
-        acceptButton.backgroundColor = AppColor.deepSprout
-        acceptButton.layer.cornerRadius = Layout.actionCornerRadius
-        acceptButton.contentEdgeInsets = Layout.actionInsets
-        acceptButton.addTarget(self, action: #selector(handleAccept), for: .touchUpInside)
-
-        rejectButton.setTitle("거부", for: .normal)
-        rejectButton.setTitleColor(AppColor.gray90, for: .normal)
-        rejectButton.backgroundColor = AppColor.gray30
-        rejectButton.layer.cornerRadius = Layout.actionCornerRadius
-        rejectButton.contentEdgeInsets = Layout.actionInsets
-        rejectButton.addTarget(self, action: #selector(handleReject), for: .touchUpInside)
-
-        actionStack.axis = .horizontal
-        actionStack.spacing = Layout.buttonSpacing
-        actionStack.addArrangedSubview(acceptButton)
-        actionStack.addArrangedSubview(rejectButton)
-
-        let storeRow = UIStackView(arrangedSubviews: [storeNameLabel, openBadge, UIView()])
-        storeRow.axis = .horizontal
-        storeRow.spacing = Layout.textSpacing
-        storeRow.alignment = .center
-
-        let orderRow = UIStackView(arrangedSubviews: [orderCodeLabel, paidAtLabel])
-        orderRow.axis = .horizontal
-        orderRow.spacing = Layout.textSpacing
-
-        let leftStack = UIStackView(arrangedSubviews: [storeRow, orderRow])
-        leftStack.axis = .vertical
-        leftStack.spacing = Layout.textSpacing
-
-        let rightStack = UIStackView(arrangedSubviews: [statusLabel, actionStack])
-        rightStack.axis = .vertical
-        rightStack.spacing = Layout.textSpacing
-        rightStack.alignment = .trailing
-
-        let container = UIStackView(arrangedSubviews: [leftStack, rightStack])
-        container.axis = .horizontal
-        container.alignment = .center
-        container.distribution = .equalSpacing
-
-        addSubview(container)
-        container.snp.makeConstraints {
-            $0.edges.equalToSuperview()
+    private func updateActionButtons(status: OrderStatus) {
+        switch status {
+        case .pending:
+            actionButton.setTitle("접수", for: .normal)
+            actionButton.backgroundColor = UIColor.systemGreen
+            actionButton.isEnabled = true
+        case .cooking:
+            actionButton.setTitle("완료", for: .normal)
+            actionButton.backgroundColor = UIColor.systemGreen
+            actionButton.isEnabled = true
+        case .completed:
+            actionButton.setTitle("완료됨", for: .normal)
+            actionButton.backgroundColor = UIColor.systemGray3
+            actionButton.isEnabled = false
         }
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        statusLabel.layer.cornerRadius = statusLabel.bounds.height / 2
-    }
-
-    func configure(order: OrderListItemEntity, isStoreOpen: Bool) {
-        storeNameLabel.text = order.store.name
-        openBadge.update(isOpen: isStoreOpen)
-        orderCodeLabel.text = "픽업 주문 번호 \(order.orderCode)"
-        let paidAtText = order.paidAt ?? order.createdAt
-        let dateText = paidAtText.map { DateFormatter.dotDisplay.string(from: $0) } ?? "결제 시간 없음"
-        paidAtLabel.text = "결제일자 \(dateText)"
-
-        if order.currentOrderStatus == .pendingApproval {
-            statusLabel.isHidden = true
-            actionStack.isHidden = false
-        } else {
-            statusLabel.isHidden = false
-            statusLabel.text = order.currentOrderStatus.description
-            actionStack.isHidden = true
-        }
-    }
-
-    @objc private func handleAccept() {
-        onAccept?()
     }
 
     @objc private func handleReject() {
-        onReject?()
-    }
-}
-
-private final class AdminOrderOpenBadgeView: UIView {
-    private let dotView = UIView()
-    private let titleLabel = UILabel()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupUI()
+        guard currentOrderEntity != nil else { return }
+        updateStatusSubject.send(.pendingApproval)
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupUI() {
-        backgroundColor = AppColor.gray15
-        layer.cornerRadius = Layout.badgeCornerRadius
-
-        dotView.layer.cornerRadius = Layout.dotSize / 2
-
-        titleLabel.font = AppFont.caption1
-        titleLabel.textColor = AppColor.gray90
-
-        let stack = UIStackView(arrangedSubviews: [dotView, titleLabel])
-        stack.axis = .horizontal
-        stack.spacing = Layout.textSpacing
-        stack.alignment = .center
-
-        addSubview(stack)
-        stack.snp.makeConstraints {
-            $0.edges.equalToSuperview().inset(Layout.badgeInsets)
+    @objc private func handlePrimaryAction() {
+        guard let entity = currentOrderEntity else { return }
+        let nextStatus: OrderStatusEntity
+        switch entity.currentOrderStatus {
+        case .pendingApproval:
+            nextStatus = .approved
+        case .approved:
+            nextStatus = .inProgress
+        case .inProgress:
+            nextStatus = .readyForPickup
+        case .readyForPickup:
+            nextStatus = .pickedUp
+        case .pickedUp:
+            return
         }
-        dotView.snp.makeConstraints {
-            $0.size.equalTo(Layout.dotSize)
-        }
+        updateStatusSubject.send(nextStatus)
     }
 
-    func update(isOpen: Bool) {
-        titleLabel.text = isOpen ? "영업 중" : "영업 종료"
-        dotView.backgroundColor = isOpen ? AppColor.deepSprout : AppColor.gray60
-    }
-}
+    private func configureMenuSection() {
+        let titleLabel = sectionTitleLabel(text: "메뉴")
+        let menuHeader = menuHeaderRow()
+        let menuListStack = UIStackView()
+        menuListStack.axis = .vertical
+        menuListStack.spacing = 8
+        menuListStack.tag = Layout.menuListTag
 
-private final class AdminOrderSummaryView: UIView {
-    private let titleLabel = UILabel()
-    private let stackView = UIStackView()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupUI()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupUI() {
-        backgroundColor = AppColor.gray15
-        layer.cornerRadius = Layout.cardCornerRadius
-
-        titleLabel.text = "주문 요약"
-        titleLabel.font = AppFont.body1Bold
-        titleLabel.textColor = AppColor.gray90
-
-        stackView.axis = .vertical
-        stackView.spacing = Layout.rowSpacing
-
-        let container = UIStackView(arrangedSubviews: [titleLabel, stackView])
+        let container = UIStackView(arrangedSubviews: [titleLabel, menuHeader, menuListStack])
         container.axis = .vertical
-        container.spacing = Layout.sectionSpacing
+        container.spacing = 12
 
-        addSubview(container)
-        container.snp.makeConstraints {
-            $0.edges.equalToSuperview().inset(Layout.cardInsets)
+        menuSectionView.addSubview(container)
+        container.snp.makeConstraints { $0.edges.equalToSuperview() }
+
+        contentStack.addArrangedSubview(menuSectionView)
+    }
+
+    private func configureRequestSection() {
+        let titleLabel = sectionTitleLabel(text: "요청 사항")
+        let requestLabel = UILabel()
+        requestLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        requestLabel.textColor = UIColor.systemGray
+        requestLabel.numberOfLines = 0
+        requestLabel.text = "요청 사항 없음"
+        requestLabel.tag = Layout.requestLabelTag
+
+        let container = UIStackView(arrangedSubviews: [titleLabel, requestLabel])
+        container.axis = .vertical
+        container.spacing = 8
+
+        requestSectionView.addSubview(container)
+        container.snp.makeConstraints { $0.edges.equalToSuperview() }
+
+        contentStack.addArrangedSubview(requestSectionView)
+    }
+
+    private func configurePaymentSection() {
+        let titleLabel = sectionTitleLabel(text: "고객 정보 및 결제 요약")
+        let infoStack = UIStackView()
+        infoStack.axis = .vertical
+        infoStack.spacing = 8
+        infoStack.tag = Layout.paymentStackTag
+
+        let container = UIStackView(arrangedSubviews: [titleLabel, infoStack])
+        container.axis = .vertical
+        container.spacing = 12
+
+        paymentSectionView.addSubview(container)
+        container.snp.makeConstraints { $0.edges.equalToSuperview() }
+
+        contentStack.addArrangedSubview(paymentSectionView)
+    }
+
+    private func updateMenuSection(_ order: Order) {
+        guard let menuStack = menuSectionView.viewWithTag(Layout.menuListTag) as? UIStackView else { return }
+        menuStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        for menu in order.menus {
+            let row = menuRow(name: menu.name, quantity: menu.quantity, price: menu.price)
+            menuStack.addArrangedSubview(row)
         }
     }
 
-    func configure(order: OrderListItemEntity) {
-        stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+    private func updatePaymentSection(_ order: Order) {
+        guard let infoStack = paymentSectionView.viewWithTag(Layout.paymentStackTag) as? UIStackView else { return }
+        infoStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
-        let createdText = order.createdAt.map { DateFormatter.fullDisplay.string(from: $0) } ?? "시간 정보 없음"
-        let paidText = order.paidAt.map { DateFormatter.fullDisplay.string(from: $0) } ?? "결제 정보 없음"
-        let latestTimeline = order.orderStatusTimeline.last
-        let timelineDate = latestTimeline?.changedAt.map { DateFormatter.fullDisplay.string(from: $0) } ?? "시간 정보 없음"
-        let timelineText = "\(latestTimeline?.status.description ?? order.currentOrderStatus.description) · \(timelineDate)"
-        let hashTags = order.store.hashTags.joined(separator: ", ")
-        let locationText = "위도 \(order.store.latitude), 경도 \(order.store.longitude)"
-
-        let rows = [
-            AdminSummaryRowView(title: "주문 생성일", value: createdText),
-            AdminSummaryRowView(title: "결제일", value: paidText),
-            AdminSummaryRowView(title: "상태 이력", value: timelineText),
-            AdminSummaryRowView(title: "카테고리", value: order.store.category),
-            AdminSummaryRowView(title: "해시태그", value: hashTags.isEmpty ? "정보 없음" : hashTags),
-            AdminSummaryRowView(title: "가게 위치", value: locationText)
-        ]
-
-        rows.forEach { row in
-            stackView.addArrangedSubview(row)
-        }
-    }
-}
-
-private final class AdminSummaryRowView: UIView {
-    private let titleLabel = UILabel()
-    private let valueLabel = UILabel()
-
-    init(title: String, value: String) {
-        super.init(frame: .zero)
-        setupUI()
-        titleLabel.text = title
-        valueLabel.text = value
+        infoStack.addArrangedSubview(infoRow(title: "매장", value: order.storeName))
+        infoStack.addArrangedSubview(infoRow(title: "결제 금액", value: "\(order.totalPrice)원"))
+        infoStack.addArrangedSubview(infoRow(title: "상태", value: order.status.displayName))
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+    private func sectionTitleLabel(text: String) -> UILabel {
+        let label = UILabel()
+        label.text = text
+        label.font = UIFont.systemFont(ofSize: 18, weight: .bold)
+        label.textColor = .black
+        return label
     }
 
-    private func setupUI() {
-        titleLabel.font = AppFont.caption1
-        titleLabel.textColor = AppColor.gray60
+    private func menuHeaderRow() -> UIStackView {
+        let nameLabel = headerLabel(text: "메뉴")
+        let qtyLabel = headerLabel(text: "수량")
+        let priceLabel = headerLabel(text: "가격")
 
-        valueLabel.font = AppFont.body2
-        valueLabel.textColor = AppColor.gray90
-        valueLabel.numberOfLines = 0
+        let stack = UIStackView(arrangedSubviews: [nameLabel, qtyLabel, priceLabel])
+        stack.axis = .horizontal
+        stack.distribution = .fillEqually
+        return stack
+    }
+
+    private func menuRow(name: String, quantity: Int, price: Int) -> UIStackView {
+        let nameLabel = bodyLabel(text: name)
+        let qtyLabel = bodyLabel(text: "\(quantity)")
+        let priceLabel = bodyLabel(text: "\(price)원")
+
+        let stack = UIStackView(arrangedSubviews: [nameLabel, qtyLabel, priceLabel])
+        stack.axis = .horizontal
+        stack.distribution = .fillEqually
+        return stack
+    }
+
+    private func headerLabel(text: String) -> UILabel {
+        let label = UILabel()
+        label.text = text
+        label.font = UIFont.systemFont(ofSize: 16, weight: .bold)
+        label.textColor = UIColor.systemGray
+        return label
+    }
+
+    private func bodyLabel(text: String) -> UILabel {
+        let label = UILabel()
+        label.text = text
+        label.font = UIFont.systemFont(ofSize: 16, weight: .regular)
+        label.textColor = UIColor.black
+        return label
+    }
+
+    private func infoRow(title: String, value: String) -> UIStackView {
+        let titleLabel = bodyLabel(text: title)
+        titleLabel.textColor = UIColor.systemGray
+        let valueLabel = bodyLabel(text: value)
 
         let stack = UIStackView(arrangedSubviews: [titleLabel, valueLabel])
-        stack.axis = .vertical
-        stack.spacing = Layout.textSpacing
+        stack.axis = .horizontal
+        stack.distribution = .fillEqually
+        return stack
+    }
 
-        addSubview(stack)
-        stack.snp.makeConstraints {
-            $0.edges.equalToSuperview()
-        }
+    private enum Layout {
+        static let menuListTag = 101
+        static let requestLabelTag = 102
+        static let paymentStackTag = 103
     }
 }
 
-private final class AdminOrderMenuListView: UIView {
-    private let titleLabel = UILabel()
-    private let stackView = UIStackView()
-    private let dividerView = UIView()
-    private let totalLabel = UILabel()
-    private let spacerView = UIView()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupUI()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupUI() {
-        backgroundColor = AppColor.gray15
-        layer.cornerRadius = Layout.cardCornerRadius
-
-        titleLabel.text = "메뉴 리스트"
-        titleLabel.font = AppFont.body1Bold
-        titleLabel.textColor = AppColor.gray90
-
-        stackView.axis = .vertical
-        stackView.spacing = Layout.rowSpacing
-
-        dividerView.backgroundColor = AppColor.gray30
-
-        totalLabel.font = AppFont.body1Bold
-        totalLabel.textColor = AppColor.gray90
-        totalLabel.textAlignment = .right
-
-        let container = UIStackView(arrangedSubviews: [titleLabel, stackView, spacerView, dividerView, totalLabel])
-        container.axis = .vertical
-        container.spacing = Layout.sectionSpacing
-
-        addSubview(container)
-        container.snp.makeConstraints {
-            $0.edges.equalToSuperview().inset(Layout.cardInsets)
+private extension OrderListItemEntity {
+    func toAdminOrder() -> Order {
+        let mappedStatus: OrderStatus
+        switch currentOrderStatus {
+        case .pendingApproval, .approved:
+            mappedStatus = .pending
+        case .inProgress:
+            mappedStatus = .cooking
+        case .readyForPickup, .pickedUp:
+            mappedStatus = .completed
         }
-
-        dividerView.snp.makeConstraints {
-            $0.height.equalTo(1)
+        let menus = orderMenuList.map {
+            Menu(name: $0.menu.name, price: $0.menu.price, quantity: $0.quantity, imageUrl: $0.menu.menuImageUrl)
         }
-
-        stackView.setContentHuggingPriority(.required, for: .vertical)
-        totalLabel.setContentHuggingPriority(.required, for: .vertical)
-        spacerView.setContentHuggingPriority(.defaultLow, for: .vertical)
+        return Order(
+            orderCode: orderCode,
+            totalPrice: totalPrice,
+            status: mappedStatus,
+            orderTime: createdAt ?? Date(),
+            storeName: store.name,
+            menus: menus
+        )
     }
-
-    func configure(order: OrderListItemEntity) {
-        stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        order.orderMenuList.forEach { item in
-            let row = AdminMenuRowView(item: item)
-            stackView.addArrangedSubview(row)
-        }
-        totalLabel.text = "총 금액 \(order.totalPrice.formatted())원"
-    }
-}
-
-private final class AdminMenuRowView: UIView {
-    private let nameLabel = UILabel()
-    private let quantityLabel = UILabel()
-    private let priceLabel = UILabel()
-    private let tagLabel = UILabel()
-
-    init(item: OrderMenuEntity) {
-        super.init(frame: .zero)
-        setupUI()
-        configure(item: item)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupUI() {
-        nameLabel.font = AppFont.body2
-        nameLabel.textColor = AppColor.gray90
-        nameLabel.numberOfLines = 0
-
-        quantityLabel.font = AppFont.caption1
-        quantityLabel.textColor = AppColor.gray60
-
-        priceLabel.font = AppFont.caption1
-        priceLabel.textColor = AppColor.gray75
-
-        tagLabel.font = AppFont.caption2
-        tagLabel.textColor = AppColor.gray60
-
-        let mainRow = UIStackView(arrangedSubviews: [nameLabel, quantityLabel, priceLabel])
-        mainRow.axis = .horizontal
-        mainRow.alignment = .center
-        mainRow.distribution = .equalSpacing
-
-        let container = UIStackView(arrangedSubviews: [mainRow, tagLabel])
-        container.axis = .vertical
-        container.spacing = Layout.textSpacing
-
-        addSubview(container)
-        container.snp.makeConstraints {
-            $0.edges.equalToSuperview()
-        }
-    }
-
-    private func configure(item: OrderMenuEntity) {
-        nameLabel.text = item.menu.name
-        quantityLabel.text = "x\(item.quantity)"
-        priceLabel.text = "\(item.menu.price.formatted())원"
-        tagLabel.text = item.menu.tags.first.map { "태그: \($0)" } ?? ""
-        tagLabel.isHidden = item.menu.tags.first == nil
-    }
-}
-
-private final class AdminOrderInfoPanelView: UIView {
-    private let titleLabel = UILabel()
-    private let pickupValueLabel = UILabel()
-    private let minusButton = UIButton(type: .system)
-    private let plusButton = UIButton(type: .system)
-    private let deadlineLabel = UILabel()
-    private let paymentStatusLabel = UILabel()
-    private let cancelButton = UIButton(type: .system)
-
-    var onIncrease: (() -> Void)?
-    var onDecrease: (() -> Void)?
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupUI()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func setupUI() {
-        backgroundColor = AppColor.gray15
-        layer.cornerRadius = Layout.cardCornerRadius
-
-        titleLabel.text = "픽업 정보"
-        titleLabel.font = AppFont.body1Bold
-        titleLabel.textColor = AppColor.gray90
-
-        pickupValueLabel.font = AppFont.title1
-        pickupValueLabel.textColor = AppColor.gray90
-
-        minusButton.setTitle("−", for: .normal)
-        minusButton.setTitleColor(AppColor.gray90, for: .normal)
-        minusButton.titleLabel?.font = AppFont.body1Bold
-        minusButton.backgroundColor = AppColor.gray30
-        minusButton.layer.cornerRadius = Layout.controlButtonCorner
-        minusButton.addTarget(self, action: #selector(handleDecrease), for: .touchUpInside)
-
-        plusButton.setTitle("+", for: .normal)
-        plusButton.setTitleColor(AppColor.gray90, for: .normal)
-        plusButton.titleLabel?.font = AppFont.body1Bold
-        plusButton.backgroundColor = AppColor.gray30
-        plusButton.layer.cornerRadius = Layout.controlButtonCorner
-        plusButton.addTarget(self, action: #selector(handleIncrease), for: .touchUpInside)
-
-        deadlineLabel.font = AppFont.body2
-        deadlineLabel.textColor = AppColor.gray75
-
-        paymentStatusLabel.font = AppFont.body2
-        paymentStatusLabel.textColor = AppColor.gray75
-
-        cancelButton.setTitle("주문 취소", for: .normal)
-        cancelButton.setTitleColor(AppColor.gray90, for: .normal)
-        cancelButton.backgroundColor = AppColor.gray30
-        cancelButton.layer.cornerRadius = Layout.controlContainerCorner
-
-        let controlStack = UIStackView(arrangedSubviews: [minusButton, pickupValueLabel, plusButton])
-        controlStack.axis = .horizontal
-        controlStack.spacing = Layout.controlSpacing
-        controlStack.alignment = .center
-        controlStack.layoutMargins = Layout.controlInsets
-        controlStack.isLayoutMarginsRelativeArrangement = true
-        controlStack.backgroundColor = AppColor.gray30
-        controlStack.layer.cornerRadius = Layout.controlContainerCorner
-
-        let actionRow = UIStackView(arrangedSubviews: [cancelButton, UIView(), controlStack])
-        actionRow.axis = .horizontal
-        actionRow.alignment = .center
-
-        let container = UIStackView(arrangedSubviews: [titleLabel, deadlineLabel, paymentStatusLabel, actionRow])
-        container.axis = .vertical
-        container.spacing = Layout.sectionSpacing
-
-        addSubview(container)
-        container.snp.makeConstraints {
-            $0.edges.equalToSuperview().inset(Layout.cardInsets)
-        }
-
-        cancelButton.snp.makeConstraints {
-            $0.height.equalTo(Layout.controlButtonSize)
-            $0.width.greaterThanOrEqualTo(Layout.cancelButtonWidth)
-        }
-
-        minusButton.snp.makeConstraints {
-            $0.size.equalTo(Layout.controlButtonSize)
-        }
-
-        plusButton.snp.makeConstraints {
-            $0.size.equalTo(Layout.controlButtonSize)
-        }
-    }
-
-    func update(pickupMinutes: Int, pickupDeadlineText: String, paymentStatusText: String) {
-        pickupValueLabel.text = "\(pickupMinutes)분"
-        deadlineLabel.text = pickupDeadlineText
-        paymentStatusLabel.text = paymentStatusText
-    }
-
-    @objc private func handleIncrease() {
-        onIncrease?()
-    }
-
-    @objc private func handleDecrease() {
-        onDecrease?()
-    }
-}
-
-private enum Layout {
-    static let pageInsets = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
-    static let sectionSpacing: CGFloat = 20
-    static let columnSpacing: CGFloat = 20
-    static let rowSpacing: CGFloat = 12
-    static let textSpacing: CGFloat = 6
-    static let cardInsets = UIEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
-    static let cardCornerRadius: CGFloat = 16
-    static let statusCornerRadius: CGFloat = 12
-    static let actionCornerRadius: CGFloat = 14
-    static let actionInsets = UIEdgeInsets(top: 6, left: 14, bottom: 6, right: 14)
-    static let buttonSpacing: CGFloat = 8
-    static let badgeCornerRadius: CGFloat = 12
-    static let badgeInsets = UIEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
-    static let dotSize: CGFloat = 6
-    static let controlButtonCorner: CGFloat = 14
-    static let controlButtonSize: CGFloat = 40
-    static let controlSpacing: CGFloat = 12
-    static let controlInsets = UIEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
-    static let controlContainerCorner: CGFloat = 16
-    static let cancelButtonWidth: CGFloat = 110
-    static let minimumSummaryHeight: CGFloat = 220
-    static let minimumMenuHeight: CGFloat = 220
-    static let defaultPickupMinutes = 20
-    static let minimumPickupMinutes = 0
-    static let maximumPickupMinutes = 180
-    static let pickupStep = 5
 }
