@@ -47,6 +47,8 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         let remainingPath: AnyPublisher<[CLLocationCoordinate2D], Never>
         let distanceToDestination: AnyPublisher<String, Never>
         let estimatedTime: AnyPublisher<String, Never>
+        let arrivalTimeText: AnyPublisher<String, Never>
+        let turnInfo: AnyPublisher<NavigationTurnInfo, Never>
         let camera: AnyPublisher<MKMapCamera?, Never>
         let isTrackingUser: AnyPublisher<Bool, Never>
         let showArrivalAlert: AnyPublisher<String, Never>
@@ -197,6 +199,19 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
             }
             .eraseToAnyPublisher()
 
+        let arrivalTimeText = navigationService.$estimatedTimeRemaining
+            .map { seconds -> String in
+                let arrivalDate = Date().addingTimeInterval(seconds)
+                return DateFormatter.arrivalTime.string(from: arrivalDate)
+            }
+            .eraseToAnyPublisher()
+
+        let turnInfo = navigationService.$currentLocation
+            .map { [weak self] location in
+                self?.makeTurnInfo(currentLocation: location) ?? NavigationTurnInfo.placeholder
+            }
+            .eraseToAnyPublisher()
+
         return Output(
             currentLocation: navigationService.$currentLocation.eraseToAnyPublisher(),
             currentHeading: navigationService.$currentHeading.eraseToAnyPublisher(),
@@ -205,10 +220,64 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
             remainingPath: navigationService.$remainingPath.eraseToAnyPublisher(),
             distanceToDestination: distanceString,
             estimatedTime: timeString,
+            arrivalTimeText: arrivalTimeText,
+            turnInfo: turnInfo,
             camera: cameraSubject.eraseToAnyPublisher(),
             isTrackingUser: isTrackingUserSubject.eraseToAnyPublisher(),
             showArrivalAlert: showArrivalAlertSubject.eraseToAnyPublisher(),
             showRerouteAlert: showRerouteAlertSubject.eraseToAnyPublisher()
         )
+    }
+
+    func routeSteps() -> [NavigationRouteStep] {
+        let steps = route.steps.filter { !$0.instructions.isEmpty && $0.distance > 0 }
+        return steps.compactMap { step in
+            guard let coordinate = step.polyline.firstCoordinate else { return nil }
+            let distanceText = formatDistance(step.distance)
+            return NavigationRouteStep(
+                id: UUID().uuidString,
+                instruction: step.instructions,
+                distanceText: distanceText,
+                coordinate: coordinate,
+                direction: NavigationTurnDirection.from(instruction: step.instructions)
+            )
+        }
+    }
+
+    private func makeTurnInfo(currentLocation: CLLocation?) -> NavigationTurnInfo {
+        guard let currentLocation else { return .placeholder }
+        let steps = route.steps.filter { !$0.instructions.isEmpty && $0.distance > 0 }
+        guard !steps.isEmpty else { return .placeholder }
+
+        let candidate = steps.min { stepDistance(step: $0, from: currentLocation) < stepDistance(step: $1, from: currentLocation) }
+        guard let step = candidate else { return .placeholder }
+
+        let distance = stepDistance(step: step, from: currentLocation)
+        let distanceText = formatDistance(distance)
+        let direction = NavigationTurnDirection.from(instruction: step.instructions)
+        return NavigationTurnInfo(direction: direction, distanceText: distanceText, instructionText: step.instructions)
+    }
+
+    private func stepDistance(step: MKRoute.Step, from location: CLLocation) -> CLLocationDistance {
+        guard let coordinate = step.polyline.firstCoordinate else { return .greatestFiniteMagnitude }
+        let stepLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        return location.distance(from: stepLocation)
+    }
+
+    private func formatDistance(_ distance: CLLocationDistance) -> String {
+        if distance >= 1000 {
+            return String(format: "%.1fkm", distance / 1000)
+        } else {
+            return String(format: "%.0fm", distance)
+        }
+    }
+}
+
+private extension MKPolyline {
+    var firstCoordinate: CLLocationCoordinate2D? {
+        guard pointCount > 0 else { return nil }
+        var coordinate = CLLocationCoordinate2D()
+        getCoordinates(&coordinate, range: NSRange(location: 0, length: 1))
+        return coordinate
     }
 }

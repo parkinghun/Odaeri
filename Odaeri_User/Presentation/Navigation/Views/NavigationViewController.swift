@@ -14,12 +14,19 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
 
     override var navigationBarHidden: Bool { true }
 
+    private enum CameraMode {
+        case tracking
+        case browsing
+        case stepPreview
+    }
+
     private let viewDidLoadSubject = PassthroughSubject<Void, Never>()
     private let viewDidDisappearSubject = PassthroughSubject<Void, Never>()
     private let userDidDragMapSubject = PassthroughSubject<Void, Never>()
     private let mapCameraAltitudeChangedSubject = PassthroughSubject<CLLocationDistance, Never>()
     private let rerouteConfirmedSubject = PassthroughSubject<Void, Never>()
-    private var is3DCameraMode = true
+    private var viewModelTimeText: String = ""
+    private var viewModelDistanceText: String = ""
 
     private lazy var mapView: MKMapView = {
         let map = MKMapView()
@@ -30,66 +37,17 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         return map
     }()
 
-    private let infoContainerView: UIView = {
-        let view = UIView()
-        view.backgroundColor = AppColor.gray0
-        view.layer.cornerRadius = 16
-        view.layer.shadowColor = UIColor.black.cgColor
-        view.layer.shadowOpacity = 0.1
-        view.layer.shadowOffset = CGSize(width: 0, height: 2)
-        view.layer.shadowRadius = 8
-        return view
+    private let headerView = UIView()
+    private let headerCollectionView: UICollectionView = {
+        let layout = UICollectionViewFlowLayout()
+        layout.scrollDirection = .horizontal
+        layout.minimumLineSpacing = 0
+        layout.minimumInteritemSpacing = 0
+        return UICollectionView(frame: .zero, collectionViewLayout: layout)
     }()
-
-    private let distanceLabel: UILabel = {
-        let label = UILabel()
-        label.font = AppFont.title1
-        label.textColor = AppColor.blackSprout
-        label.textAlignment = .center
-        return label
-    }()
-
-    private let timeLabel: UILabel = {
-        let label = UILabel()
-        label.font = AppFont.body2
-        label.textColor = AppColor.gray75
-        label.textAlignment = .center
-        return label
-    }()
-
-    private let cancelButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("취소", for: .normal)
-        button.setTitleColor(AppColor.gray0, for: .normal)
-        button.titleLabel?.font = AppFont.body1
-        button.backgroundColor = AppColor.gray75
-        button.layer.cornerRadius = 12
-        return button
-    }()
-
-    private let rerouteButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("재탐색", for: .normal)
-        button.setTitleColor(AppColor.gray0, for: .normal)
-        button.titleLabel?.font = AppFont.body1
-        button.backgroundColor = AppColor.blackSprout
-        button.layer.cornerRadius = 12
-        return button
-    }()
-
-    private let cameraModeButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("2D", for: .normal)
-        button.setTitleColor(AppColor.gray100, for: .normal)
-        button.titleLabel?.font = AppFont.body2
-        button.backgroundColor = AppColor.gray0
-        button.layer.cornerRadius = 8
-        button.layer.shadowColor = UIColor.black.cgColor
-        button.layer.shadowOpacity = 0.1
-        button.layer.shadowOffset = CGSize(width: 0, height: 2)
-        button.layer.shadowRadius = 4
-        return button
-    }()
+    private let headerCancelButton = UIButton(type: .system)
+    private let headerPageControl = UIPageControl()
+    private let bottomSheetView = NavigationBottomSheetView()
 
     private let relocateButton: UIButton = {
         let button = UIButton(type: .system)
@@ -109,11 +67,28 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     private var passedPathOverlay: MKPolyline?
     private var remainingPathOverlay: MKPolyline?
     private var destinationAnnotation: MKPointAnnotation?
+    private var stepPreviewAnnotation: MKPointAnnotation?
+    private var routeSteps: [NavigationRouteStep] = []
+    private var currentCameraMode: CameraMode = .tracking
+    private var isProgrammaticMove: Bool = false
+    private let currentLocationStepId = "current-location-step"
+
+    private final class NavigationStepAnnotation: MKPointAnnotation {
+        let direction: NavigationTurnDirection
+
+        init(coordinate: CLLocationCoordinate2D, title: String?, direction: NavigationTurnDirection) {
+            self.direction = direction
+            super.init()
+            self.coordinate = coordinate
+            self.title = title
+        }
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupMapGestureRecognizer()
         addDestinationAnnotation()
+        setupHeaderSteps()
         viewDidLoadSubject.send(())
     }
 
@@ -126,60 +101,68 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         super.setupUI()
 
         view.addSubview(mapView)
-        view.addSubview(infoContainerView)
-        view.addSubview(cancelButton)
-        view.addSubview(rerouteButton)
-        view.addSubview(cameraModeButton)
+        view.addSubview(headerView)
+        view.addSubview(bottomSheetView)
         view.addSubview(relocateButton)
-
-        infoContainerView.addSubview(distanceLabel)
-        infoContainerView.addSubview(timeLabel)
 
         mapView.snp.makeConstraints {
             $0.edges.equalToSuperview()
         }
 
-        infoContainerView.snp.makeConstraints {
-            $0.top.equalTo(view.safeAreaLayoutGuide).offset(16)
+        headerView.snp.makeConstraints {
+            $0.top.leading.trailing.equalToSuperview()
+            $0.height.equalTo(140)
+        }
+
+        bottomSheetView.snp.makeConstraints {
             $0.leading.trailing.equalToSuperview().inset(16)
-            $0.height.equalTo(80)
-        }
-
-        distanceLabel.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(12)
-            $0.centerX.equalToSuperview()
-        }
-
-        timeLabel.snp.makeConstraints {
-            $0.top.equalTo(distanceLabel.snp.bottom).offset(8)
-            $0.centerX.equalToSuperview()
-        }
-
-        cancelButton.snp.makeConstraints {
-            $0.leading.equalToSuperview().offset(16)
-            $0.bottom.equalTo(view.safeAreaLayoutGuide).offset(-16)
-            $0.width.equalTo(100)
-            $0.height.equalTo(48)
-        }
-
-        rerouteButton.snp.makeConstraints {
-            $0.trailing.equalToSuperview().offset(-16)
-            $0.bottom.equalTo(view.safeAreaLayoutGuide).offset(-16)
-            $0.width.equalTo(100)
-            $0.height.equalTo(48)
-        }
-
-        cameraModeButton.snp.makeConstraints {
-            $0.trailing.equalToSuperview().offset(-16)
-            $0.bottom.equalTo(rerouteButton.snp.top).offset(-12)
-            $0.width.equalTo(60)
-            $0.height.equalTo(44)
+            $0.bottom.equalTo(view.safeAreaLayoutGuide).offset(-8)
         }
 
         relocateButton.snp.makeConstraints {
             $0.trailing.equalToSuperview().offset(-16)
-            $0.bottom.equalTo(cameraModeButton.snp.top).offset(-12)
+            $0.bottom.equalTo(bottomSheetView.snp.top).offset(-12)
             $0.width.height.equalTo(44)
+        }
+
+        headerView.backgroundColor = AppColor.blackSprout
+        headerView.addSubview(headerCollectionView)
+        headerView.addSubview(headerCancelButton)
+        headerView.addSubview(headerPageControl)
+
+        headerCollectionView.backgroundColor = .clear
+        headerCollectionView.isPagingEnabled = true
+        headerCollectionView.showsHorizontalScrollIndicator = false
+        headerCollectionView.dataSource = self
+        headerCollectionView.delegate = self
+        headerCollectionView.register(NavigationStepCell.self, forCellWithReuseIdentifier: NavigationStepCell.reuseIdentifier)
+
+        headerCancelButton.setTitle("X", for: .normal)
+        headerCancelButton.setTitleColor(AppColor.gray0, for: .normal)
+        headerCancelButton.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
+
+        headerCancelButton.snp.makeConstraints {
+            $0.trailing.equalToSuperview().offset(-16)
+            $0.bottom.equalTo(headerView.snp.bottom).offset(-12)
+            $0.width.height.equalTo(32)
+        }
+
+        headerCollectionView.snp.makeConstraints {
+            $0.leading.equalToSuperview()
+            $0.trailing.equalTo(headerCancelButton.snp.leading).offset(-8)
+            $0.bottom.equalToSuperview()
+            $0.top.equalToSuperview()
+        }
+
+        headerPageControl.currentPage = 0
+        headerPageControl.pageIndicatorTintColor = UIColor.white.withAlphaComponent(0.4)
+        headerPageControl.currentPageIndicatorTintColor = UIColor.white
+
+        headerPageControl.snp.makeConstraints {
+            $0.leading.equalToSuperview().offset(16)
+            $0.trailing.equalTo(headerCancelButton.snp.leading).offset(-8)
+            $0.bottom.equalTo(headerView.snp.bottom).offset(-6)
+            $0.height.equalTo(12)
         }
 
         mapView.delegate = self
@@ -194,6 +177,9 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     @objc private func handleMapPan(_ gesture: UIPanGestureRecognizer) {
         if gesture.state == .began || gesture.state == .changed {
             userDidDragMapSubject.send(())
+            currentCameraMode = .browsing
+            isProgrammaticMove = false
+            updateRelocateButton(isTracking: false)
         }
     }
 
@@ -212,21 +198,14 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     override func bind() {
         super.bind()
 
-        let cameraModeToggled = cameraModeButton.tapPublisher()
-            .map { [weak self] _ -> Bool in
-                guard let self = self else { return true }
-                self.is3DCameraMode.toggle()
-                let newTitle = self.is3DCameraMode ? "2D" : "3D"
-                self.cameraModeButton.setTitle(newTitle, for: .normal)
-                return self.is3DCameraMode
-            }
-            .eraseToAnyPublisher()
+        let cameraModeToggled = Empty<Bool, Never>(completeImmediately: false).eraseToAnyPublisher()
+        let rerouteTapped = Empty<Void, Never>(completeImmediately: false).eraseToAnyPublisher()
 
         let input = NavigationViewModel.Input(
             viewDidLoad: viewDidLoadSubject.eraseToAnyPublisher(),
             viewDidDisappear: viewDidDisappearSubject.eraseToAnyPublisher(),
-            cancelButtonTapped: cancelButton.tapPublisher(),
-            rerouteButtonTapped: rerouteButton.tapPublisher(),
+            cancelButtonTapped: headerCancelButton.tapPublisher(),
+            rerouteButtonTapped: rerouteTapped,
             rerouteConfirmed: rerouteConfirmedSubject.eraseToAnyPublisher(),
             toggleCameraMode: cameraModeToggled,
             userDidDragMap: userDidDragMapSubject.eraseToAnyPublisher(),
@@ -235,6 +214,14 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         )
 
         let output = viewModel.transform(input: input)
+
+        relocateButton.tapPublisher()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.currentCameraMode = .tracking
+                self?.updateRelocateButton(isTracking: true)
+            }
+            .store(in: &cancellables)
 
         output.passedPath
             .receive(on: DispatchQueue.main)
@@ -253,14 +240,22 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         output.distanceToDestination
             .receive(on: DispatchQueue.main)
             .sink { [weak self] distance in
-                self?.distanceLabel.text = distance
+                self?.viewModelDistanceText = distance
+                self?.bottomSheetView.update(
+                    timeText: self?.viewModelTimeText ?? "",
+                    distanceText: distance
+                )
             }
             .store(in: &cancellables)
 
         output.estimatedTime
             .receive(on: DispatchQueue.main)
             .sink { [weak self] time in
-                self?.timeLabel.text = "약 \(time) 남음"
+                self?.viewModelTimeText = "약 \(time) 남음"
+                self?.bottomSheetView.update(
+                    timeText: self?.viewModelTimeText ?? "",
+                    distanceText: self?.viewModelDistanceText ?? ""
+                )
             }
             .store(in: &cancellables)
 
@@ -269,7 +264,12 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
             .compactMap { $0 }
             .throttle(for: .seconds(0.5), scheduler: DispatchQueue.main, latest: true)
             .sink { [weak self] camera in
-                self?.mapView.setCamera(camera, animated: true)
+                guard let self = self else { return }
+                guard self.currentCameraMode == .tracking else {
+                    return
+                }
+                self.isProgrammaticMove = true
+                self.mapView.setCamera(camera, animated: true)
             }
             .store(in: &cancellables)
 
@@ -297,12 +297,6 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
             }
             .store(in: &cancellables)
 
-        output.isTrackingUser
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] isTracking in
-                self?.updateRelocateButton(isTracking: isTracking)
-            }
-            .store(in: &cancellables)
     }
 
     private func updateRelocateButton(isTracking: Bool) {
@@ -355,14 +349,129 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     private func handleNavigationState(_ state: NavigationState) {
         switch state {
         case .idle:
-            rerouteButton.isHidden = true
+            break
         case .navigating:
-            rerouteButton.isHidden = true
+            break
         case .arrived:
-            rerouteButton.isHidden = true
+            break
         case .offRoute:
-            rerouteButton.isHidden = false
+            break
         }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateMapLayoutMargins()
+        updateHeaderInsets()
+    }
+
+    private func updateMapLayoutMargins() {
+        let topInset = headerView.frame.maxY + 8
+        let bottomInset = view.bounds.height - bottomSheetView.frame.minY + 8
+        mapView.layoutMargins = UIEdgeInsets(top: topInset, left: 0, bottom: bottomInset, right: 0)
+    }
+
+    private func updateHeaderInsets() {
+        let topInset = view.safeAreaInsets.top
+        if headerCollectionView.contentInset.top != topInset {
+            headerCollectionView.contentInset.top = topInset
+            headerCollectionView.scrollIndicatorInsets.top = topInset
+        }
+    }
+}
+
+extension NavigationViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        routeSteps.count
+    }
+
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: NavigationStepCell.reuseIdentifier, for: indexPath) as! NavigationStepCell
+        cell.configure(with: routeSteps[indexPath.item])
+        return cell
+    }
+
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
+        CGSize(width: collectionView.bounds.width, height: collectionView.bounds.height)
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        guard scrollView === headerCollectionView else { return }
+        let index = Int(round(scrollView.contentOffset.x / max(scrollView.bounds.width, 1)))
+        moveCameraToStep(at: index)
+        headerPageControl.currentPage = index
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard scrollView === headerCollectionView else { return }
+        let index = Int(round(scrollView.contentOffset.x / max(scrollView.bounds.width, 1)))
+        if index != headerPageControl.currentPage {
+            headerPageControl.currentPage = index
+        }
+    }
+}
+
+private extension NavigationViewController {
+    func setupHeaderSteps() {
+        routeSteps = viewModel.routeSteps()
+        let currentCoordinate = mapView.userLocation.location?.coordinate
+        let destinationCoordinate = CLLocationCoordinate2D(
+            latitude: viewModel.destination.latitude,
+            longitude: viewModel.destination.longitude
+        )
+        let currentStep = NavigationRouteStep(
+            id: currentLocationStepId,
+            instruction: "현재 위치",
+            distanceText: "0m",
+            coordinate: currentCoordinate ?? destinationCoordinate,
+            direction: .straight
+        )
+        routeSteps.insert(currentStep, at: 0)
+        headerCollectionView.reloadData()
+        headerPageControl.numberOfPages = routeSteps.count
+        headerPageControl.isHidden = routeSteps.count <= 1
+        moveCameraToStep(at: 0)
+    }
+
+    func moveCameraToStep(at index: Int) {
+        guard index >= 0, index < routeSteps.count else { return }
+        if index == 0, routeSteps[0].id == currentLocationStepId {
+            currentCameraMode = .tracking
+            updateRelocateButton(isTracking: true)
+            updateStepPreviewAnnotation(for: index, coordinate: routeSteps[0].coordinate)
+            return
+        }
+        currentCameraMode = .stepPreview
+        updateRelocateButton(isTracking: false)
+        let coordinate = routeSteps[index].coordinate
+        updateStepPreviewAnnotation(for: index, coordinate: coordinate)
+        let camera = MKMapCamera(
+            lookingAtCenter: coordinate,
+            fromDistance: 900,
+            pitch: 45,
+            heading: 0
+        )
+        isProgrammaticMove = true
+        mapView.setCamera(camera, animated: true)
+    }
+}
+
+private extension NavigationViewController {
+    func updateStepPreviewAnnotation(for index: Int, coordinate: CLLocationCoordinate2D) {
+        if let existing = stepPreviewAnnotation {
+            mapView.removeAnnotation(existing)
+            stepPreviewAnnotation = nil
+        }
+
+        guard index != 0 else { return }
+
+        let annotation = NavigationStepAnnotation(
+            coordinate: coordinate,
+            title: routeSteps[index].instruction,
+            direction: routeSteps[index].direction
+        )
+        stepPreviewAnnotation = annotation
+        mapView.addAnnotation(annotation)
     }
 }
 
@@ -387,26 +496,63 @@ extension NavigationViewController: MKMapViewDelegate {
     }
 
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-        guard annotation is MKPointAnnotation else { return nil }
-
-        let identifier = "DestinationAnnotation"
-        var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
-
-        if annotationView == nil {
-            annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
-            annotationView?.canShowCallout = true
-            annotationView?.markerTintColor = AppColor.blackSprout
-            annotationView?.glyphImage = UIImage(systemName: "flag.fill")
-        } else {
-            annotationView?.annotation = annotation
+        if let stepAnnotation = annotation as? NavigationStepAnnotation {
+            let identifier = "StepAnnotation"
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+                ?? MKMarkerAnnotationView(annotation: stepAnnotation, reuseIdentifier: identifier)
+            view.annotation = stepAnnotation
+            view.canShowCallout = false
+            view.markerTintColor = AppColor.brightForsythia
+            view.glyphImage = UIImage(systemName: stepAnnotation.direction.systemImageName)
+            return view
         }
 
+        guard annotation is MKPointAnnotation else { return nil }
+        let identifier = "DestinationAnnotation"
+        let annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+            ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+        annotationView.annotation = annotation
+        annotationView.canShowCallout = true
+        annotationView.markerTintColor = AppColor.blackSprout
+        annotationView.glyphImage = UIImage(systemName: "flag.fill")
         return annotationView
+    }
+
+    func mapView(_ mapView: MKMapView, didUpdate userLocation: MKUserLocation) {
+        guard let location = userLocation.location else { return }
+        guard !routeSteps.isEmpty, routeSteps[0].id == currentLocationStepId else { return }
+
+        let coordinate = location.coordinate
+        guard CLLocationCoordinate2DIsValid(coordinate) else { return }
+
+        if routeSteps[0].coordinate.latitude != coordinate.latitude ||
+            routeSteps[0].coordinate.longitude != coordinate.longitude {
+            routeSteps[0] = NavigationRouteStep(
+                id: currentLocationStepId,
+                instruction: "현재 위치",
+                distanceText: "0m",
+                coordinate: coordinate,
+                direction: .straight
+            )
+            headerCollectionView.reloadItems(at: [IndexPath(item: 0, section: 0)])
+        }
     }
 
     func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
         let altitude = mapView.camera.altitude
         mapCameraAltitudeChangedSubject.send(altitude)
+        if isProgrammaticMove {
+            isProgrammaticMove = false
+        }
+    }
+
+    func mapView(_ mapView: MKMapView, regionWillChangeAnimated animated: Bool) {
+        if isProgrammaticMove { return }
+        let isUserGesture = mapView.gestureRecognizers?.contains { $0.state == .began || $0.state == .changed } ?? false
+        if isUserGesture {
+            currentCameraMode = .browsing
+            updateRelocateButton(isTracking: false)
+        }
     }
 }
 

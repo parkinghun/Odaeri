@@ -36,6 +36,13 @@ extension DateFormatter {
         return formatter
     }()
 
+    static let arrivalTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
     static let dateSeparator: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ko_KR")
