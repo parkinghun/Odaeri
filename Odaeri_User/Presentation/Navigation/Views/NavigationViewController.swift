@@ -47,6 +47,7 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     }()
     private let headerCancelButton = UIButton(type: .system)
     private let headerPageControl = UIPageControl()
+    private let headerContentView = UIView()
     private let bottomSheetView = NavigationBottomSheetView()
 
     private let relocateButton: UIButton = {
@@ -72,6 +73,7 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     private var currentCameraMode: CameraMode = .tracking
     private var isProgrammaticMove: Bool = false
     private let currentLocationStepId = "current-location-step"
+    private var hasAppliedInitialTrackingCamera = false
 
     private final class NavigationStepAnnotation: MKPointAnnotation {
         let direction: NavigationTurnDirection
@@ -126,7 +128,8 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         }
 
         headerView.backgroundColor = AppColor.blackSprout
-        headerView.addSubview(headerCollectionView)
+        headerView.addSubview(headerContentView)
+        headerContentView.addSubview(headerCollectionView)
         headerView.addSubview(headerCancelButton)
         headerView.addSubview(headerPageControl)
 
@@ -141,17 +144,22 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         headerCancelButton.setTitleColor(AppColor.gray0, for: .normal)
         headerCancelButton.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .bold)
 
+        headerContentView.snp.makeConstraints {
+            $0.leading.trailing.equalToSuperview()
+            $0.top.equalTo(view.safeAreaLayoutGuide)
+            $0.bottom.equalTo(headerPageControl.snp.top).offset(-8)
+        }
+
         headerCancelButton.snp.makeConstraints {
             $0.trailing.equalToSuperview().offset(-16)
-            $0.bottom.equalTo(headerView.snp.bottom).offset(-12)
+            $0.centerY.equalTo(headerContentView)
             $0.width.height.equalTo(32)
         }
 
         headerCollectionView.snp.makeConstraints {
             $0.leading.equalToSuperview()
             $0.trailing.equalTo(headerCancelButton.snp.leading).offset(-8)
-            $0.bottom.equalToSuperview()
-            $0.top.equalToSuperview()
+            $0.top.bottom.equalTo(headerContentView)
         }
 
         headerPageControl.currentPage = 0
@@ -372,10 +380,9 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     }
 
     private func updateHeaderInsets() {
-        let topInset = view.safeAreaInsets.top
-        if headerCollectionView.contentInset.top != topInset {
-            headerCollectionView.contentInset.top = topInset
-            headerCollectionView.scrollIndicatorInsets.top = topInset
+        if headerCollectionView.contentInset != .zero {
+            headerCollectionView.contentInset = .zero
+            headerCollectionView.scrollIndicatorInsets = .zero
         }
     }
 }
@@ -447,7 +454,7 @@ private extension NavigationViewController {
         updateStepPreviewAnnotation(for: index, coordinate: coordinate)
         let camera = MKMapCamera(
             lookingAtCenter: coordinate,
-            fromDistance: 900,
+            fromDistance: 700,
             pitch: 45,
             heading: 0
         )
@@ -524,6 +531,18 @@ extension NavigationViewController: MKMapViewDelegate {
 
         let coordinate = location.coordinate
         guard CLLocationCoordinate2DIsValid(coordinate) else { return }
+
+        if !hasAppliedInitialTrackingCamera, currentCameraMode == .tracking {
+            hasAppliedInitialTrackingCamera = true
+            let camera = MKMapCamera(
+                lookingAtCenter: coordinate,
+                fromDistance: 700,
+                pitch: 45,
+                heading: 0
+            )
+            isProgrammaticMove = true
+            mapView.setCamera(camera, animated: false)
+        }
 
         if routeSteps[0].coordinate.latitude != coordinate.latitude ||
             routeSteps[0].coordinate.longitude != coordinate.longitude {

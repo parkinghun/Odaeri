@@ -54,7 +54,7 @@ final class NavigationStepCell: UICollectionViewCell {
         iconStack.snp.makeConstraints {
             $0.leading.equalToSuperview().offset(16)
             $0.centerY.equalToSuperview()
-            $0.width.greaterThanOrEqualTo(44)
+            $0.width.equalTo(60)
         }
 
         instructionLabel.snp.makeConstraints {
