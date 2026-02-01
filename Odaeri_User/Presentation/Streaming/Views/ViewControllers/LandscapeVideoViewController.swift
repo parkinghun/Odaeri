@@ -24,6 +24,8 @@ final class LandscapeVideoViewController: BaseViewController<StreamingDetailView
 
     weak var delegate: LandscapeVideoViewControllerDelegate?
     private weak var playerManager: StreamingPlayerManager?
+    private var currentStreamEntity: VideoStreamEntity?
+    private var currentQualitySelection: QualitySelection = .auto
 
     private var originalCenter: CGPoint = .zero
     private var isDismissing = false
@@ -86,7 +88,6 @@ final class LandscapeVideoViewController: BaseViewController<StreamingDetailView
         }
 
         controlOverlayView.setInitiallyHidden()
-        hideScriptButton()
 
         setupDismissGesture()
         setupLongPressGesture()
@@ -102,11 +103,6 @@ final class LandscapeVideoViewController: BaseViewController<StreamingDetailView
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
         longPress.minimumPressDuration = 0.5
         view.addGestureRecognizer(longPress)
-    }
-
-    private func hideScriptButton() {
-        let controlView = controlOverlayView.getControlView()
-        controlView.hideSubtitleButton()
     }
 
     @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
@@ -200,8 +196,9 @@ final class LandscapeVideoViewController: BaseViewController<StreamingDetailView
             }
             .store(in: &cancellables)
 
-        controlView.subtitleTappedPublisher
-            .sink { [weak self] in
+        controlView.qualitySelectedPublisher
+            .sink { [weak self] selection in
+                self?.applyQualitySelection(selection)
                 self?.controlOverlayView.resetAutoHideTimer()
             }
             .store(in: &cancellables)
@@ -259,6 +256,13 @@ final class LandscapeVideoViewController: BaseViewController<StreamingDetailView
             .store(in: &cancellables)
     }
 
+    func setStreamEntity(_ streamEntity: VideoStreamEntity, selected: QualitySelection) {
+        currentStreamEntity = streamEntity
+        currentQualitySelection = selected
+        let qualities = streamEntity.qualities.map { $0.quality }
+        controlOverlayView.getControlView().updateQualityOptions(qualities, selected: selected)
+    }
+
     private func togglePlayPause() {
         guard let playerManager = playerManager else { return }
         if isCurrentlyPlaying {
@@ -304,6 +308,28 @@ final class LandscapeVideoViewController: BaseViewController<StreamingDetailView
         alert.addAction(cancelAction)
 
         present(alert, animated: true)
+    }
+
+    private func applyQualitySelection(_ selection: QualitySelection) {
+        guard let streamEntity = currentStreamEntity,
+              let playerManager = playerManager else { return }
+        guard selection != currentQualitySelection else { return }
+        currentQualitySelection = selection
+
+        let urlString: String
+        switch selection {
+        case .auto:
+            urlString = streamEntity.streamUrl
+        case .manual(let quality):
+            urlString = streamEntity.qualities.first(where: { $0.quality == quality })?.url ?? streamEntity.streamUrl
+        }
+
+        guard let url = URL(string: urlString) else { return }
+        let currentTime = playerManager.getPlayer().currentTime()
+        playerManager.loadVideo(url: url)
+        playerManager.seek(to: currentTime) { [weak self] in
+            self?.playerManager?.play()
+        }
     }
 
     private func setLandscapeOrientation() {

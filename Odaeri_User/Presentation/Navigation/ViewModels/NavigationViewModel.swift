@@ -16,15 +16,18 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
     private let navigationService: NavigationService
     private let route: MKRoute
     let destination: StoreEntity
+    private let speechService: NavigationSpeechService
 
     init(
         route: MKRoute,
         destination: StoreEntity,
-        navigationService: NavigationService
+        navigationService: NavigationService,
+        speechService: NavigationSpeechService = .shared
     ) {
         self.route = route
         self.destination = destination
         self.navigationService = navigationService
+        self.speechService = speechService
     }
 
     struct Input {
@@ -49,6 +52,7 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         let estimatedTime: AnyPublisher<String, Never>
         let arrivalTimeText: AnyPublisher<String, Never>
         let turnInfo: AnyPublisher<NavigationTurnInfo, Never>
+        let currentStepIndex: AnyPublisher<Int, Never>
         let camera: AnyPublisher<MKMapCamera?, Never>
         let isTrackingUser: AnyPublisher<Bool, Never>
         let showArrivalAlert: AnyPublisher<String, Never>
@@ -57,11 +61,13 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
 
     func transform(input: Input) -> Output {
         let cameraSubject = PassthroughSubject<MKMapCamera?, Never>()
+        let currentStepIndexSubject = CurrentValueSubject<Int, Never>(0)
         let showArrivalAlertSubject = PassthroughSubject<String, Never>()
         let showRerouteAlertSubject = PassthroughSubject<Void, Never>()
         let is3DCameraMode = CurrentValueSubject<Bool, Never>(true)
         let isTrackingUserSubject = CurrentValueSubject<Bool, Never>(true)
         let isAtDefaultZoomLevel = CurrentValueSubject<Bool, Never>(true)
+        let filteredSteps = route.steps.filter { !$0.instructions.isEmpty && $0.distance > 0 }
 
         input.viewDidLoad
             .sink { [weak self] _ in
@@ -208,9 +214,22 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
 
         let turnInfo = navigationService.$currentLocation
             .map { [weak self] location in
-                self?.makeTurnInfo(currentLocation: location) ?? NavigationTurnInfo.placeholder
+                self?.makeTurnInfo(currentLocation: location, steps: filteredSteps) ?? NavigationTurnInfo.placeholder
             }
             .eraseToAnyPublisher()
+
+        navigationService.$currentLocation
+            .compactMap { [weak self] location -> Int? in
+                guard let self else { return nil }
+                return self.closestStepIndex(from: location, steps: filteredSteps)
+            }
+            .removeDuplicates()
+            .sink { [weak self] index in
+                currentStepIndexSubject.send(index)
+                guard index >= 0, index < filteredSteps.count else { return }
+                self?.speechService.speak(filteredSteps[index].instructions)
+            }
+            .store(in: &cancellables)
 
         return Output(
             currentLocation: navigationService.$currentLocation.eraseToAnyPublisher(),
@@ -222,6 +241,7 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
             estimatedTime: timeString,
             arrivalTimeText: arrivalTimeText,
             turnInfo: turnInfo,
+            currentStepIndex: currentStepIndexSubject.eraseToAnyPublisher(),
             camera: cameraSubject.eraseToAnyPublisher(),
             isTrackingUser: isTrackingUserSubject.eraseToAnyPublisher(),
             showArrivalAlert: showArrivalAlertSubject.eraseToAnyPublisher(),
@@ -244,9 +264,8 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         }
     }
 
-    private func makeTurnInfo(currentLocation: CLLocation?) -> NavigationTurnInfo {
+    private func makeTurnInfo(currentLocation: CLLocation?, steps: [MKRoute.Step]) -> NavigationTurnInfo {
         guard let currentLocation else { return .placeholder }
-        let steps = route.steps.filter { !$0.instructions.isEmpty && $0.distance > 0 }
         guard !steps.isEmpty else { return .placeholder }
 
         let candidate = steps.min { stepDistance(step: $0, from: currentLocation) < stepDistance(step: $1, from: currentLocation) }
@@ -256,6 +275,21 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         let distanceText = formatDistance(distance)
         let direction = NavigationTurnDirection.from(instruction: step.instructions)
         return NavigationTurnInfo(direction: direction, distanceText: distanceText, instructionText: step.instructions)
+    }
+
+    private func closestStepIndex(from location: CLLocation?, steps: [MKRoute.Step]) -> Int? {
+        guard let location else { return nil }
+        guard !steps.isEmpty else { return nil }
+        var closestIndex = 0
+        var minDistance = CLLocationDistance.greatestFiniteMagnitude
+        for (index, step) in steps.enumerated() {
+            let distance = stepDistance(step: step, from: location)
+            if distance < minDistance {
+                minDistance = distance
+                closestIndex = index
+            }
+        }
+        return closestIndex
     }
 
     private func stepDistance(step: MKRoute.Step, from location: CLLocation) -> CLLocationDistance {

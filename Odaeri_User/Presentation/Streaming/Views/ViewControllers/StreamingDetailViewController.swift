@@ -16,6 +16,8 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
     private let playerManager: StreamingPlayerManager
     private weak var pipController: AVPictureInPictureController?
     private let notificationCenter: NotificationCenter
+    private var currentStreamEntity: VideoStreamEntity?
+    private var currentQualitySelection: QualitySelection = .auto
 
     weak var coordinator: StreamingCoordinator?
 
@@ -486,9 +488,9 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             }
             .store(in: &cancellables)
 
-        controlView.subtitleTappedPublisher
-            .sink { [weak self] in
-                self?.showSubtitleSelectionAlert()
+        controlView.qualitySelectedPublisher
+            .sink { [weak self] selection in
+                self?.applyQualitySelection(selection)
                 self?.controlOverlayView.resetAutoHideTimer()
             }
             .store(in: &cancellables)
@@ -554,14 +556,6 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             }
             .store(in: &cancellables)
 
-        playerManager.subtitleManager.currentSubtitlePublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] currentSubtitle in
-                let isActive = currentSubtitle?.source != .none
-                self?.controlOverlayView.getControlView().updateSubtitleButton(isActive: isActive)
-            }
-            .store(in: &cancellables)
-
         output.subtitles
             .receive(on: DispatchQueue.main)
             .sink { [weak self] subtitles in
@@ -607,7 +601,13 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             .receive(on: DispatchQueue.main)
             .sink { [weak self] streamEntity in
                 guard let self = self else { return }
+                self.currentStreamEntity = streamEntity
                 self.playerManager.setVideoInfo(subtitles: streamEntity.subtitles)
+                let qualities = streamEntity.qualities.map { $0.quality }
+                self.controlOverlayView.getControlView().updateQualityOptions(
+                    qualities,
+                    selected: self.currentQualitySelection
+                )
             }
             .store(in: &cancellables)
     }
@@ -627,6 +627,27 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         alert.addAction(cancel)
 
         present(alert, animated: true)
+    }
+
+    private func applyQualitySelection(_ selection: QualitySelection) {
+        guard let streamEntity = currentStreamEntity else { return }
+        guard selection != currentQualitySelection else { return }
+        currentQualitySelection = selection
+
+        let urlString: String
+        switch selection {
+        case .auto:
+            urlString = streamEntity.streamUrl
+        case .manual(let quality):
+            urlString = streamEntity.qualities.first(where: { $0.quality == quality })?.url ?? streamEntity.streamUrl
+        }
+
+        guard let url = URL(string: urlString) else { return }
+        let currentTime = playerManager.getPlayer().currentTime()
+        playerManager.loadVideo(url: url)
+        playerManager.seek(to: currentTime) { [weak self] in
+            self?.playerManager.play()
+        }
     }
 
     private func showSubtitleSelectionAlert() {
@@ -697,6 +718,9 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
         landscapeVC.loadViewIfNeeded()
         landscapeVC.attachPlayerLayer(playerLayer)
         landscapeVC.setPlayerManager(playerManager)
+        if let streamEntity = currentStreamEntity {
+            landscapeVC.setStreamEntity(streamEntity, selected: currentQualitySelection)
+        }
 
         let landscapeControlView = landscapeVC.getControlOverlayView().getControlView()
         bindControlViewToViewModel(landscapeControlView)
@@ -727,9 +751,9 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             }
             .store(in: &cancellables)
 
-        controlView.subtitleTappedPublisher
-            .sink { [weak self] in
-                self?.showSubtitleSelectionAlert()
+        controlView.qualitySelectedPublisher
+            .sink { [weak self] selection in
+                self?.applyQualitySelection(selection)
             }
             .store(in: &cancellables)
     }
@@ -785,13 +809,10 @@ final class StreamingDetailViewController: BaseViewController<StreamingDetailVie
             }
             .store(in: &cancellables)
 
-        playerManager.subtitleManager.currentSubtitlePublisher
-            .receive(on: DispatchQueue.main)
-            .sink { currentSubtitle in
-                let isActive = currentSubtitle?.source != .none
-                controlView.updateSubtitleButton(isActive: isActive)
-            }
-            .store(in: &cancellables)
+        if let streamEntity = currentStreamEntity {
+            let qualities = streamEntity.qualities.map { $0.quality }
+            controlView.updateQualityOptions(qualities, selected: currentQualitySelection)
+        }
     }
 }
 

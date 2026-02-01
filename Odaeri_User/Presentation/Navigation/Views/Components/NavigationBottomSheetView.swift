@@ -46,7 +46,7 @@ final class NavigationBottomSheetView: UIView {
 
         infoStack.snp.makeConstraints {
             $0.top.equalToSuperview().offset(12)
-            $0.leading.trailing.equalToSuperview().inset(16)
+            $0.centerX.equalToSuperview()
             $0.bottom.equalToSuperview().offset(-12)
         }
     }

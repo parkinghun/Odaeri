@@ -74,6 +74,7 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     private var isProgrammaticMove: Bool = false
     private let currentLocationStepId = "current-location-step"
     private var hasAppliedInitialTrackingCamera = false
+    private var isHeaderSyncing = false
 
     private final class NavigationStepAnnotation: MKPointAnnotation {
         let direction: NavigationTurnDirection
@@ -267,6 +268,22 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
             }
             .store(in: &cancellables)
 
+        output.currentStepIndex
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] stepIndex in
+                guard let self = self else { return }
+                let headerIndex = min(stepIndex + 1, max(self.routeSteps.count - 1, 0))
+                guard self.currentCameraMode == .tracking else { return }
+                self.isHeaderSyncing = true
+                self.headerPageControl.currentPage = headerIndex
+                self.headerCollectionView.scrollToItem(
+                    at: IndexPath(item: headerIndex, section: 0),
+                    at: .centeredHorizontally,
+                    animated: true
+                )
+            }
+            .store(in: &cancellables)
+
         output.camera
             .receive(on: DispatchQueue.main)
             .compactMap { $0 }
@@ -404,9 +421,15 @@ extension NavigationViewController: UICollectionViewDataSource, UICollectionView
 
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         guard scrollView === headerCollectionView else { return }
+        if isHeaderSyncing { return }
         let index = Int(round(scrollView.contentOffset.x / max(scrollView.bounds.width, 1)))
         moveCameraToStep(at: index)
         headerPageControl.currentPage = index
+    }
+
+    func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+        guard scrollView === headerCollectionView else { return }
+        isHeaderSyncing = false
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {

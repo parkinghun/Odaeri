@@ -10,6 +10,11 @@ import AVFoundation
 import Combine
 import SnapKit
 
+enum QualitySelection: Equatable {
+    case auto
+    case manual(String)
+}
+
 final class PlayerControlView: UIView {
     private let playPauseButton: UIButton = {
         let button = UIButton(type: .system)
@@ -27,11 +32,12 @@ final class PlayerControlView: UIView {
         return button
     }()
 
-    private let subtitleButton: UIButton = {
+    private let qualityButton: UIButton = {
         let button = UIButton(type: .system)
         button.tintColor = AppColor.gray0
-        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .regular)
-        button.setImage(UIImage(systemName: "captions.bubble", withConfiguration: config), for: .normal)
+        button.setTitle("Auto", for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 13, weight: .semibold)
+        button.contentHorizontalAlignment = .center
         return button
     }()
 
@@ -71,18 +77,19 @@ final class PlayerControlView: UIView {
 
     private var cancellables = Set<AnyCancellable>()
     private let seekSubject = PassthroughSubject<Float, Never>()
+    private let qualitySelectedSubject = PassthroughSubject<QualitySelection, Never>()
 
     let playPauseTappedPublisher: AnyPublisher<Void, Never>
     let settingsTappedPublisher: AnyPublisher<Void, Never>
     let fullscreenTappedPublisher: AnyPublisher<Void, Never>
-    let subtitleTappedPublisher: AnyPublisher<Void, Never>
+    let qualitySelectedPublisher: AnyPublisher<QualitySelection, Never>
     let seekToProgressPublisher: AnyPublisher<Float, Never>
 
     override init(frame: CGRect) {
         playPauseTappedPublisher = playPauseButton.tapPublisher().eraseToAnyPublisher()
         settingsTappedPublisher = settingsButton.tapPublisher().eraseToAnyPublisher()
         fullscreenTappedPublisher = fullscreenButton.tapPublisher().eraseToAnyPublisher()
-        subtitleTappedPublisher = subtitleButton.tapPublisher().eraseToAnyPublisher()
+        qualitySelectedPublisher = qualitySelectedSubject.eraseToAnyPublisher()
         seekToProgressPublisher = seekSubject.eraseToAnyPublisher()
 
         super.init(frame: frame)
@@ -99,7 +106,7 @@ final class PlayerControlView: UIView {
 
         addSubview(playPauseButton)
         addSubview(fullscreenButton)
-        addSubview(subtitleButton)
+        addSubview(qualityButton)
         addSubview(settingsButton)
         addSubview(currentTimeLabel)
         addSubview(durationLabel)
@@ -117,15 +124,16 @@ final class PlayerControlView: UIView {
             make.width.height.equalTo(32)
         }
 
-        subtitleButton.snp.makeConstraints { make in
+        qualityButton.snp.makeConstraints { make in
             make.centerY.equalToSuperview()
             make.trailing.equalTo(settingsButton.snp.leading).offset(-6)
-            make.width.height.equalTo(32)
+            make.height.equalTo(28)
+            make.width.greaterThanOrEqualTo(44)
         }
 
         fullscreenButton.snp.makeConstraints { make in
             make.centerY.equalToSuperview()
-            make.trailing.equalTo(subtitleButton.snp.leading).offset(-6)
+            make.trailing.equalTo(qualityButton.snp.leading).offset(-6)
             make.width.height.equalTo(32)
         }
 
@@ -173,15 +181,30 @@ final class PlayerControlView: UIView {
         durationLabel.text = text
     }
 
-    func updateSubtitleButton(isActive: Bool) {
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
-        let imageName = isActive ? "captions.bubble.fill" : "captions.bubble"
-        subtitleButton.setImage(UIImage(systemName: imageName, withConfiguration: config), for: .normal)
-        subtitleButton.tintColor = AppColor.gray0
-    }
+    func updateQualityOptions(_ qualities: [String], selected: QualitySelection) {
+        let actions = ["Auto"] + qualities
+        let menuActions = actions.map { title in
+            UIAction(title: title) { [weak self] _ in
+                guard let self = self else { return }
+                if title == "Auto" {
+                    self.qualitySelectedSubject.send(.auto)
+                    self.qualityButton.setTitle("Auto", for: .normal)
+                } else {
+                    self.qualitySelectedSubject.send(.manual(title))
+                    self.qualityButton.setTitle(title, for: .normal)
+                }
+            }
+        }
 
-    func hideSubtitleButton() {
-        subtitleButton.isHidden = true
+        qualityButton.menu = UIMenu(children: menuActions)
+        qualityButton.showsMenuAsPrimaryAction = true
+
+        switch selected {
+        case .auto:
+            qualityButton.setTitle("Auto", for: .normal)
+        case .manual(let title):
+            qualityButton.setTitle(title, for: .normal)
+        }
     }
 
     private static func createThumbImage() -> UIImage? {
