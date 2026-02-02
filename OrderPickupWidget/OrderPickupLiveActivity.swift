@@ -16,62 +16,31 @@ struct OrderPickupLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    HStack(spacing: 8) {
-                        Image(systemName: context.state.status.iconName)
-                            .foregroundColor(.blackSprout)
-                        Text(context.attributes.storeName)
-                            .font(.system(size: 14, weight: .semibold))
-                            .lineLimit(1)
-                    }
+                    Text(context.attributes.storeName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .padding(.leading, 6)
+                        .lineLimit(1)
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(context.state.expectedTime)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.gray)
-                }
-
-                DynamicIslandExpandedRegion(.center) {
-                    VStack(spacing: 12) {
-                        StepProgressBar(currentStep: context.state.status.stepNumber)
-                            .padding(.horizontal, 16)
-
-                        if context.state.status == .readyForPickup {
-                            VStack(spacing: 4) {
-                                Text("주문 번호")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(.gray)
-
-                                Text(context.attributes.orderNumber)
-                                    .font(.system(size: 32, weight: .bold))
-                                    .foregroundColor(.blackSprout)
-                            }
-                            .padding(.vertical, 12)
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.brightSprout)
-                            )
-                            .padding(.horizontal, 16)
-                        }
-                    }
+                        .padding(.trailing, 6)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    HStack {
-                        Image(systemName: "storefront.fill")
-                            .foregroundColor(.gray)
-                        Text(context.state.status.description)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.primary)
+                    VStack(spacing: 6) {
+                        StepProgressBar(currentStep: context.state.status.stepNumber)
+                            .padding(.horizontal, 6)
+                            .padding(.top, 6)
                     }
-                    .padding(.top, 8)
                 }
             } compactLeading: {
                 Image(systemName: context.state.status.iconName)
                     .foregroundColor(.blackSprout)
             } compactTrailing: {
-                Text(context.state.expectedTime)
+                Text(context.state.status.description)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.blackSprout)
             } minimal: {
@@ -119,7 +88,7 @@ struct LockScreenLiveActivityView: View {
 
 struct OrderPickupLiveActivity_Previews: PreviewProvider {
     static let attributes = OrderPickupAttributes(
-        storeName: "맛있는 치킨집",
+        storeName: "창동 바이닐: 쉼",
         orderNumber: "#A-123"
     )
 
