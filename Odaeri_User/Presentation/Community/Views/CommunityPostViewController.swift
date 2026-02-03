@@ -255,7 +255,7 @@ final class CommunityPostViewController: BaseViewController<CommunityPostViewMod
     private func configureNavigationItems() {
         let button = UIButton(type: .system)
         button.setTitle("완료", for: .normal)
-        button.setTitleColor(AppColor.gray0, for: .normal)
+        button.setTitleColor(AppColor.blackSprout, for: .normal)
         button.titleLabel?.font = AppFont.body2Bold
         button.addTarget(self, action: #selector(doneButtonTapped), for: .touchUpInside)
         button.isEnabled = false

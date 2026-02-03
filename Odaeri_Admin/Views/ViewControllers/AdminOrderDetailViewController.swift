@@ -201,19 +201,32 @@ final class AdminOrderDetailViewController: UIViewController {
 
     private func applyOrder(_ order: Order) {
         orderCodeLabel.text = order.orderCode
-        statusLabel.text = order.status.displayName
-        statusLabel.textColor = order.status.indicatorColor
+        if let entity = currentOrderEntity {
+            statusLabel.text = entity.currentOrderStatus.adminDisplayName
+            statusLabel.textColor = entity.currentOrderStatus.adminIndicatorColor
+        } else {
+            statusLabel.text = order.status.displayName
+            statusLabel.textColor = order.status.indicatorColor
+        }
 
         let elapsedMinutes = max(0, Int(Date().timeIntervalSince(order.orderTime) / 60))
         timerBadgeLabel.text = "경과 \(elapsedMinutes)분"
 
         updateMenuSection(order)
         updatePaymentSection(order)
-        updateActionButtons(status: order.status)
+        updateActionButtons(orderStatus: order.status, entityStatus: currentOrderEntity?.currentOrderStatus)
     }
 
-    private func updateActionButtons(status: OrderStatus) {
-        switch status {
+    private func updateActionButtons(orderStatus: OrderStatus, entityStatus: OrderStatusEntity?) {
+        if let entityStatus {
+            let title = entityStatus.adminPrimaryActionTitle
+            actionButton.setTitle(title, for: .normal)
+            actionButton.backgroundColor = entityStatus == .pickedUp ? UIColor.systemGray3 : UIColor.systemGreen
+            actionButton.isEnabled = entityStatus != .pickedUp
+            return
+        }
+
+        switch orderStatus {
         case .pending:
             actionButton.setTitle("접수", for: .normal)
             actionButton.backgroundColor = UIColor.systemGreen
@@ -411,5 +424,52 @@ private extension OrderListItemEntity {
             storeName: store.name,
             menus: menus
         )
+    }
+}
+
+private extension OrderStatusEntity {
+    var adminDisplayName: String {
+        switch self {
+        case .pendingApproval:
+            return "승인 대기"
+        case .approved:
+            return "주문 승인"
+        case .inProgress:
+            return "조리 중"
+        case .readyForPickup:
+            return "픽업 대기"
+        case .pickedUp:
+            return "픽업 완료"
+        }
+    }
+
+    var adminIndicatorColor: UIColor {
+        switch self {
+        case .pendingApproval:
+            return UIColor.systemRed
+        case .approved:
+            return UIColor.systemOrange
+        case .inProgress:
+            return UIColor.systemBlue
+        case .readyForPickup:
+            return UIColor.systemGreen
+        case .pickedUp:
+            return UIColor.systemGray
+        }
+    }
+
+    var adminPrimaryActionTitle: String {
+        switch self {
+        case .pendingApproval:
+            return "승인"
+        case .approved:
+            return "조리 시작"
+        case .inProgress:
+            return "픽업 대기"
+        case .readyForPickup:
+            return "픽업 완료"
+        case .pickedUp:
+            return "완료됨"
+        }
     }
 }

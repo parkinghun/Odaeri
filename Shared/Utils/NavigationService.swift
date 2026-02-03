@@ -48,7 +48,9 @@ enum MovementState {
 
 struct NavigationConfig {
     static let localSearchWindowSize = 10
-    static let deviationThreshold: CLLocationDistance = 30.0
+    static let deviationBaseThreshold: CLLocationDistance = 30.0
+    static let deviationMaxThreshold: CLLocationDistance = 60.0
+    static let offRouteConfirmCount: Int = 3
     static let deviationResetThreshold: CLLocationDistance = 100.0
     static let arrivalRadius: CLLocationDistance = 10.0
     static let reroutingDebounceInterval: TimeInterval = 4.0
@@ -66,6 +68,8 @@ final class NavigationService: NSObject {
     private var routeCoordinates: [CLLocationCoordinate2D] = []
     private var currentRouteIndex = 0
     private var lastDeviationCheckTime: Date?
+    private var deviationCount = 0
+    private var hasShownOffRouteAlert = false
 
     @Published private(set) var currentLocation: CLLocation?
     @Published private(set) var currentHeading: CLHeading?
@@ -97,6 +101,8 @@ final class NavigationService: NSObject {
         self.routeCoordinates = extractCoordinates(from: route.polyline)
         self.currentRouteIndex = 0
         self.navigationState = .navigating
+        self.deviationCount = 0
+        self.hasShownOffRouteAlert = false
 
         updatePathSegments()
 
@@ -111,6 +117,8 @@ final class NavigationService: NSObject {
         currentRouteIndex = 0
         passedPath = []
         remainingPath = []
+        deviationCount = 0
+        hasShownOffRouteAlert = false
 
         locationManager.stopUpdatingLocation()
         locationManager.stopUpdatingHeading()
@@ -268,27 +276,38 @@ final class NavigationService: NSObject {
         )
 
         let distance = location.distance(from: routeLocation)
+        let threshold = adaptiveDeviationThreshold(for: location)
 
-        if distance > NavigationConfig.deviationThreshold {
-            let now = Date()
-
-            if let lastCheck = lastDeviationCheckTime {
-                let elapsed = now.timeIntervalSince(lastCheck)
-
-                if elapsed >= NavigationConfig.reroutingDebounceInterval {
+        if distance > threshold {
+            deviationCount += 1
+            if deviationCount >= NavigationConfig.offRouteConfirmCount {
+                if navigationState != .offRoute {
                     navigationState = .offRoute
-                    lastDeviationCheckTime = nil
                 }
-            } else {
-                lastDeviationCheckTime = now
+                if !hasShownOffRouteAlert {
+                    hasShownOffRouteAlert = true
+                }
             }
         } else {
             lastDeviationCheckTime = nil
+            deviationCount = 0
 
             if navigationState == .offRoute {
                 navigationState = .navigating
+                hasShownOffRouteAlert = false
             }
         }
+    }
+
+    private func adaptiveDeviationThreshold(for location: CLLocation) -> CLLocationDistance {
+        let accuracy = max(0, location.horizontalAccuracy)
+        let base = NavigationConfig.deviationBaseThreshold
+        let maxThreshold = NavigationConfig.deviationMaxThreshold
+        if accuracy <= 15 {
+            return base
+        }
+        let adjusted = base + (accuracy - 15)
+        return min(max(adjusted, base), maxThreshold)
     }
 
     func createCameraForCurrentLocation(

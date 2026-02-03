@@ -8,6 +8,10 @@
 import UIKit
 
 enum AppColor {
+//    static let blackSprout = UIColor(hex: "#CC5F5A")
+//    static let deepSprout = UIColor(hex: "#E6B2B0")
+//    static let brightSprout = UIColor(hex: "#FAF5F5")
+//    static let brightForsythia = UIColor(hex: "#F4C753")
     static let blackSprout = UIColor(hex: "#82957B")
     static let deepSprout = UIColor(hex: "#B7C8B1")
     static let brightSprout = UIColor(hex: "#E0E4D9")

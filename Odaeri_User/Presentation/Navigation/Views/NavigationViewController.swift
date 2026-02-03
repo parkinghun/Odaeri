@@ -75,6 +75,10 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     private let currentLocationStepId = "current-location-step"
     private var hasAppliedInitialTrackingCamera = false
     private var isHeaderSyncing = false
+    private var rerouteAlertView: NavigationRerouteAlertView?
+    private var rerouteCountdownTimer: Timer?
+    private var rerouteCountdownSeconds = 10
+    private var isRerouteAlertPresented = false
 
     private final class NavigationStepAnnotation: MKPointAnnotation {
         let direction: NavigationTurnDirection
@@ -332,19 +336,47 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     }
 
     private func showRerouteConfirmationAlert() {
-        let alert = UIAlertController(
-            title: "경로 이탈",
-            message: "경로를 벗어났습니다. 경로를 재탐색하시겠습니까?",
-            preferredStyle: .alert
-        )
+        guard !isRerouteAlertPresented else { return }
+        isRerouteAlertPresented = true
+        rerouteCountdownSeconds = 10
 
-        alert.addAction(UIAlertAction(title: "재탐색", style: .default) { [weak self] _ in
+        let alertView = NavigationRerouteAlertView()
+        alertView.updateCountdown(rerouteCountdownSeconds)
+        alertView.onConfirm = { [weak self] in
             self?.rerouteConfirmedSubject.send(())
-        })
+            self?.dismissRerouteAlert()
+        }
+        alertView.onCancel = { [weak self] in
+            self?.dismissRerouteAlert()
+        }
 
-        alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+        rerouteAlertView = alertView
+        view.addSubview(alertView)
+        alertView.snp.makeConstraints { $0.edges.equalToSuperview() }
 
-        present(alert, animated: true)
+        startRerouteCountdown()
+    }
+
+    private func startRerouteCountdown() {
+        rerouteCountdownTimer?.invalidate()
+        rerouteCountdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
+            guard let self else { return }
+            rerouteCountdownSeconds -= 1
+            rerouteAlertView?.updateCountdown(rerouteCountdownSeconds)
+
+            if rerouteCountdownSeconds <= 0 {
+                timer.invalidate()
+                dismissRerouteAlert()
+            }
+        }
+    }
+
+    private func dismissRerouteAlert() {
+        rerouteCountdownTimer?.invalidate()
+        rerouteCountdownTimer = nil
+        rerouteAlertView?.removeFromSuperview()
+        rerouteAlertView = nil
+        isRerouteAlertPresented = false
     }
 
     private func updatePassedPath(_ coordinates: [CLLocationCoordinate2D]) {
@@ -401,6 +433,133 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
             headerCollectionView.contentInset = .zero
             headerCollectionView.scrollIndicatorInsets = .zero
         }
+    }
+}
+
+private final class NavigationRerouteAlertView: UIView {
+    var onConfirm: (() -> Void)?
+    var onCancel: (() -> Void)?
+
+    private let dimView = UIView()
+    private let containerView = UIView()
+    private let titleLabel = UILabel()
+    private let messageLabel = UILabel()
+    private let countdownBadge = UIView()
+    private let countdownLabel = UILabel()
+    private let buttonStack = UIStackView()
+    private let confirmButton = UIButton(type: .system)
+    private let cancelButton = UIButton(type: .system)
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupUI()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func updateCountdown(_ seconds: Int) {
+        let value = max(0, seconds)
+        countdownLabel.text = "\(value)"
+        messageLabel.text = "\(value)초 후 자동으로 기존 경로 안내를 계속합니다."
+    }
+
+    private func setupUI() {
+        dimView.backgroundColor = UIColor.black.withAlphaComponent(0.35)
+
+        containerView.backgroundColor = AppColor.gray0
+        containerView.layer.cornerRadius = 16
+        containerView.layer.shadowColor = UIColor.black.cgColor
+        containerView.layer.shadowOpacity = 0.08
+        containerView.layer.shadowOffset = CGSize(width: 0, height: 6)
+        containerView.layer.shadowRadius = 16
+
+        titleLabel.text = "경로 이탈"
+        titleLabel.font = AppFont.body1Bold
+        titleLabel.textColor = AppColor.blackSprout
+        titleLabel.textAlignment = .center
+
+        messageLabel.font = AppFont.body2Bold
+        messageLabel.textColor = AppColor.gray75
+        messageLabel.numberOfLines = 0
+        messageLabel.textAlignment = .center
+
+        countdownBadge.backgroundColor = AppColor.brightSprout
+        countdownBadge.layer.cornerRadius = 18
+
+        countdownLabel.font = AppFont.body1Bold
+        countdownLabel.textColor = AppColor.blackSprout
+        countdownLabel.textAlignment = .center
+
+        confirmButton.setTitle("재탐색", for: .normal)
+        confirmButton.setTitleColor(AppColor.gray0, for: .normal)
+        confirmButton.titleLabel?.font = AppFont.body1Bold
+        confirmButton.backgroundColor = AppColor.blackSprout
+        confirmButton.layer.cornerRadius = 10
+        confirmButton.addTarget(self, action: #selector(handleConfirm), for: .touchUpInside)
+
+        cancelButton.setTitle("계속 진행", for: .normal)
+        cancelButton.setTitleColor(AppColor.blackSprout, for: .normal)
+        cancelButton.titleLabel?.font = AppFont.body1Bold
+        cancelButton.backgroundColor = AppColor.gray15
+        cancelButton.layer.cornerRadius = 10
+        cancelButton.addTarget(self, action: #selector(handleCancel), for: .touchUpInside)
+
+        buttonStack.axis = .horizontal
+        buttonStack.spacing = 12
+        buttonStack.distribution = .fillEqually
+
+        addSubview(dimView)
+        addSubview(containerView)
+
+        containerView.addSubview(titleLabel)
+        containerView.addSubview(messageLabel)
+        containerView.addSubview(countdownBadge)
+        countdownBadge.addSubview(countdownLabel)
+        containerView.addSubview(buttonStack)
+        buttonStack.addArrangedSubview(cancelButton)
+        buttonStack.addArrangedSubview(confirmButton)
+
+        dimView.snp.makeConstraints { $0.edges.equalToSuperview() }
+
+        containerView.snp.makeConstraints {
+            $0.center.equalToSuperview()
+            $0.leading.trailing.equalToSuperview().inset(32)
+        }
+
+        countdownBadge.snp.makeConstraints {
+            $0.top.equalToSuperview().inset(24)
+            $0.centerX.equalToSuperview()
+            $0.size.equalTo(36)
+        }
+
+        countdownLabel.snp.makeConstraints { $0.edges.equalToSuperview() }
+
+        titleLabel.snp.makeConstraints {
+            $0.top.equalTo(countdownBadge.snp.bottom).offset(12)
+            $0.leading.trailing.equalToSuperview().inset(20)
+        }
+
+        messageLabel.snp.makeConstraints {
+            $0.top.equalTo(titleLabel.snp.bottom).offset(8)
+            $0.leading.trailing.equalToSuperview().inset(24)
+        }
+
+        buttonStack.snp.makeConstraints {
+            $0.top.equalTo(messageLabel.snp.bottom).offset(20)
+            $0.leading.trailing.equalToSuperview().inset(20)
+            $0.height.equalTo(44)
+            $0.bottom.equalToSuperview().inset(20)
+        }
+    }
+
+    @objc private func handleConfirm() {
+        onConfirm?()
+    }
+
+    @objc private func handleCancel() {
+        onCancel?()
     }
 }
 

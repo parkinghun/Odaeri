@@ -102,7 +102,7 @@ private extension CustomTabBar {
 
         if item.isSpecial {
             button.backgroundColor = AppColor.blackSprout
-            button.setImage(item.emptyImage, for: .normal)
+            button.setImage(item.fillImage, for: .normal)
             button.tintColor = AppColor.gray0
             button.layer.cornerRadius = 32
             button.layer.shadowColor = UIColor.black.cgColor
@@ -110,7 +110,7 @@ private extension CustomTabBar {
             button.layer.shadowOffset = CGSize(width: 0, height: 4)
             button.layer.shadowRadius = 12
         } else {
-            button.setImage(item.emptyImage, for: .normal)
+            button.setImage(item.fillImage, for: .normal)
             button.setImage(item.fillImage, for: .selected)
             button.tintColor = AppColor.gray60
         }
@@ -129,7 +129,7 @@ private extension CustomTabBar {
                 button.setImage(isSelected ? item.fillImage : item.emptyImage, for: .normal)
             } else {
                 button.isSelected = isSelected
-                button.tintColor = isSelected ? AppColor.blackSprout : AppColor.gray60
+                button.tintColor = isSelected ? AppColor.blackSprout : AppColor.gray30
             }
         }
     }

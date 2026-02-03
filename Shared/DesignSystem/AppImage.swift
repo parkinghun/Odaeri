@@ -66,16 +66,16 @@ enum AppImage {
     static let script = systemImage("list.dash.header.rectangle")
     
     // MARK: - TabBar
-    static let communityEmpty = UIImage(named: "Community_Empty")
-    static let communityFill = UIImage(named: "Community_Fill")
-    static let homeEmpty = UIImage(named: "Home_Empty")
-    static let homeFill = UIImage(named: "Home_Fill")
-    static let orderEmpty = UIImage(named: "Order_Empty")
-    static let orderFill = UIImage(named: "Order_Fill")
-    static let pickEmpty = UIImage(named: "Pick_Empty")
-    static let pickFill = UIImage(named: "Pick_Fill")
-    static let profileEmpty = UIImage(named: "Profile_Empty")
-    static let profileFill = UIImage(named: "Profile_Fill")
+    static let communityEmpty = image("Community_Empty")
+    static let communityFill = image("Community_Fill")
+    static let homeEmpty = image("Home_Empty")
+    static let homeFill = image("Home_Fill")
+    static let orderEmpty = image("Order_Empty")
+    static let orderFill = image("Order_Fill")
+    static let pickEmpty = image("Pick_Empty")
+    static let pickFill = image("Pick_Fill")
+    static let profileEmpty = image("Profile_Empty")
+    static let profileFill = image("Profile_Fill")
     
     // MARK: - Ohters
     static let pickchelin = UIImage(named: "PickchelinTag")
