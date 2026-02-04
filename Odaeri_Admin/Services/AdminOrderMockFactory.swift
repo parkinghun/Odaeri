@@ -30,6 +30,26 @@ enum AdminOrderMockFactory {
             tags: ["BEST"]
         )
 
+        let sandwich = makeMenuEntity(
+            id: "menu_3",
+            category: "베이커리",
+            name: "클럽 샌드위치",
+            description: "바삭한 베이컨 샌드위치",
+            originInformation: "베이컨: 국내산",
+            price: 7200,
+            tags: ["NEW"]
+        )
+
+        let tea = makeMenuEntity(
+            id: "menu_4",
+            category: "티",
+            name: "얼그레이 티",
+            description: "향긋한 얼그레이",
+            originInformation: "찻잎: 인도산",
+            price: 4200,
+            tags: ["ICE"]
+        )
+
         var orders: [OrderListItemEntity] = []
 
         orders.append(makeOrder(
@@ -38,7 +58,10 @@ enum AdminOrderMockFactory {
             status: .pendingApproval,
             createdAt: Date().addingTimeInterval(MockValue.newOrderOffsets[0]),
             store: store,
-            menus: [makeMenuItemEntity(menu: latte, quantity: 2)]
+            menus: [
+                makeMenuItemEntity(menu: latte, quantity: 2),
+                makeMenuItemEntity(menu: sandwich, quantity: 1)
+            ]
         ))
 
         orders.append(makeOrder(
@@ -47,7 +70,10 @@ enum AdminOrderMockFactory {
             status: .pendingApproval,
             createdAt: Date().addingTimeInterval(MockValue.newOrderOffsets[1]),
             store: store,
-            menus: [makeMenuItemEntity(menu: cheesecake, quantity: 1)]
+            menus: [
+                makeMenuItemEntity(menu: cheesecake, quantity: 1),
+                makeMenuItemEntity(menu: tea, quantity: 2)
+            ]
         ))
 
         orders.append(makeOrder(
@@ -56,7 +82,11 @@ enum AdminOrderMockFactory {
             status: .approved,
             createdAt: Date().addingTimeInterval(MockValue.activeOrderOffsets[0]),
             store: store,
-            menus: [makeMenuItemEntity(menu: latte, quantity: 1), makeMenuItemEntity(menu: cheesecake, quantity: 1)]
+            menus: [
+                makeMenuItemEntity(menu: latte, quantity: 1),
+                makeMenuItemEntity(menu: cheesecake, quantity: 1),
+                makeMenuItemEntity(menu: tea, quantity: 1)
+            ]
         ))
 
         orders.append(makeOrder(
@@ -65,7 +95,10 @@ enum AdminOrderMockFactory {
             status: .inProgress,
             createdAt: Date().addingTimeInterval(MockValue.activeOrderOffsets[1]),
             store: store,
-            menus: [makeMenuItemEntity(menu: latte, quantity: 3)]
+            menus: [
+                makeMenuItemEntity(menu: latte, quantity: 2),
+                makeMenuItemEntity(menu: sandwich, quantity: 1)
+            ]
         ))
 
         orders.append(makeOrder(
@@ -74,7 +107,10 @@ enum AdminOrderMockFactory {
             status: .readyForPickup,
             createdAt: Date().addingTimeInterval(MockValue.activeOrderOffsets[2]),
             store: store,
-            menus: [makeMenuItemEntity(menu: cheesecake, quantity: 2)]
+            menus: [
+                makeMenuItemEntity(menu: cheesecake, quantity: 2),
+                makeMenuItemEntity(menu: tea, quantity: 1)
+            ]
         ))
 
         orders.append(makeOrder(
@@ -83,7 +119,11 @@ enum AdminOrderMockFactory {
             status: .inProgress,
             createdAt: Date().addingTimeInterval(MockValue.activeOrderOffsets[3]),
             store: store,
-            menus: [makeMenuItemEntity(menu: latte, quantity: 2)]
+            menus: [
+                makeMenuItemEntity(menu: latte, quantity: 1),
+                makeMenuItemEntity(menu: sandwich, quantity: 1),
+                makeMenuItemEntity(menu: tea, quantity: 1)
+            ]
         ))
 
         orders.append(makeOrder(

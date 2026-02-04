@@ -12,17 +12,19 @@ final class AdminSideTabBarController: UIViewController {
     private let sidebarView = AdminSidebarView()
     private let contentContainer = UIView()
 
-    private let orderManagementController = MainContainerViewController()
+    private let inProgressController = MainContainerViewController(initialFilter: .processing)
+    private let completedController = MainContainerViewController(initialFilter: .completed)
     private let salesController = AdminSalesViewController()
     private let storeManagementController = AdminStoreManagementContainerViewController()
 
-    private var selectedItem: AdminSidebarItem = .orderManagement
+    private var selectedItem: AdminSidebarItem = .inProgress
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         bind()
         setupNotificationObservers()
+        updateSidebarCounts()
         showContent(for: selectedItem)
     }
 
@@ -64,8 +66,10 @@ final class AdminSideTabBarController: UIViewController {
     private func showContent(for item: AdminSidebarItem) {
         let controller: UIViewController
         switch item {
-        case .orderManagement:
-            controller = orderManagementController
+        case .inProgress:
+            controller = inProgressController
+        case .completed:
+            controller = completedController
         case .sales:
             controller = salesController
         case .storeManagement:
@@ -84,6 +88,17 @@ final class AdminSideTabBarController: UIViewController {
         contentContainer.addSubview(controller.view)
         controller.view.snp.makeConstraints { $0.edges.equalToSuperview() }
         controller.didMove(toParent: self)
+    }
+
+    private func updateSidebarCounts() {
+        let orders = AdminOrderMockFactory.makeOrders()
+        let processingCount = orders.filter {
+            $0.currentOrderStatus == .pendingApproval ||
+            $0.currentOrderStatus == .approved ||
+            $0.currentOrderStatus == .inProgress ||
+            $0.currentOrderStatus == .readyForPickup
+        }.count
+        sidebarView.updateInProgressCount(processingCount)
     }
 
     private func setupNotificationObservers() {

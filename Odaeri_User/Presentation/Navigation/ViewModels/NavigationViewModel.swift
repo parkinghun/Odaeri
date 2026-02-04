@@ -252,7 +252,7 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
     func routeSteps() -> [NavigationRouteStep] {
         let steps = route.steps.filter { !$0.instructions.isEmpty && $0.distance > 0 }
         return steps.compactMap { step in
-            guard let coordinate = step.polyline.firstCoordinate else { return nil }
+            guard let coordinate = step.polyline.lastCoordinate else { return nil }
             let distanceText = formatDistance(step.distance)
             return NavigationRouteStep(
                 id: UUID().uuidString,
@@ -293,7 +293,7 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
     }
 
     private func stepDistance(step: MKRoute.Step, from location: CLLocation) -> CLLocationDistance {
-        guard let coordinate = step.polyline.firstCoordinate else { return .greatestFiniteMagnitude }
+        guard let coordinate = step.polyline.lastCoordinate else { return .greatestFiniteMagnitude }
         let stepLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         return location.distance(from: stepLocation)
     }
@@ -312,6 +312,13 @@ private extension MKPolyline {
         guard pointCount > 0 else { return nil }
         var coordinate = CLLocationCoordinate2D()
         getCoordinates(&coordinate, range: NSRange(location: 0, length: 1))
+        return coordinate
+    }
+
+    var lastCoordinate: CLLocationCoordinate2D? {
+        guard pointCount > 0 else { return nil }
+        var coordinate = CLLocationCoordinate2D()
+        getCoordinates(&coordinate, range: NSRange(location: pointCount - 1, length: 1))
         return coordinate
     }
 }

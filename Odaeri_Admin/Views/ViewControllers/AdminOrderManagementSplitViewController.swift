@@ -11,7 +11,7 @@ final class AdminOrderManagementSplitViewController: UISplitViewController {
     private let listViewController = IntegratedOrderListViewController()
     private let detailViewController = AdminOrderDetailViewController()
 
-    private var sampleOrders: [Order] = []
+    private var sampleOrders: [OrderListItemEntity] = []
 
     init() {
         super.init(style: .doubleColumn)
@@ -32,18 +32,13 @@ final class AdminOrderManagementSplitViewController: UISplitViewController {
     }
 
     private func loadSampleOrders() {
-        let menu = Menu(name: "SaeSsac Burger", price: 100, quantity: 2, imageUrl: nil)
-        sampleOrders = [
-            Order(orderCode: "A-101", totalPrice: 200, status: .pending, orderTime: Date(), storeName: "SaeSsac Cafe", menus: [menu]),
-            Order(orderCode: "A-102", totalPrice: 320, status: .cooking, orderTime: Date(), storeName: "SaeSsac Cafe", menus: [menu]),
-            Order(orderCode: "A-103", totalPrice: 150, status: .completed, orderTime: Date(), storeName: "SaeSsac Cafe", menus: [menu])
-        ]
+        sampleOrders = AdminOrderMockFactory.makeOrders()
         listViewController.updateOrders(sampleOrders)
     }
 }
 
 extension AdminOrderManagementSplitViewController: IntegratedOrderListViewControllerDelegate {
-    func orderListViewController(_ controller: IntegratedOrderListViewController, didSelect order: Order) {
+    func orderListViewController(_ controller: IntegratedOrderListViewController, didSelect order: OrderListItemEntity) {
         detailViewController.configure(order: order)
     }
 }

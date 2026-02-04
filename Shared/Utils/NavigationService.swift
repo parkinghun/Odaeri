@@ -70,6 +70,8 @@ final class NavigationService: NSObject {
     private var lastDeviationCheckTime: Date?
     private var deviationCount = 0
     private var hasShownOffRouteAlert = false
+    private var smoothedLocationBuffer: [CLLocationCoordinate2D] = []
+    private var lastPassedCoordinate: CLLocationCoordinate2D?
 
     @Published private(set) var currentLocation: CLLocation?
     @Published private(set) var currentHeading: CLHeading?
@@ -105,6 +107,17 @@ final class NavigationService: NSObject {
         self.hasShownOffRouteAlert = false
 
         updatePathSegments()
+
+        if !routeCoordinates.isEmpty {
+            let previewCount = min(routeCoordinates.count, 20)
+            print("[NavigationRoute] total=\(routeCoordinates.count), preview=\(previewCount)")
+            for index in 0..<previewCount {
+                let coordinate = routeCoordinates[index]
+                print("[NavigationRoute] \(index): \(coordinate.latitude), \(coordinate.longitude)")
+            }
+        } else {
+            print("[NavigationRoute] routeCoordinates is empty")
+        }
 
         locationManager.startUpdatingLocation()
         locationManager.startUpdatingHeading()
@@ -224,7 +237,11 @@ final class NavigationService: NSObject {
     private func updatePathSegments() {
         guard !routeCoordinates.isEmpty else { return }
 
-        passedPath = Array(routeCoordinates[0...currentRouteIndex])
+        if let lastLocation = currentLocation {
+            updatePassedPathWithGPS(lastLocation)
+        } else {
+            passedPath = Array(routeCoordinates[0...currentRouteIndex])
+        }
         remainingPath = Array(routeCoordinates[currentRouteIndex..<routeCoordinates.count])
     }
 
@@ -297,6 +314,42 @@ final class NavigationService: NSObject {
                 hasShownOffRouteAlert = false
             }
         }
+    }
+
+    private func updatePassedPathWithGPS(_ location: CLLocation) {
+        guard shouldAcceptLocation(location) else { return }
+        let coordinate = location.coordinate
+        let smoothed = appendAndSmooth(coordinate)
+
+        if let last = lastPassedCoordinate {
+            let lastLocation = CLLocation(latitude: last.latitude, longitude: last.longitude)
+            let newLocation = CLLocation(latitude: smoothed.latitude, longitude: smoothed.longitude)
+            if newLocation.distance(from: lastLocation) < 4 {
+                return
+            }
+        }
+
+        lastPassedCoordinate = smoothed
+        passedPath.append(smoothed)
+    }
+
+    private func shouldAcceptLocation(_ location: CLLocation) -> Bool {
+        let accuracy = location.horizontalAccuracy
+        guard accuracy >= 0 else { return false }
+        return accuracy <= 20
+    }
+
+    private func appendAndSmooth(_ coordinate: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
+        smoothedLocationBuffer.append(coordinate)
+        if smoothedLocationBuffer.count > 5 {
+            smoothedLocationBuffer.removeFirst(smoothedLocationBuffer.count - 5)
+        }
+
+        let sum = smoothedLocationBuffer.reduce((lat: 0.0, lon: 0.0)) { partial, coord in
+            (lat: partial.lat + coord.latitude, lon: partial.lon + coord.longitude)
+        }
+        let count = Double(smoothedLocationBuffer.count)
+        return CLLocationCoordinate2D(latitude: sum.lat / count, longitude: sum.lon / count)
     }
 
     private func adaptiveDeviationThreshold(for location: CLLocation) -> CLLocationDistance {

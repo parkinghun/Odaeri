@@ -68,8 +68,9 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     private var passedPathOverlay: MKPolyline?
     private var remainingPathOverlay: MKPolyline?
     private var destinationAnnotation: MKPointAnnotation?
-    private var stepPreviewAnnotation: MKPointAnnotation?
+    private var stepAnnotations: [NavigationStepAnnotation] = []
     private var routeSteps: [NavigationRouteStep] = []
+    private var headerSteps: [NavigationRouteStep] = []
     private var currentCameraMode: CameraMode = .tracking
     private var isProgrammaticMove: Bool = false
     private let currentLocationStepId = "current-location-step"
@@ -276,7 +277,7 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] stepIndex in
                 guard let self = self else { return }
-                let headerIndex = min(stepIndex + 1, max(self.routeSteps.count - 1, 0))
+                let headerIndex = min(stepIndex + 1, max(self.headerSteps.count - 1, 0))
                 guard self.currentCameraMode == .tracking else { return }
                 self.isHeaderSyncing = true
                 self.headerPageControl.currentPage = headerIndex
@@ -565,12 +566,12 @@ private final class NavigationRerouteAlertView: UIView {
 
 extension NavigationViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        routeSteps.count
+        headerSteps.count
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: NavigationStepCell.reuseIdentifier, for: indexPath) as! NavigationStepCell
-        cell.configure(with: routeSteps[indexPath.item])
+        cell.configure(with: headerSteps[indexPath.item])
         return cell
     }
 
@@ -615,25 +616,26 @@ private extension NavigationViewController {
             coordinate: currentCoordinate ?? destinationCoordinate,
             direction: .straight
         )
-        routeSteps.insert(currentStep, at: 0)
+        headerSteps = [currentStep] + routeSteps
         headerCollectionView.reloadData()
-        headerPageControl.numberOfPages = routeSteps.count
-        headerPageControl.isHidden = routeSteps.count <= 1
+        headerPageControl.numberOfPages = headerSteps.count
+        headerPageControl.isHidden = headerSteps.count <= 1
+        updateStepAnnotations()
         moveCameraToStep(at: 0)
     }
 
     func moveCameraToStep(at index: Int) {
-        guard index >= 0, index < routeSteps.count else { return }
-        if index == 0, routeSteps[0].id == currentLocationStepId {
+        guard index >= 0, index < headerSteps.count else { return }
+        if index == 0, headerSteps[0].id == currentLocationStepId {
             currentCameraMode = .tracking
             updateRelocateButton(isTracking: true)
-            updateStepPreviewAnnotation(for: index, coordinate: routeSteps[0].coordinate)
             return
         }
+        let routeIndex = index - 1
+        guard routeIndex >= 0, routeIndex < routeSteps.count else { return }
         currentCameraMode = .stepPreview
         updateRelocateButton(isTracking: false)
-        let coordinate = routeSteps[index].coordinate
-        updateStepPreviewAnnotation(for: index, coordinate: coordinate)
+        let coordinate = routeSteps[routeIndex].coordinate
         let camera = MKMapCamera(
             lookingAtCenter: coordinate,
             fromDistance: 700,
@@ -646,21 +648,22 @@ private extension NavigationViewController {
 }
 
 private extension NavigationViewController {
-    func updateStepPreviewAnnotation(for index: Int, coordinate: CLLocationCoordinate2D) {
-        if let existing = stepPreviewAnnotation {
-            mapView.removeAnnotation(existing)
-            stepPreviewAnnotation = nil
+    func updateStepAnnotations() {
+        if !stepAnnotations.isEmpty {
+            mapView.removeAnnotations(stepAnnotations)
+            stepAnnotations.removeAll()
         }
 
-        guard index != 0 else { return }
+        guard !routeSteps.isEmpty else { return }
 
-        let annotation = NavigationStepAnnotation(
-            coordinate: coordinate,
-            title: routeSteps[index].instruction,
-            direction: routeSteps[index].direction
-        )
-        stepPreviewAnnotation = annotation
-        mapView.addAnnotation(annotation)
+        stepAnnotations = routeSteps.map { step in
+            NavigationStepAnnotation(
+                coordinate: step.coordinate,
+                title: step.instruction,
+                direction: step.direction
+            )
+        }
+        mapView.addAnnotations(stepAnnotations)
     }
 }
 
@@ -709,7 +712,7 @@ extension NavigationViewController: MKMapViewDelegate {
 
     func mapView(_ mapView: MKMapView, didUpdate userLocation: MKUserLocation) {
         guard let location = userLocation.location else { return }
-        guard !routeSteps.isEmpty, routeSteps[0].id == currentLocationStepId else { return }
+        guard !headerSteps.isEmpty, headerSteps[0].id == currentLocationStepId else { return }
 
         let coordinate = location.coordinate
         guard CLLocationCoordinate2DIsValid(coordinate) else { return }
@@ -726,9 +729,9 @@ extension NavigationViewController: MKMapViewDelegate {
             mapView.setCamera(camera, animated: false)
         }
 
-        if routeSteps[0].coordinate.latitude != coordinate.latitude ||
-            routeSteps[0].coordinate.longitude != coordinate.longitude {
-            routeSteps[0] = NavigationRouteStep(
+        if headerSteps[0].coordinate.latitude != coordinate.latitude ||
+            headerSteps[0].coordinate.longitude != coordinate.longitude {
+            headerSteps[0] = NavigationRouteStep(
                 id: currentLocationStepId,
                 instruction: "현재 위치",
                 distanceText: "0m",

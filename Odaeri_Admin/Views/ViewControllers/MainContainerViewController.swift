@@ -10,7 +10,7 @@ import SnapKit
 import Combine
 
 final class MainContainerViewController: UIViewController {
-    private let sideListViewController = IntegratedOrderListViewController()
+    private let sideListViewController: IntegratedOrderListViewController
     private let detailViewController = AdminOrderDetailViewController()
 
     private let sideListView = UIView()
@@ -18,6 +18,15 @@ final class MainContainerViewController: UIViewController {
     private var mockOrderEntities: [OrderListItemEntity] = []
     private var selectedOrderCode: String?
     private var cancellables = Set<AnyCancellable>()
+
+    init(initialFilter: IntegratedOrderListViewController.InitialFilter = .processing) {
+        self.sideListViewController = IntegratedOrderListViewController(initialFilter: initialFilter)
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -55,7 +64,7 @@ final class MainContainerViewController: UIViewController {
 
     private func bind() {
         sideListViewController.onSelectOrder = { [weak self] order in
-            self?.selectOrder(code: order.orderCode)
+            self?.selectOrder(order)
         }
 
         detailViewController.updateStatusPublisher
@@ -68,17 +77,16 @@ final class MainContainerViewController: UIViewController {
     private func loadMockOrders() {
         let entities = AdminOrderMockFactory.makeOrders()
         mockOrderEntities = entities
-        let orders = mapOrders(from: entities)
-        sideListViewController.updateOrders(orders)
+        sideListViewController.updateOrders(entities)
         if let firstEntity = entities.first {
             selectedOrderCode = firstEntity.orderCode
             detailViewController.configure(order: firstEntity)
         }
     }
 
-    private func selectOrder(code: String) {
-        selectedOrderCode = code
-        guard let entity = mockOrderEntities.first(where: { $0.orderCode == code }) else { return }
+    private func selectOrder(_ order: OrderListItemEntity) {
+        selectedOrderCode = order.orderCode
+        guard let entity = mockOrderEntities.first(where: { $0.orderCode == order.orderCode }) else { return }
         detailViewController.configure(order: entity)
     }
 
@@ -89,34 +97,7 @@ final class MainContainerViewController: UIViewController {
         let updated = mockOrderEntities[index].updatingStatus(nextStatus)
         mockOrderEntities[index] = updated
 
-        sideListViewController.updateOrders(mapOrders(from: mockOrderEntities))
+        sideListViewController.updateOrders(mockOrderEntities)
         detailViewController.configure(order: updated)
-    }
-
-    private func mapOrders(from entities: [OrderListItemEntity]) -> [Order] {
-        entities.map { entity in
-            let mappedStatus: OrderStatus
-            switch entity.currentOrderStatus {
-            case .pendingApproval, .approved:
-                mappedStatus = .pending
-            case .inProgress:
-                mappedStatus = .cooking
-            case .readyForPickup, .pickedUp:
-                mappedStatus = .completed
-            }
-
-            let menus = entity.orderMenuList.map {
-                Menu(name: $0.menu.name, price: $0.menu.price, quantity: $0.quantity, imageUrl: $0.menu.menuImageUrl)
-            }
-
-            return Order(
-                orderCode: entity.orderCode,
-                totalPrice: entity.totalPrice,
-                status: mappedStatus,
-                orderTime: entity.createdAt ?? Date(),
-                storeName: entity.store.name,
-                menus: menus
-            )
-        }
     }
 }

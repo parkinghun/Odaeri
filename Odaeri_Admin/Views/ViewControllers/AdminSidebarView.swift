@@ -9,15 +9,17 @@ import UIKit
 import SnapKit
 
 enum AdminSidebarItem: CaseIterable {
-    case orderManagement
+    case inProgress
+    case completed
     case sales
     case storeManagement
     case settings
 
     var title: String {
         switch self {
-        case .orderManagement: return "주문 관리"
-        case .sales: return "매출 분석"
+        case .inProgress: return "처리 중"
+        case .completed: return "완료"
+        case .sales: return "매출 조회"
         case .storeManagement: return "가게 관리"
         case .settings: return "설정"
         }
@@ -25,7 +27,8 @@ enum AdminSidebarItem: CaseIterable {
 
     var iconName: String {
         switch self {
-        case .orderManagement: return "list.bullet.rectangle"
+        case .inProgress: return "clock"
+        case .completed: return "checkmark.circle"
         case .sales: return "chart.bar"
         case .storeManagement: return "storefront"
         case .settings: return "gearshape"
@@ -45,7 +48,7 @@ final class AdminSidebarView: UIView {
 
     private var itemButtons: [AdminSidebarItem: AdminSidebarButton] = [:]
 
-    private var selectedItem: AdminSidebarItem = .orderManagement {
+    private var selectedItem: AdminSidebarItem = .inProgress {
         didSet { updateSelection() }
     }
 
@@ -127,6 +130,10 @@ final class AdminSidebarView: UIView {
         }
     }
 
+    func updateInProgressCount(_ count: Int) {
+        itemButtons[.inProgress]?.setCount(count)
+    }
+
     @objc private func handleTap(_ sender: AdminSidebarButton) {
         let item = sender.item
         selectedItem = item
@@ -139,6 +146,7 @@ private final class AdminSidebarButton: UIControl {
 
     private let iconView = UIImageView()
     private let titleLabel = UILabel()
+    private let countLabel = UILabel()
     private let selectionIndicator = UIView()
 
     override var isSelected: Bool {
@@ -170,9 +178,15 @@ private final class AdminSidebarButton: UIControl {
         titleLabel.font = AppFont.body1
         titleLabel.textColor = AppColor.gray60
 
+        countLabel.font = AppFont.caption1
+        countLabel.textColor = AppColor.gray60
+        countLabel.textAlignment = .right
+        countLabel.isHidden = item != .inProgress
+
         addSubview(selectionIndicator)
         addSubview(iconView)
         addSubview(titleLabel)
+        addSubview(countLabel)
 
         selectionIndicator.snp.makeConstraints {
             $0.leading.equalToSuperview()
@@ -189,6 +203,11 @@ private final class AdminSidebarButton: UIControl {
 
         titleLabel.snp.makeConstraints {
             $0.leading.equalTo(iconView.snp.trailing).offset(10)
+            $0.trailing.lessThanOrEqualTo(countLabel.snp.leading).offset(-6)
+            $0.centerY.equalToSuperview()
+        }
+
+        countLabel.snp.makeConstraints {
             $0.trailing.equalToSuperview().inset(12)
             $0.centerY.equalToSuperview()
         }
@@ -201,12 +220,20 @@ private final class AdminSidebarButton: UIControl {
             backgroundColor = AppColor.gray90.withAlphaComponent(0.25)
             iconView.tintColor = AppColor.gray0
             titleLabel.textColor = AppColor.gray0
+            countLabel.textColor = AppColor.gray0
             selectionIndicator.isHidden = false
         } else {
             backgroundColor = .clear
             iconView.tintColor = AppColor.gray60
             titleLabel.textColor = AppColor.gray60
+            countLabel.textColor = AppColor.gray60
             selectionIndicator.isHidden = true
         }
+    }
+
+    func setCount(_ count: Int) {
+        guard item == .inProgress else { return }
+        countLabel.text = "\(count)건"
+        countLabel.isHidden = false
     }
 }
