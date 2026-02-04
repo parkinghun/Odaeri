@@ -171,6 +171,78 @@ enum AdminOrderMockFactory {
             menus: [makeMenuItemEntity(menu: latte, quantity: 1), makeMenuItemEntity(menu: cheesecake, quantity: 1)]
         ))
 
+        orders.append(makeOrder(
+            id: "order_401",
+            code: "D-4001",
+            status: .pickedUp,
+            createdAt: Date().addingTimeInterval(MockValue.salesOrderOffsets[0]),
+            store: store,
+            menus: [makeMenuItemEntity(menu: latte, quantity: 1), makeMenuItemEntity(menu: tea, quantity: 1)]
+        ))
+
+        orders.append(makeOrder(
+            id: "order_402",
+            code: "D-4002",
+            status: .pickedUp,
+            createdAt: Date().addingTimeInterval(MockValue.salesOrderOffsets[1]),
+            store: store,
+            menus: [makeMenuItemEntity(menu: cheesecake, quantity: 1)]
+        ))
+
+        orders.append(makeOrder(
+            id: "order_403",
+            code: "D-4003",
+            status: .pickedUp,
+            createdAt: Date().addingTimeInterval(MockValue.salesOrderOffsets[2]),
+            store: store,
+            menus: [makeMenuItemEntity(menu: sandwich, quantity: 1)]
+        ))
+
+        orders.append(makeOrder(
+            id: "order_404",
+            code: "D-4004",
+            status: .pickedUp,
+            createdAt: Date().addingTimeInterval(MockValue.salesOrderOffsets[3]),
+            store: store,
+            menus: [makeMenuItemEntity(menu: latte, quantity: 2)]
+        ))
+
+        orders.append(makeOrder(
+            id: "order_405",
+            code: "D-4005",
+            status: .pickedUp,
+            createdAt: Date().addingTimeInterval(MockValue.salesOrderOffsets[4]),
+            store: store,
+            menus: [makeMenuItemEntity(menu: tea, quantity: 2)]
+        ))
+
+        orders.append(makeOrder(
+            id: "order_406",
+            code: "D-4006",
+            status: .pickedUp,
+            createdAt: Date().addingTimeInterval(MockValue.salesOrderOffsets[5]),
+            store: store,
+            menus: [makeMenuItemEntity(menu: cheesecake, quantity: 2)]
+        ))
+
+        orders.append(makeOrder(
+            id: "order_407",
+            code: "D-4007",
+            status: .pickedUp,
+            createdAt: Date().addingTimeInterval(MockValue.salesOrderOffsets[6]),
+            store: store,
+            menus: [makeMenuItemEntity(menu: latte, quantity: 1), makeMenuItemEntity(menu: sandwich, quantity: 1)]
+        ))
+
+        orders.append(makeOrder(
+            id: "order_408",
+            code: "D-4008",
+            status: .pickedUp,
+            createdAt: Date().addingTimeInterval(MockValue.salesOrderOffsets[7]),
+            store: store,
+            menus: [makeMenuItemEntity(menu: tea, quantity: 1), makeMenuItemEntity(menu: cheesecake, quantity: 1)]
+        ))
+
         return orders
     }
 
@@ -291,4 +363,14 @@ private enum MockValue {
     static let newOrderOffsets: [TimeInterval] = [-300, -420]
     static let activeOrderOffsets: [TimeInterval] = [-900, -1200, -1500, -1800]
     static let completedOrderOffsets: [TimeInterval] = [-3600, -4200, -4800, -5400, -6000]
+    static let salesOrderOffsets: [TimeInterval] = [
+        -2 * 3600,
+        -3 * 3600,
+        -5 * 3600,
+        -7 * 3600,
+        -9 * 3600,
+        -11 * 3600,
+        -13 * 3600,
+        -15 * 3600
+    ]
 }

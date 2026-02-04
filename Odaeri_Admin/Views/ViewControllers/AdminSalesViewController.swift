@@ -53,112 +53,18 @@ struct AdminSalesDashboardView: View {
     @State private var startDate = Calendar.current.startOfDay(for: Date())
     @State private var endDate = Calendar.current.startOfDay(for: Date())
     @State private var isDatePickerPresented = false
+    @State private var quickFilter: QuickFilter = .today
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Layout.sectionSpacing) {
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        isDatePickerPresented = true
-                    }) {
-                        HStack(spacing: Layout.textSpacing) {
-                            Image(systemName: "calendar")
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("기간 선택")
-                                    .font(Font(AppFont.caption1))
-                                    .foregroundStyle(Color(uiColor: AppColor.gray60))
-                                Text(dateRangeText)
-                                    .font(Font(AppFont.body2))
-                                    .foregroundStyle(Color(uiColor: AppColor.gray90))
-                            }
-                        }
-                        .padding(.vertical, Layout.filterVerticalPadding)
-                        .padding(.horizontal, Layout.filterHorizontalPadding)
-                        .background(Color(uiColor: AppColor.gray0))
-                        .cornerRadius(Layout.filterCornerRadius)
-                    }
-                }
-
-                HStack(spacing: Layout.cardSpacing) {
-                    summaryCard(title: "총 매출", value: "\(summary.totalRevenue.formattedWithSeparator)원")
-                    summaryCard(title: "주문 건수", value: "\(summary.orderCount)")
-                    summaryCard(title: "평균 객단가", value: "\(summary.averageOrderValue.formattedWithSeparator)원")
-                    summaryCard(title: "평균 별점", value: summary.averageRatingText)
-                }
-
+                filterBar
+                summaryRow
                 if filteredOrders.isEmpty {
-                    VStack(spacing: Layout.emptySpacing) {
-                        Image(systemName: "tray")
-                            .font(.system(size: 32))
-                            .foregroundStyle(Color(uiColor: AppColor.gray60))
-                        Text("선택한 기간에 매출 데이터가 없습니다.")
-                            .font(Font(AppFont.body2))
-                            .foregroundStyle(Color(uiColor: AppColor.gray60))
-                    }
-                    .frame(maxWidth: .infinity, minHeight: Layout.emptyHeight)
-                    .background(Color(uiColor: AppColor.gray0))
-                    .cornerRadius(Layout.cardCornerRadius)
+                    emptyState
                 } else {
-                    chartCard(title: "시간대별 매출 추이") {
-                        Chart(hourlySales, id: \.self) { point in
-                            BarMark(
-                                x: .value("시간", point.label),
-                                y: .value("매출", point.value)
-                            )
-                            .foregroundStyle(Color(uiColor: AppColor.deepSprout))
-                        }
-                        .frame(height: Layout.chartHeight)
-                    }
-
-                    HStack(spacing: Layout.cardSpacing) {
-                        chartCard(title: "메뉴 카테고리별 비중") {
-                            if #available(iOS 17.0, *) {
-                                Chart(categoryShare, id: \.self) { point in
-                                    SectorMark(
-                                        angle: .value("비중", point.value),
-                                        innerRadius: .ratio(0.6)
-                                    )
-                                    .foregroundStyle(by: .value("카테고리", point.label))
-                                }
-                                .frame(height: Layout.chartHeight)
-                            } else {
-                                Chart(categoryShare, id: \.self) { point in
-                                    BarMark(
-                                        x: .value("카테고리", point.label),
-                                        y: .value("비중", point.value)
-                                    )
-                                    .foregroundStyle(Color(uiColor: AppColor.deepSprout))
-                                }
-                                .frame(height: Layout.chartHeight)
-                            }
-                        }
-
-                        chartCard(title: "인기 메뉴 TOP 5") {
-                            Chart(topMenus, id: \.self) { point in
-                                BarMark(
-                                    x: .value("판매", point.value),
-                                    y: .value("메뉴", point.label)
-                                )
-                                .foregroundStyle(Color(uiColor: AppColor.blackSprout))
-                            }
-                            .frame(height: Layout.chartHeight)
-                        }
-                    }
-
-                    VStack(alignment: .leading, spacing: Layout.listSpacing) {
-                        Text("상세 거래 내역")
-                            .font(Font(AppFont.body1Bold))
-                            .foregroundStyle(Color(uiColor: AppColor.gray90))
-
-                        ForEach(filteredOrders, id: \.orderId) { order in
-                            AdminSalesOrderRowView(order: order)
-                        }
-                    }
-                    .padding(Layout.cardPadding)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(uiColor: AppColor.gray0))
-                    .cornerRadius(Layout.cardCornerRadius)
+                    chartsSection
+                    insightsSection
                 }
             }
             .padding(Layout.screenPadding)
@@ -167,10 +73,153 @@ struct AdminSalesDashboardView: View {
         .sheet(isPresented: $isDatePickerPresented) {
             AdminSalesDatePickerView(startDate: $startDate, endDate: $endDate)
         }
+        .onChange(of: quickFilter) { newValue in
+            applyQuickFilter(newValue)
+        }
+    }
+
+    private var filterBar: some View {
+        HStack(spacing: Layout.cardSpacing) {
+            Picker("기간", selection: $quickFilter) {
+                ForEach(QuickFilter.allCases, id: \.self) { filter in
+                    Text(filter.title).tag(filter)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 360)
+
+            Spacer()
+
+            Button(action: {
+                isDatePickerPresented = true
+            }) {
+                HStack(spacing: Layout.textSpacing) {
+                    Image(systemName: "calendar")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("기간 선택")
+                            .font(Font(AppFont.caption1))
+                            .foregroundStyle(Color(uiColor: AppColor.gray60))
+                        Text(dateRangeText)
+                            .font(Font(AppFont.body2))
+                            .foregroundStyle(Color(uiColor: AppColor.gray90))
+                    }
+                }
+                .padding(.vertical, Layout.filterVerticalPadding)
+                .padding(.horizontal, Layout.filterHorizontalPadding)
+                .background(Color(uiColor: AppColor.gray0))
+                .cornerRadius(Layout.filterCornerRadius)
+            }
+        }
+    }
+
+    private var summaryRow: some View {
+        HStack(spacing: Layout.cardSpacing) {
+            summaryCard(title: "총 매출", value: "\(summary.totalRevenue.formattedWithSeparator)원", delta: summaryDelta.totalRevenue)
+            summaryCard(title: "주문 건수", value: "\(summary.orderCount)", delta: summaryDelta.orderCount)
+            summaryCard(title: "평균 객단가", value: "\(summary.averageOrderValue.formattedWithSeparator)원", delta: summaryDelta.averageOrderValue)
+            summaryCard(title: "평균 별점", value: summary.averageRatingText, delta: summaryDelta.averageRating)
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: Layout.emptySpacing) {
+            Image(systemName: "tray")
+                .font(.system(size: 32))
+                .foregroundStyle(Color(uiColor: AppColor.gray60))
+            Text("선택한 기간에 매출 데이터가 없습니다.")
+                .font(Font(AppFont.body2))
+                .foregroundStyle(Color(uiColor: AppColor.gray60))
+        }
+        .frame(maxWidth: .infinity, minHeight: Layout.emptyHeight)
+        .background(Color(uiColor: AppColor.gray0))
+        .cornerRadius(Layout.cardCornerRadius)
+    }
+
+    private var chartsSection: some View {
+        VStack(alignment: .leading, spacing: Layout.sectionSpacing) {
+            chartCard(title: "시간대별 매출 추이") {
+                Chart {
+                    ForEach(hourlySales, id: \.self) { point in
+                        BarMark(
+                            x: .value("시간", point.label),
+                            y: .value("매출", point.value)
+                        )
+                        .foregroundStyle(point.isPeak ? Color(uiColor: AppColor.brightForsythia) : Color(uiColor: AppColor.deepSprout))
+                        .cornerRadius(6)
+                    }
+
+                    ForEach(hourlySales, id: \.self) { point in
+                        LineMark(
+                            x: .value("시간", point.label),
+                            y: .value("누적", point.value)
+                        )
+                        .foregroundStyle(Color(uiColor: AppColor.blackSprout))
+                        .lineStyle(.init(lineWidth: 2))
+                        .symbol(Circle().strokeBorder(lineWidth: 2))
+                    }
+                }
+                .frame(height: Layout.chartHeight)
+            }
+
+            HStack(spacing: Layout.cardSpacing) {
+                chartCard(title: "메뉴 카테고리별 비중") {
+                    HStack(spacing: 16) {
+                        categoryChartView()
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Divider()
+                                .padding(.bottom, 4)
+                            ForEach(categoryShare, id: \.self) { point in
+                                HStack {
+                                    Circle()
+                                        .fill(colorForCategory(point.label))
+                                        .frame(width: 8, height: 8)
+                                    Text(point.label)
+                                        .font(Font(AppFont.body3))
+                                        .foregroundStyle(Color(uiColor: AppColor.gray90))
+                                    Spacer()
+                                    Text(percentText(for: point))
+                                        .font(Font(AppFont.body3))
+                                        .foregroundStyle(Color(uiColor: AppColor.gray75))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                chartCard(title: "인기 메뉴 TOP 5") {
+                    Chart(topMenus, id: \.self) { point in
+                        BarMark(
+                            x: .value("판매", point.value),
+                            y: .value("메뉴", point.label)
+                        )
+                        .foregroundStyle(Color(uiColor: AppColor.blackSprout))
+                    }
+                    .frame(height: Layout.chartHeight)
+                }
+            }
+        }
+    }
+
+    private var insightsSection: some View {
+        VStack(alignment: .leading, spacing: Layout.listSpacing) {
+            Text("운영 인사이트")
+                .font(Font(AppFont.body1Bold))
+                .foregroundStyle(Color(uiColor: AppColor.gray90))
+
+            insightRow(title: "피크 타임", value: peakHourText)
+            insightRow(title: "인기 카테고리", value: topCategoryText)
+            insightRow(title: "평균 주문 수량", value: averageMenuCountText)
+            insightRow(title: "주문 밀도", value: orderDensityText)
+        }
+        .padding(Layout.cardPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(uiColor: AppColor.gray0))
+        .cornerRadius(Layout.cardCornerRadius)
     }
 
     @ViewBuilder
-    private func summaryCard(title: String, value: String) -> some View {
+    private func summaryCard(title: String, value: String, delta: AdminSalesDelta?) -> some View {
         VStack(alignment: .leading, spacing: Layout.textSpacing) {
             Text(title)
                 .font(Font(AppFont.caption1))
@@ -178,6 +227,11 @@ struct AdminSalesDashboardView: View {
             Text(value)
                 .font(Font(AppFont.title1))
                 .foregroundStyle(Color(uiColor: AppColor.gray90))
+            if let delta {
+                Text(delta.text)
+                    .font(Font(AppFont.caption1))
+                    .foregroundStyle(Color(uiColor: delta.color))
+            }
         }
         .padding(Layout.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -197,6 +251,23 @@ struct AdminSalesDashboardView: View {
         .frame(maxWidth: .infinity)
         .background(Color(uiColor: AppColor.gray0))
         .cornerRadius(Layout.cardCornerRadius)
+    }
+
+    private func insightRow(title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+                .font(Font(AppFont.body2))
+                .foregroundStyle(Color(uiColor: AppColor.gray75))
+            Spacer()
+            Text(value)
+                .font(Font(AppFont.body2Bold))
+                .foregroundStyle(Color(uiColor: AppColor.gray90))
+        }
+        .padding(.vertical, 6)
+        .overlay(
+            Divider(),
+            alignment: .bottom
+        )
     }
 
     private var filteredOrders: [OrderListItemEntity] {
@@ -222,15 +293,43 @@ struct AdminSalesDashboardView: View {
         )
     }
 
+    private var summaryDelta: AdminSalesSummaryDelta {
+        let previousOrders = previousPeriodOrders
+        let totalRevenue = previousOrders.reduce(0) { $0 + $1.totalPrice }
+        let orderCount = previousOrders.count
+        let averageOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0
+        let ratings = previousOrders.compactMap { $0.review?.rating }
+        let averageRating = ratings.isEmpty ? nil : Double(ratings.reduce(0, +)) / Double(ratings.count)
+        let previousSummary = AdminSalesSummaryModel(
+            totalRevenue: totalRevenue,
+            orderCount: orderCount,
+            averageOrderValue: averageOrderValue,
+            averageRating: averageRating
+        )
+        return AdminSalesSummaryDelta(current: summary, previous: previousSummary)
+    }
+
     private var hourlySales: [AdminSalesPoint] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: filteredOrders) { order -> Int in
             let date = order.createdAt ?? Date()
             return calendar.component(.hour, from: date)
         }
-        return grouped.keys.sorted().map { hour in
+        let points = grouped.keys.sorted().map { hour in
             let total = grouped[hour]?.reduce(0, { $0 + $1.totalPrice }) ?? 0
             return AdminSalesPoint(label: "\(hour)시", value: Double(total))
+        }
+        guard let maxValue = points.map(\.value).max() else { return points }
+        return points.map { point in
+            AdminSalesPoint(label: point.label, value: point.value, isPeak: point.value == maxValue)
+        }
+    }
+
+    private var cumulativeSales: [AdminSalesPoint] {
+        var runningTotal: Double = 0
+        return hourlySales.map { point in
+            runningTotal += point.value
+            return AdminSalesPoint(label: point.label, value: runningTotal)
         }
     }
 
@@ -243,6 +342,26 @@ struct AdminSalesDashboardView: View {
         }
         return counts.map { AdminSalesPoint(label: $0.key, value: Double($0.value)) }
             .sorted { $0.value > $1.value }
+    }
+
+    private var categoryDonutSlices: [AdminSalesDonutSlice] {
+        let points = categoryShare
+        guard points.count > 1 else {
+            return points.map { AdminSalesDonutSlice(label: $0.label, value: $0.value, isSeparator: false) }
+        }
+
+        let total = max(points.reduce(0) { $0 + $1.value }, 1)
+        let separatorValue = max(total * 0.006, 0.2)
+
+        var slices: [AdminSalesDonutSlice] = []
+        for (index, point) in points.enumerated() {
+            slices.append(AdminSalesDonutSlice(label: point.label, value: point.value, isSeparator: false))
+            if index < points.count - 1 {
+                slices.append(AdminSalesDonutSlice(label: "sep-\(index)", value: separatorValue, isSeparator: true))
+            }
+        }
+        slices.append(AdminSalesDonutSlice(label: "sep-end", value: separatorValue, isSeparator: true))
+        return slices
     }
 
     private var topMenus: [AdminSalesPoint] {
@@ -263,6 +382,127 @@ struct AdminSalesDashboardView: View {
         let endText = DateFormatter.dotDate.string(from: endDate)
         return "\(startText) - \(endText)"
     }
+
+    private func percentText(for point: AdminSalesPoint) -> String {
+        let total = max(categoryShare.reduce(0) { $0 + $1.value }, 1)
+        let percent = (point.value / total) * 100
+        return String(format: "%.1f%%", percent)
+    }
+
+    @ViewBuilder
+    private func categoryChartView() -> some View {
+        if #available(iOS 17.0, *) {
+            categoryChart17()
+        } else {
+            categoryChart16()
+        }
+    }
+
+    @available(iOS 17.0, *)
+    private func categoryChart17() -> some View {
+        Chart(categoryDonutSlices) { slice in
+            SectorMark(
+                angle: .value("비중", slice.value),
+                innerRadius: .ratio(0.6)
+            )
+            .foregroundStyle(slice.isSeparator ? Color.white : colorForCategory(slice.label))
+        }
+        .frame(width: Layout.chartHeight, height: Layout.chartHeight)
+    }
+
+    private func categoryChart16() -> some View {
+        Chart(categoryDonutSlices) { slice in
+            BarMark(
+                x: .value("카테고리", slice.label),
+                y: .value("비중", slice.value)
+            )
+            .foregroundStyle(slice.isSeparator ? Color.white : colorForCategory(slice.label))
+        }
+        .frame(width: Layout.chartHeight, height: Layout.chartHeight)
+    }
+
+    private func colorForCategory(_ label: String) -> Color {
+        let color: UIColor
+        switch label {
+        case "커피":
+            color = UIColor(hex: "#8FB996")
+        case "디저트":
+            color = UIColor(hex: "#B2D5BA")
+        case "티":
+            color = UIColor(hex: "#6B8E72")
+        case "베이커리":
+            color = UIColor(hex: "#E2E8CE")
+        default:
+            color = UIColor(hex: "#7EB2B1")
+        }
+        return Color(uiColor: color)
+    }
+
+    private var previousPeriodOrders: [OrderListItemEntity] {
+        guard let previousRange = previousDateRange else { return [] }
+        return orders.filter { order in
+            guard let createdAt = order.createdAt else { return false }
+            return createdAt >= previousRange.start && createdAt < previousRange.end
+        }
+    }
+
+    private var previousDateRange: (start: Date, end: Date)? {
+        let start = Calendar.current.startOfDay(for: startDate)
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: endDate)) ?? endDate
+        let interval = end.timeIntervalSince(start)
+        guard interval > 0 else { return nil }
+        let previousEnd = start
+        let previousStart = previousEnd.addingTimeInterval(-interval)
+        return (previousStart, previousEnd)
+    }
+
+    private func applyQuickFilter(_ filter: QuickFilter) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        switch filter {
+        case .today:
+            startDate = today
+            endDate = today
+        case .yesterday:
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+            startDate = yesterday
+            endDate = yesterday
+        case .thisWeek:
+            let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today)) ?? today
+            startDate = weekStart
+            endDate = today
+        case .thisMonth:
+            let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) ?? today
+            startDate = monthStart
+            endDate = today
+        }
+    }
+
+    private var peakHourText: String {
+        guard let peak = hourlySales.max(by: { $0.value < $1.value }) else { return "—" }
+        return "\(peak.label) (최고 매출)"
+    }
+
+    private var topCategoryText: String {
+        guard let top = categoryShare.first else { return "—" }
+        return top.label
+    }
+
+    private var averageMenuCountText: String {
+        guard !filteredOrders.isEmpty else { return "—" }
+        let totalCount = filteredOrders.reduce(0) { partial, order in
+            partial + order.orderMenuList.reduce(0) { $0 + $1.quantity }
+        }
+        let avg = Double(totalCount) / Double(filteredOrders.count)
+        return String(format: "%.1f개", avg)
+    }
+
+    private var orderDensityText: String {
+        guard let previous = previousDateRange else { return "—" }
+        let hours = max(previous.end.timeIntervalSince(previous.start) / 3600, 1)
+        let density = Double(filteredOrders.count) / hours
+        return String(format: "%.1f건/시간", density)
+    }
 }
 
 private struct AdminSalesSummaryModel {
@@ -277,87 +517,72 @@ private struct AdminSalesSummaryModel {
     }
 }
 
-private struct AdminSalesOrderRowView: View {
-    let order: OrderListItemEntity
+private struct AdminSalesSummaryDelta {
+    let totalRevenue: AdminSalesDelta?
+    let orderCount: AdminSalesDelta?
+    let averageOrderValue: AdminSalesDelta?
+    let averageRating: AdminSalesDelta?
 
-    var body: some View {
-        HStack(spacing: Layout.rowSpacing) {
-            Text(timeText)
-                .font(Font(AppFont.caption1))
-                .foregroundStyle(Color(uiColor: AppColor.gray60))
-                .frame(width: 52, alignment: .leading)
-
-            VStack(alignment: .leading, spacing: Layout.rowInnerSpacing) {
-                Text(menuSummary)
-                    .font(Font(AppFont.body2))
-                    .foregroundStyle(Color(uiColor: AppColor.gray90))
-                StatusBadgeView(status: order.currentOrderStatus)
-            }
-
-            Spacer()
-
-            Text("\(order.totalPrice.formattedWithSeparator)원")
-                .font(Font(AppFont.body2Bold))
-                .foregroundStyle(Color(uiColor: AppColor.gray90))
+    init(current: AdminSalesSummaryModel, previous: AdminSalesSummaryModel) {
+        totalRevenue = AdminSalesDelta(current: Double(current.totalRevenue), previous: Double(previous.totalRevenue))
+        orderCount = AdminSalesDelta(current: Double(current.orderCount), previous: Double(previous.orderCount))
+        averageOrderValue = AdminSalesDelta(current: Double(current.averageOrderValue), previous: Double(previous.averageOrderValue))
+        if let currentRating = current.averageRating, let previousRating = previous.averageRating {
+            averageRating = AdminSalesDelta(current: currentRating, previous: previousRating, unit: "")
+        } else {
+            averageRating = nil
         }
-        .padding(.vertical, Layout.rowVerticalPadding)
-        .overlay(
-            Divider()
-                .padding(.leading, 52),
-            alignment: .bottom
-        )
-    }
-
-    private var timeText: String {
-        guard let createdAt = order.createdAt else { return "--:--" }
-        return DateFormatter.timeDisplay.string(from: createdAt)
-    }
-
-    private var menuSummary: String {
-        guard let first = order.orderMenuList.first?.menu.name else {
-            return "메뉴 정보 없음"
-        }
-        let extra = max(order.orderMenuList.count - 1, 0)
-        if extra > 0 {
-            return "\(first) 외 \(extra)건"
-        }
-        return first
     }
 }
 
-private struct StatusBadgeView: View {
-    let status: OrderStatusEntity
+private struct AdminSalesDelta {
+    let value: Double
+    let unit: String
 
-    var body: some View {
-        Text(status.description)
-            .font(Font(AppFont.caption2))
-            .foregroundStyle(Color(uiColor: textColor))
-            .padding(.vertical, 4)
-            .padding(.horizontal, 8)
-            .background(Color(uiColor: backgroundColor))
-            .cornerRadius(10)
+    init?(current: Double, previous: Double, unit: String = "%") {
+        guard previous > 0 else { return nil }
+        self.value = ((current - previous) / previous) * 100
+        self.unit = unit
     }
 
-    private var backgroundColor: UIColor {
-        switch status {
-        case .pendingApproval:
-            return AppColor.gray45
-        case .approved, .inProgress:
-            return AppColor.deepSprout
-        case .readyForPickup:
-            return AppColor.blackSprout
-        case .pickedUp:
-            return AppColor.gray60
-        }
+    var text: String {
+        let sign = value >= 0 ? "▲" : "▼"
+        let absValue = abs(value)
+        return "\(sign) \(String(format: "%.1f", absValue))\(unit)"
     }
 
-    private var textColor: UIColor {
-        switch status {
-        case .pendingApproval:
-            return AppColor.gray90
-        default:
-            return AppColor.gray0
+    var color: UIColor {
+        value >= 0 ? .systemRed : .systemBlue
+    }
+}
+
+private enum QuickFilter: CaseIterable {
+    case today
+    case yesterday
+    case thisWeek
+    case thisMonth
+
+    var title: String {
+        switch self {
+        case .today: return "오늘"
+        case .yesterday: return "어제"
+        case .thisWeek: return "이번 주"
+        case .thisMonth: return "이번 달"
         }
+    }
+}
+
+private struct AdminSalesDonutSlice: Identifiable, Hashable {
+    let id: String
+    let label: String
+    let value: Double
+    let isSeparator: Bool
+
+    init(label: String, value: Double, isSeparator: Bool) {
+        self.id = UUID().uuidString
+        self.label = label
+        self.value = value
+        self.isSeparator = isSeparator
     }
 }
 

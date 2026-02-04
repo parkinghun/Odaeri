@@ -72,6 +72,8 @@ final class AdminSideTabBarController: UIViewController {
             controller = completedController
         case .sales:
             controller = salesController
+            let orders = AdminOrderMockFactory.makeOrders()
+            salesController.updateOrders(orders)
         case .storeManagement:
             controller = storeManagementController
         case .settings:

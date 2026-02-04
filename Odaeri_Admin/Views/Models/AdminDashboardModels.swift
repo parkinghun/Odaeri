@@ -46,6 +46,13 @@ struct AdminSalesSummary: Hashable {
 struct AdminSalesPoint: Hashable {
     let label: String
     let value: Double
+    let isPeak: Bool
+
+    init(label: String, value: Double, isPeak: Bool = false) {
+        self.label = label
+        self.value = value
+        self.isPeak = isPeak
+    }
 }
 
 struct AdminSalesCharts: Hashable {
