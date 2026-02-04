@@ -180,8 +180,9 @@ private final class AdminStoreFormView: UIView {
     private let latitudeField = AdminFormFieldView(title: "위도")
     private let openField = AdminFormFieldView(title: "오픈")
     private let closeField = AdminFormFieldView(title: "마감")
-    private let parkingField = AdminFormFieldView(title: "주차 안내")
     private let tagsField = AdminFormFieldView(title: "해시태그")
+    private let parkingLabel = UILabel()
+    private let parkingSegment = UISegmentedControl(items: ["가능", "불가"])
     private let picchelinLabel = UILabel()
     private let picchelinSwitch = UISwitch()
     private let imageTitleLabel = UILabel()
@@ -195,6 +196,8 @@ private final class AdminStoreFormView: UIView {
 
     private var imageUrls: [String] = []
     private var selectedImages: [UIImage] = []
+    private let openPicker = UIDatePicker()
+    private let closePicker = UIDatePicker()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -215,6 +218,21 @@ private final class AdminStoreFormView: UIView {
 
         longitudeField.keyboardType = .decimalPad
         latitudeField.keyboardType = .decimalPad
+        openField.setInputView(openPicker)
+        closeField.setInputView(closePicker)
+        openField.setAccessoryToolbar(title: "오픈 시간 선택")
+        closeField.setAccessoryToolbar(title: "마감 시간 선택")
+        openPicker.datePickerMode = .time
+        openPicker.preferredDatePickerStyle = .wheels
+        closePicker.datePickerMode = .time
+        closePicker.preferredDatePickerStyle = .wheels
+        openPicker.addTarget(self, action: #selector(handleOpenTimeChanged), for: .valueChanged)
+        closePicker.addTarget(self, action: #selector(handleCloseTimeChanged), for: .valueChanged)
+
+        parkingLabel.text = "주차"
+        parkingLabel.font = AppFont.body2
+        parkingLabel.textColor = AppColor.gray75
+        parkingSegment.selectedSegmentIndex = 1
 
         picchelinLabel.text = "픽슐랭"
         picchelinLabel.font = AppFont.body2
@@ -245,22 +263,36 @@ private final class AdminStoreFormView: UIView {
         picchelinStack.axis = .horizontal
         picchelinStack.alignment = .center
 
+        let parkingStack = UIStackView(arrangedSubviews: [parkingLabel, UIView(), parkingSegment])
+        parkingStack.axis = .horizontal
+        parkingStack.alignment = .center
+
         let imageHeaderStack = UIStackView(arrangedSubviews: [imageTitleLabel, UIView(), imageAddButton])
         imageHeaderStack.axis = .horizontal
         imageHeaderStack.alignment = .center
 
+        let basicInfoHeader = sectionHeader("기본 정보")
+        let timeHeader = sectionHeader("영업 설정")
+        let locationHeader = sectionHeader("위치 정보")
+        let etcHeader = sectionHeader("태그 및 편의")
+
+        let categoryRow = twoColumnRow(left: categoryField, right: descriptionField)
+        let timeRow = twoColumnRow(left: openField, right: closeField)
+        let locationRow = twoColumnRow(left: longitudeField, right: latitudeField)
+
         let stack = UIStackView(arrangedSubviews: [
             titleLabel,
+            basicInfoHeader,
             nameField,
-            categoryField,
-            descriptionField,
+            categoryRow,
+            timeHeader,
+            timeRow,
+            locationHeader,
             addressField,
-            longitudeField,
-            latitudeField,
-            openField,
-            closeField,
-            parkingField,
+            locationRow,
+            etcHeader,
             tagsField,
+            parkingStack,
             picchelinStack,
             imageHeaderStack,
             imageScrollView,
@@ -302,7 +334,7 @@ private final class AdminStoreFormView: UIView {
         latitudeField.text = "\(store.latitude)"
         openField.text = store.open
         closeField.text = store.close
-        parkingField.text = store.parkingGuide
+        parkingSegment.selectedSegmentIndex = store.parkingGuide.isEmpty ? 1 : 0
         tagsField.text = store.hashTags.joined(separator: ", ")
         picchelinSwitch.isOn = store.isPicchelin
         imageUrls = store.storeImageUrls
@@ -317,6 +349,7 @@ private final class AdminStoreFormView: UIView {
 
     @objc private func handleSave() {
         let tags = tagsField.text.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let parkingGuide = parkingSegment.selectedSegmentIndex == 0 ? "가능" : "불가"
         let data = AdminStoreFormData(
             name: nameField.text,
             category: categoryField.text,
@@ -326,13 +359,44 @@ private final class AdminStoreFormView: UIView {
             latitude: latitudeField.text,
             open: openField.text,
             close: closeField.text,
-            parkingGuide: parkingField.text,
+            parkingGuide: parkingGuide,
             tags: tags.filter { !$0.isEmpty },
             storeImageUrls: imageUrls,
             newImages: selectedImages,
             isPicchelin: picchelinSwitch.isOn
         )
         onSave?(data)
+    }
+
+    @objc private func handleOpenTimeChanged() {
+        openField.text = timeString(from: openPicker.date)
+    }
+
+    @objc private func handleCloseTimeChanged() {
+        closeField.text = timeString(from: closePicker.date)
+    }
+
+    private func timeString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        formatter.locale = Locale(identifier: "ko_KR")
+        return formatter.string(from: date)
+    }
+
+    private func sectionHeader(_ title: String) -> UILabel {
+        let label = UILabel()
+        label.text = title
+        label.font = AppFont.body2Bold
+        label.textColor = AppColor.gray90
+        return label
+    }
+
+    private func twoColumnRow(left: UIView, right: UIView) -> UIStackView {
+        let stack = UIStackView(arrangedSubviews: [left, right])
+        stack.axis = .horizontal
+        stack.spacing = Layout.fieldSpacing * 2
+        stack.distribution = .fillEqually
+        return stack
     }
 
     @objc private func handlePickImages() {
@@ -567,6 +631,21 @@ private final class AdminFormFieldView: UIView {
     var keyboardType: UIKeyboardType {
         get { textField.keyboardType }
         set { textField.keyboardType = newValue }
+    }
+
+    func setInputView(_ view: UIView) {
+        textField.inputView = view
+    }
+
+    func setAccessoryToolbar(title: String) {
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+        let titleItem = UIBarButtonItem(title: title, style: .plain, target: nil, action: nil)
+        titleItem.isEnabled = false
+        let spacer = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+        let done = UIBarButtonItem(title: "완료", style: .done, target: textField, action: #selector(UIResponder.resignFirstResponder))
+        toolbar.items = [titleItem, spacer, done]
+        textField.inputAccessoryView = toolbar
     }
 
     init(title: String) {
