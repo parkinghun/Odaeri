@@ -149,6 +149,9 @@ final class AdminSideTabBarController: UIViewController {
 
     private func presentSettings() {
         let settingsViewController = AdminSettingsViewController()
+        settingsViewController.onStoreIdUpdated = { [weak self] in
+            self?.storeManagementController.reloadStoreManagement()
+        }
         let navigationController = UINavigationController(rootViewController: settingsViewController)
         navigationController.modalPresentationStyle = .formSheet
         present(navigationController, animated: true)

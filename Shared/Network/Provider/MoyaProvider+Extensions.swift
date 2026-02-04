@@ -520,6 +520,13 @@ extension MoyaProvider {
             return .unauthorized
         }
 
+        if statusCode == 403 {
+            if TokenManager.shared.refreshToken != nil {
+                return .accessTokenExpired
+            }
+            return .unauthorized
+        }
+
         if let errorResponse = try? response.map(ErrorResponse.self) {
             return .serverError(statusCode: statusCode, message: errorResponse.message)
         }

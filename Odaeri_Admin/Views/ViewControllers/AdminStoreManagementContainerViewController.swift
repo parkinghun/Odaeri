@@ -20,4 +20,8 @@ final class AdminStoreManagementContainerViewController: UIViewController {
         dashboardController.didMove(toParent: self)
         dashboardController.show(tab: .storeManagement)
     }
+
+    func reloadStoreManagement() {
+        dashboardController.reloadStoreManagement()
+    }
 }
