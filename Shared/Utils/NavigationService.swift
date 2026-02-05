@@ -72,6 +72,7 @@ final class NavigationService: NSObject {
     private var hasShownOffRouteAlert = false
     private var smoothedLocationBuffer: [CLLocationCoordinate2D] = []
     private var lastPassedCoordinate: CLLocationCoordinate2D?
+    private var lastValidBearing: CLLocationDirection?
 
     @Published private(set) var currentLocation: CLLocation?
     @Published private(set) var currentHeading: CLHeading?
@@ -132,6 +133,7 @@ final class NavigationService: NSObject {
         remainingPath = []
         deviationCount = 0
         hasShownOffRouteAlert = false
+        lastValidBearing = nil
 
         locationManager.stopUpdatingLocation()
         locationManager.stopUpdatingHeading()
@@ -333,10 +335,58 @@ final class NavigationService: NSObject {
         passedPath.append(smoothed)
     }
 
+    // 방향 계산 - 두 좌표 간의 방위각(bearing)을 계산하여 0~360도 범위로 반환
+    private func calculateBearing(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> CLLocationDirection {
+        let lat1 = from.latitude * .pi / 180
+        let lat2 = to.latitude * .pi / 180
+        let deltaLon = (to.longitude - from.longitude) * .pi / 180
+
+        let y = sin(deltaLon) * cos(lat2)
+        let x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(deltaLon)
+        let bearing = atan2(y, x) * 180 / .pi
+
+        return (bearing + 360).truncatingRemainder(dividingBy: 360)
+    }
+
+    private func getExpectedBearing(at index: Int) -> CLLocationDirection {
+        guard index < routeCoordinates.count - 1 else {
+            return lastValidBearing ?? 0
+        }
+
+        let current = routeCoordinates[index]
+        let next = routeCoordinates[min(index + 5, routeCoordinates.count - 1)]
+        return calculateBearing(from: current, to: next)
+    }
+
+    private func isValidDirection(_ coordinate: CLLocationCoordinate2D) -> Bool {
+        guard let last = lastPassedCoordinate else { return true }
+
+        let bearing = calculateBearing(from: last, to: coordinate)
+        let expected = getExpectedBearing(at: currentRouteIndex)
+
+        var difference = abs(bearing - expected)
+        if difference > 180 {
+            difference = 360 - difference
+        }
+
+        if difference > 120 {
+            print("[GPS Filter] Rejected: bearing=\(Int(bearing))°, expected=\(Int(expected))°, diff=\(Int(difference))°")
+            return false
+        }
+
+        lastValidBearing = bearing
+        return true
+    }
+
     private func shouldAcceptLocation(_ location: CLLocation) -> Bool {
         let accuracy = location.horizontalAccuracy
         guard accuracy >= 0 else { return false }
-        return accuracy <= 20
+        guard accuracy <= 20 else {
+            print("[GPS Filter] Rejected: accuracy=\(accuracy)m")
+            return false
+        }
+
+        return isValidDirection(location.coordinate)
     }
 
     private func appendAndSmooth(_ coordinate: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
