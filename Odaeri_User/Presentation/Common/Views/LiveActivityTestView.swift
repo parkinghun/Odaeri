@@ -21,7 +21,7 @@ struct LiveActivityTestView: View {
                 Section(header: Text("라이브 액티비티 시작")) {
                     Button("주문 시작하기") {
                         manager.startActivity(
-                            storeName: "창동 바이닐: 쉼",
+                            storeName: "문래 바이닐: 쉼",
                             orderNumber: "#A-123",
                             status: .pendingApproval
                         )
@@ -90,7 +90,7 @@ struct LiveActivityTestView: View {
 
     private func runFullSimulation() {
         manager.startActivity(
-            storeName: "창동 바이닐: 쉼",
+            storeName: "문래 바이닐: 쉼",
             orderNumber: "#A-123",
             status: .pendingApproval
         )

@@ -88,7 +88,7 @@ struct LockScreenLiveActivityView: View {
 
 struct OrderPickupLiveActivity_Previews: PreviewProvider {
     static let attributes = OrderPickupAttributes(
-        storeName: "창동 바이닐: 쉼",
+        storeName: "문래 바이닐: 쉼",
         orderNumber: "#A-123"
     )
 
