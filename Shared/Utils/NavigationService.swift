@@ -381,8 +381,19 @@ final class NavigationService: NSObject {
     private func shouldAcceptLocation(_ location: CLLocation) -> Bool {
         let accuracy = location.horizontalAccuracy
         guard accuracy >= 0 else { return false }
-        guard accuracy <= 20 else {
-            print("[GPS Filter] Rejected: accuracy=\(accuracy)m")
+
+        let maxAccuracy: CLLocationDistance
+        switch movementState {
+        case .stationary:
+            maxAccuracy = 10
+        case .walking:
+            maxAccuracy = 15
+        case .moving:
+            maxAccuracy = 20
+        }
+
+        guard accuracy <= maxAccuracy else {
+            print("[GPS Filter] Rejected: accuracy=\(accuracy)m, max=\(maxAccuracy)m, state=\(movementState)")
             return false
         }
 
