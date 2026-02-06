@@ -56,6 +56,9 @@ struct NavigationConfig {
     static let reroutingDebounceInterval: TimeInterval = 4.0
     static let stationarySpeedThreshold: CLLocationSpeed = 0.5
     static let walkingSpeedThreshold: CLLocationSpeed = 2.0
+    static let snapDistanceStationary: CLLocationDistance = 20.0
+    static let snapDistanceWalking: CLLocationDistance = 15.0
+    static let snapDistanceMoving: CLLocationDistance = 10.0
 }
 
 final class NavigationService: NSObject {
@@ -241,15 +244,11 @@ final class NavigationService: NSObject {
 
         if let currentLocation = currentLocation {
             updatePassedPathWithGPS(currentLocation)
-
-            // remainingPath starts from current GPS position for accuracy
-            var remaining: [CLLocationCoordinate2D] = [currentLocation.coordinate]
-            remaining.append(contentsOf: routeCoordinates[currentRouteIndex..<routeCoordinates.count])
-            remainingPath = remaining
         } else {
             passedPath = Array(routeCoordinates[0...currentRouteIndex])
-            remainingPath = Array(routeCoordinates[currentRouteIndex..<routeCoordinates.count])
         }
+
+        remainingPath = Array(routeCoordinates[currentRouteIndex..<routeCoordinates.count])
     }
 
     private func updateDistanceAndTime(from location: CLLocation) {
@@ -324,20 +323,29 @@ final class NavigationService: NSObject {
     }
 
     private func updatePassedPathWithGPS(_ location: CLLocation) {
-        guard shouldAcceptLocation(location) else { return }
+        guard shouldAcceptLocation(location) else {
+            print("[PassedPath] Location rejected by filter")
+            return
+        }
         let coordinate = location.coordinate
         let smoothed = appendAndSmooth(coordinate)
 
+        let smoothedLocation = CLLocation(latitude: smoothed.latitude, longitude: smoothed.longitude)
+        let snapped = snapToRouteIfClose(smoothedLocation)
+
         if let last = lastPassedCoordinate {
             let lastLocation = CLLocation(latitude: last.latitude, longitude: last.longitude)
-            let newLocation = CLLocation(latitude: smoothed.latitude, longitude: smoothed.longitude)
-            if newLocation.distance(from: lastLocation) < 4 {
+            let newLocation = CLLocation(latitude: snapped.latitude, longitude: snapped.longitude)
+            let distance = newLocation.distance(from: lastLocation)
+            if distance < 4 {
+                print("[PassedPath] Too close to last point: \(distance)m")
                 return
             }
         }
 
-        lastPassedCoordinate = smoothed
-        passedPath.append(smoothed)
+        lastPassedCoordinate = snapped
+        passedPath.append(snapped)
+        print("[PassedPath] Added: \(snapped.latitude), \(snapped.longitude), total=\(passedPath.count)")
     }
 
     // 방향 계산 - 두 좌표 간의 방위각(bearing)을 계산하여 0~360도 범위로 반환
@@ -390,11 +398,11 @@ final class NavigationService: NSObject {
         let maxAccuracy: CLLocationDistance
         switch movementState {
         case .stationary:
-            maxAccuracy = 10
+            maxAccuracy = 50  // 시뮬레이터 대응: 10 → 50
         case .walking:
-            maxAccuracy = 15
+            maxAccuracy = 100 // 시뮬레이터 대응: 15 → 100
         case .moving:
-            maxAccuracy = 20
+            maxAccuracy = 100 // 시뮬레이터 대응: 20 → 100
         }
 
         guard accuracy <= maxAccuracy else {
@@ -402,7 +410,12 @@ final class NavigationService: NSObject {
             return false
         }
 
+        // 시뮬레이터에서는 방향 필터 임시 비활성화
+        #if targetEnvironment(simulator)
+        return true
+        #else
         return isValidDirection(location.coordinate)
+        #endif
     }
 
     private func appendAndSmooth(_ coordinate: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
@@ -438,6 +451,48 @@ final class NavigationService: NSObject {
         }
         let adjusted = base + (accuracy - 15)
         return min(max(adjusted, base), maxThreshold)
+    }
+
+    private func snapToRouteIfClose(_ location: CLLocation) -> CLLocationCoordinate2D {
+        guard !routeCoordinates.isEmpty else { return location.coordinate }
+
+        let snapThreshold: CLLocationDistance
+        switch movementState {
+        case .stationary:
+            snapThreshold = NavigationConfig.snapDistanceStationary
+        case .walking:
+            snapThreshold = NavigationConfig.snapDistanceWalking
+        case .moving:
+            snapThreshold = NavigationConfig.snapDistanceMoving
+        }
+
+        let halfWindow = NavigationConfig.localSearchWindowSize / 2
+        let searchStart = max(currentRouteIndex - halfWindow, 0)
+        let searchEnd = min(currentRouteIndex + halfWindow, routeCoordinates.count - 1)
+
+        var closestCoordinate = routeCoordinates[currentRouteIndex]
+        var minDistance = CLLocationDistance.greatestFiniteMagnitude
+
+        for i in searchStart...searchEnd {
+            let routeLocation = CLLocation(
+                latitude: routeCoordinates[i].latitude,
+                longitude: routeCoordinates[i].longitude
+            )
+            let distance = location.distance(from: routeLocation)
+
+            if distance < minDistance {
+                minDistance = distance
+                closestCoordinate = routeCoordinates[i]
+            }
+        }
+
+        if minDistance <= snapThreshold {
+            print("[Snap] Snapped to route: distance=\(String(format: "%.1f", minDistance))m, threshold=\(String(format: "%.1f", snapThreshold))m")
+            return closestCoordinate
+        } else {
+            print("[Snap] Not snapped: distance=\(String(format: "%.1f", minDistance))m > threshold=\(String(format: "%.1f", snapThreshold))m")
+            return location.coordinate
+        }
     }
 
     func createCameraForCurrentLocation(

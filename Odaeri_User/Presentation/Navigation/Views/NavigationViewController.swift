@@ -676,12 +676,15 @@ extension NavigationViewController: MKMapViewDelegate {
         let renderer = MKPolylineRenderer(polyline: polyline)
 
         if overlay === passedPathOverlay {
-            renderer.strokeColor = AppColor.gray60.withAlphaComponent(0.6)
-            renderer.lineWidth = 6
-            renderer.lineDashPattern = [2, 4]
+            renderer.strokeColor = AppColor.gray60.withAlphaComponent(0.8)
+            renderer.lineWidth = 8
+            renderer.lineCap = .round
+            renderer.lineJoin = .round
         } else if overlay === remainingPathOverlay {
             renderer.strokeColor = AppColor.blackSprout
             renderer.lineWidth = 8
+            renderer.lineCap = .round
+            renderer.lineJoin = .round
         }
 
         return renderer
