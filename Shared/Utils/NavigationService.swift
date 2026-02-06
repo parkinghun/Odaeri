@@ -109,8 +109,8 @@ final class NavigationService: NSObject {
         self.navigationState = .navigating
         self.deviationCount = 0
         self.hasShownOffRouteAlert = false
-
-        updatePathSegments()
+        self.passedPath = []
+        self.remainingPath = routeCoordinates
 
         if !routeCoordinates.isEmpty {
             let previewCount = min(routeCoordinates.count, 20)
@@ -119,6 +119,7 @@ final class NavigationService: NSObject {
                 let coordinate = routeCoordinates[index]
                 print("[NavigationRoute] \(index): \(coordinate.latitude), \(coordinate.longitude)")
             }
+            print("[NavigationRoute] Initial remainingPath set with \(remainingPath.count) coordinates")
         } else {
             print("[NavigationRoute] routeCoordinates is empty")
         }
@@ -151,7 +152,7 @@ final class NavigationService: NSObject {
     private func updateLocation(_ location: CLLocation) {
         currentLocation = location
 
-        guard navigationState == .navigating else { return }
+        guard navigationState == .navigating || navigationState == .offRoute else { return }
 
         updateMovementState(location)
         updateRouteProgress(location)
@@ -245,10 +246,11 @@ final class NavigationService: NSObject {
         if let currentLocation = currentLocation {
             updatePassedPathWithGPS(currentLocation)
         } else {
-            passedPath = Array(routeCoordinates[0...currentRouteIndex])
+            passedPath = []
         }
 
         remainingPath = Array(routeCoordinates[currentRouteIndex..<routeCoordinates.count])
+        print("[PathSegments] passedPath count=\(passedPath.count), remainingPath count=\(remainingPath.count)")
     }
 
     private func updateDistanceAndTime(from location: CLLocation) {
@@ -291,18 +293,39 @@ final class NavigationService: NSObject {
     }
 
     private func checkDeviation(_ location: CLLocation) {
-        guard currentRouteIndex < routeCoordinates.count else { return }
+        guard !routeCoordinates.isEmpty else { return }
 
-        let routeLocation = CLLocation(
-            latitude: routeCoordinates[currentRouteIndex].latitude,
-            longitude: routeCoordinates[currentRouteIndex].longitude
-        )
+        let halfWindow = NavigationConfig.localSearchWindowSize / 2
+        let searchStart = max(currentRouteIndex - halfWindow, 0)
+        let searchEnd = min(currentRouteIndex + halfWindow, routeCoordinates.count - 1)
 
-        let distance = location.distance(from: routeLocation)
-        let threshold = adaptiveDeviationThreshold(for: location)
+        var minDistance = CLLocationDistance.greatestFiniteMagnitude
 
-        if distance > threshold {
+        for i in searchStart...searchEnd {
+            let routeLocation = CLLocation(
+                latitude: routeCoordinates[i].latitude,
+                longitude: routeCoordinates[i].longitude
+            )
+            let distance = location.distance(from: routeLocation)
+
+            if distance < minDistance {
+                minDistance = distance
+            }
+        }
+
+        let threshold: CLLocationDistance
+        switch movementState {
+        case .stationary:
+            threshold = NavigationConfig.snapDistanceStationary + 10.0
+        case .walking:
+            threshold = NavigationConfig.snapDistanceWalking + 10.0
+        case .moving:
+            threshold = NavigationConfig.snapDistanceMoving + 10.0
+        }
+
+        if minDistance > threshold {
             deviationCount += 1
+            print("[Deviation] Off route: minDistance=\(String(format: "%.1f", minDistance))m, threshold=\(String(format: "%.1f", threshold))m, count=\(deviationCount)")
             if deviationCount >= NavigationConfig.offRouteConfirmCount {
                 if navigationState != .offRoute {
                     navigationState = .offRoute
@@ -312,6 +335,7 @@ final class NavigationService: NSObject {
                 }
             }
         } else {
+            print("[Deviation] On route: minDistance=\(String(format: "%.1f", minDistance))m, threshold=\(String(format: "%.1f", threshold))m")
             lastDeviationCheckTime = nil
             deviationCount = 0
 

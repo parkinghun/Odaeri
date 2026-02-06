@@ -14,9 +14,10 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: NavigationCoordinator?
 
     private let navigationService: NavigationService
-    private let route: MKRoute
+    let route: MKRoute
     let destination: StoreEntity
     private let speechService: NavigationSpeechService
+    private var announcedStepIndices = Set<Int>()
 
     init(
         route: MKRoute,
@@ -67,10 +68,12 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         let is3DCameraMode = CurrentValueSubject<Bool, Never>(true)
         let isTrackingUserSubject = CurrentValueSubject<Bool, Never>(true)
         let isAtDefaultZoomLevel = CurrentValueSubject<Bool, Never>(true)
+        let shouldUpdateCamera = CurrentValueSubject<Bool, Never>(true)
         let filteredSteps = route.steps.filter { !$0.instructions.isEmpty && $0.distance > 0 }
 
         input.viewDidLoad
             .sink { [weak self] _ in
+                self?.announcedStepIndices.removeAll()
                 self?.navigationService.startNavigation(with: self?.route ?? MKRoute())
             }
             .store(in: &cancellables)
@@ -92,6 +95,7 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         input.rerouteButtonTapped
             .sink { [weak self] _ in
                 guard let self = self else { return }
+                self.announcedStepIndices.removeAll()
                 self.coordinator?.requestReroute(to: self.destination)
             }
             .store(in: &cancellables)
@@ -99,6 +103,7 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         input.rerouteConfirmed
             .sink { [weak self] _ in
                 guard let self = self else { return }
+                self.announcedStepIndices.removeAll()
                 self.coordinator?.requestReroute(to: self.destination)
             }
             .store(in: &cancellables)
@@ -112,14 +117,18 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
 
         input.userDidDragMap
             .sink { _ in
+                print("[Camera] User dragged map - camera updates paused")
                 isTrackingUserSubject.send(false)
+                shouldUpdateCamera.send(false)
             }
             .store(in: &cancellables)
 
         input.relocateButtonTapped
             .sink { _ in
+                print("[Camera] Relocate button tapped - camera updates resumed")
                 isTrackingUserSubject.send(true)
                 isAtDefaultZoomLevel.send(true)
+                shouldUpdateCamera.send(true)
             }
             .store(in: &cancellables)
 
@@ -147,16 +156,22 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
             }
             .store(in: &cancellables)
 
-        Publishers.CombineLatest(
+        Publishers.CombineLatest3(
             Publishers.CombineLatest4(
                 navigationService.$currentLocation,
                 navigationService.$currentHeading,
                 is3DCameraMode,
                 isTrackingUserSubject
             ),
-            isAtDefaultZoomLevel
+            isAtDefaultZoomLevel,
+            shouldUpdateCamera
         )
-        .compactMap { [weak self] combined, isAtDefaultZoom in
+        .compactMap { [weak self] combined, isAtDefaultZoom, shouldUpdate in
+            guard shouldUpdate else {
+                print("[Camera] Update blocked - shouldUpdateCamera=false")
+                return nil
+            }
+
             let (location, heading, is3D, isTracking) = combined
             guard isTracking, let location = location else { return nil }
 
@@ -221,13 +236,20 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         navigationService.$currentLocation
             .compactMap { [weak self] location -> Int? in
                 guard let self else { return nil }
-                return self.closestStepIndex(from: location, steps: filteredSteps)
+                return self.upcomingStepIndex(from: location, steps: filteredSteps)
             }
             .removeDuplicates()
             .sink { [weak self] index in
+                guard let self = self else { return }
                 currentStepIndexSubject.send(index)
+
                 guard index >= 0, index < filteredSteps.count else { return }
-                self?.speechService.speak(filteredSteps[index].instructions)
+
+                if !self.announcedStepIndices.contains(index) {
+                    self.announcedStepIndices.insert(index)
+                    self.speechService.speak(filteredSteps[index].instructions)
+                    print("[TTS] Announced step \(index): \(filteredSteps[index].instructions)")
+                }
             }
             .store(in: &cancellables)
 
@@ -252,7 +274,7 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
     func routeSteps() -> [NavigationRouteStep] {
         let steps = route.steps.filter { !$0.instructions.isEmpty && $0.distance > 0 }
         return steps.compactMap { step in
-            guard let coordinate = step.polyline.lastCoordinate else { return nil }
+            guard let coordinate = step.polyline.firstCoordinate else { return nil }
             let distanceText = formatDistance(step.distance)
             return NavigationRouteStep(
                 id: UUID().uuidString,
@@ -277,23 +299,37 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         return NavigationTurnInfo(direction: direction, distanceText: distanceText, instructionText: step.instructions)
     }
 
-    private func closestStepIndex(from location: CLLocation?, steps: [MKRoute.Step]) -> Int? {
+    private func upcomingStepIndex(from location: CLLocation?, steps: [MKRoute.Step]) -> Int? {
         guard let location else { return nil }
         guard !steps.isEmpty else { return nil }
-        var closestIndex = 0
-        var minDistance = CLLocationDistance.greatestFiniteMagnitude
+
+        let announceThreshold: CLLocationDistance = 50.0
+
         for (index, step) in steps.enumerated() {
-            let distance = stepDistance(step: step, from: location)
-            if distance < minDistance {
-                minDistance = distance
-                closestIndex = index
+            let distance = stepDistanceToStart(step: step, from: location)
+
+            if distance <= announceThreshold && distance >= 0 {
+                print("[StepDetection] Step \(index) is \(String(format: "%.1f", distance))m ahead (threshold: \(announceThreshold)m)")
+                return index
             }
         }
+
+        let closestIndex = steps.enumerated().min { a, b in
+            stepDistanceToStart(step: a.element, from: location) < stepDistanceToStart(step: b.element, from: location)
+        }?.offset ?? 0
+
+        print("[StepDetection] No step within threshold, closest is \(closestIndex)")
         return closestIndex
     }
 
+    private func stepDistanceToStart(step: MKRoute.Step, from location: CLLocation) -> CLLocationDistance {
+        guard let coordinate = step.polyline.firstCoordinate else { return .greatestFiniteMagnitude }
+        let stepLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        return location.distance(from: stepLocation)
+    }
+
     private func stepDistance(step: MKRoute.Step, from location: CLLocation) -> CLLocationDistance {
-        guard let coordinate = step.polyline.lastCoordinate else { return .greatestFiniteMagnitude }
+        guard let coordinate = step.polyline.firstCoordinate else { return .greatestFiniteMagnitude }
         let stepLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         return location.distance(from: stepLocation)
     }

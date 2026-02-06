@@ -67,6 +67,7 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
 
     private var passedPathOverlay: MKPolyline?
     private var remainingPathOverlay: MKPolyline?
+    private var startAnnotation: MKPointAnnotation?
     private var destinationAnnotation: MKPointAnnotation?
     private var stepAnnotations: [NavigationStepAnnotation] = []
     private var routeSteps: [NavigationRouteStep] = []
@@ -95,6 +96,7 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupMapGestureRecognizer()
+        addStartAnnotation()
         addDestinationAnnotation()
         setupHeaderSteps()
         viewDidLoadSubject.send(())
@@ -189,12 +191,29 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     }
 
     @objc private func handleMapPan(_ gesture: UIPanGestureRecognizer) {
-        if gesture.state == .began || gesture.state == .changed {
+        if gesture.state == .began {
+            print("[ViewController] Pan gesture began - stopping camera animations")
+
+            mapView.layer.removeAllAnimations()
+
             userDidDragMapSubject.send(())
             currentCameraMode = .browsing
             isProgrammaticMove = false
             updateRelocateButton(isTracking: false)
+        } else if gesture.state == .changed {
+            currentCameraMode = .browsing
+            isProgrammaticMove = false
         }
+    }
+
+    private func addStartAnnotation() {
+        guard let startCoordinate = viewModel.route.polyline.firstCoordinate else { return }
+
+        let annotation = MKPointAnnotation()
+        annotation.coordinate = startCoordinate
+        annotation.title = "출발"
+        startAnnotation = annotation
+        mapView.addAnnotation(annotation)
     }
 
     private func addDestinationAnnotation() {
@@ -292,14 +311,14 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         output.camera
             .receive(on: DispatchQueue.main)
             .compactMap { $0 }
-            .throttle(for: .seconds(0.5), scheduler: DispatchQueue.main, latest: true)
+            .throttle(for: .milliseconds(200), scheduler: DispatchQueue.main, latest: true)
             .sink { [weak self] camera in
                 guard let self = self else { return }
                 guard self.currentCameraMode == .tracking else {
                     return
                 }
                 self.isProgrammaticMove = true
-                self.mapView.setCamera(camera, animated: true)
+                self.mapView.setCamera(camera, animated: false)
             }
             .store(in: &cancellables)
 
@@ -385,11 +404,16 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
             mapView.removeOverlay(overlay)
         }
 
-        guard coordinates.count >= 2 else { return }
+        print("[PassedPath] Received \(coordinates.count) coordinates")
+        guard coordinates.count >= 2 else {
+            print("[PassedPath] Not enough coordinates to draw polyline")
+            return
+        }
 
         let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
         passedPathOverlay = polyline
         mapView.addOverlay(polyline, level: .aboveRoads)
+        print("[PassedPath] Polyline added to map")
     }
 
     private func updateRemainingPath(_ coordinates: [CLLocationCoordinate2D]) {
@@ -397,11 +421,16 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
             mapView.removeOverlay(overlay)
         }
 
-        guard coordinates.count >= 2 else { return }
+        print("[RemainingPath] Received \(coordinates.count) coordinates")
+        guard coordinates.count >= 2 else {
+            print("[RemainingPath] Not enough coordinates to draw polyline")
+            return
+        }
 
         let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
         remainingPathOverlay = polyline
         mapView.addOverlay(polyline, level: .aboveRoads)
+        print("[RemainingPath] Polyline added to map")
     }
 
     private func handleNavigationState(_ state: NavigationState) {
@@ -635,6 +664,7 @@ private extension NavigationViewController {
         guard routeIndex >= 0, routeIndex < routeSteps.count else { return }
         currentCameraMode = .stepPreview
         updateRelocateButton(isTracking: false)
+        userDidDragMapSubject.send()
         let coordinate = routeSteps[routeIndex].coordinate
         let camera = MKMapCamera(
             lookingAtCenter: coordinate,
@@ -702,15 +732,29 @@ extension NavigationViewController: MKMapViewDelegate {
             return view
         }
 
-        guard annotation is MKPointAnnotation else { return nil }
-        let identifier = "DestinationAnnotation"
-        let annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
-            ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
-        annotationView.annotation = annotation
-        annotationView.canShowCallout = true
-        annotationView.markerTintColor = AppColor.blackSprout
-        annotationView.glyphImage = UIImage(systemName: "flag.fill")
-        return annotationView
+        if annotation === startAnnotation {
+            let identifier = "StartAnnotation"
+            let annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+                ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            annotationView.annotation = annotation
+            annotationView.canShowCallout = true
+            annotationView.markerTintColor = AppColor.deepSprout
+            annotationView.glyphImage = UIImage(systemName: "figure.walk")
+            return annotationView
+        }
+
+        if annotation === destinationAnnotation {
+            let identifier = "DestinationAnnotation"
+            let annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+                ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            annotationView.annotation = annotation
+            annotationView.canShowCallout = true
+            annotationView.markerTintColor = AppColor.blackSprout
+            annotationView.glyphImage = UIImage(systemName: "flag.fill")
+            return annotationView
+        }
+
+        return nil
     }
 
     func mapView(_ mapView: MKMapView, didUpdate userLocation: MKUserLocation) {
@@ -757,7 +801,13 @@ extension NavigationViewController: MKMapViewDelegate {
         if isProgrammaticMove { return }
         let isUserGesture = mapView.gestureRecognizers?.contains { $0.state == .began || $0.state == .changed } ?? false
         if isUserGesture {
+            print("[ViewController] User gesture detected in regionWillChange - stopping animations")
+
+            mapView.layer.removeAllAnimations()
+
+            userDidDragMapSubject.send(())
             currentCameraMode = .browsing
+            isProgrammaticMove = false
             updateRelocateButton(isTracking: false)
         }
     }
@@ -766,5 +816,21 @@ extension NavigationViewController: MKMapViewDelegate {
 extension NavigationViewController {
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true
+    }
+}
+
+private extension MKPolyline {
+    var firstCoordinate: CLLocationCoordinate2D? {
+        guard pointCount > 0 else { return nil }
+        var coordinate = CLLocationCoordinate2D()
+        getCoordinates(&coordinate, range: NSRange(location: 0, length: 1))
+        return coordinate
+    }
+
+    var lastCoordinate: CLLocationCoordinate2D? {
+        guard pointCount > 0 else { return nil }
+        var coordinate = CLLocationCoordinate2D()
+        getCoordinates(&coordinate, range: NSRange(location: pointCount - 1, length: 1))
+        return coordinate
     }
 }
