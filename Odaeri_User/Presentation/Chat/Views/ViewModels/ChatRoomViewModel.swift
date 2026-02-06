@@ -14,8 +14,6 @@ final class ChatRoomViewModel: BaseViewModel, ViewModelType {
     private let chatRepository: ChatRepository
     private let chatLocalStore: ChatLocalStoreProviding
     private let userManager: UserManager
-    private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
-    private let errorSubject = PassthroughSubject<String, Never>()
     private let roomsSubject = CurrentValueSubject<[ChatRoomDisplayModel], Never>([])
     private var roomsObservationCancellable: AnyCancellable?
     private var latestRooms: [ChatRoomEntity] = []

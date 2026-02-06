@@ -13,7 +13,6 @@ final class OrderViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: OrderCoordinator?
 
     private let orderRepository: OrderRepository
-    private let errorSubject = PassthroughSubject<String, Never>()
     private var orderEntityCache: [String: OrderListItemEntity] = [:]
 
     init(orderRepository: OrderRepository) {

@@ -19,8 +19,6 @@ final class CommunityViewModel: BaseViewModel, ViewModelType {
     private let notificationCenter: NotificationCenter
     private let userManager: UserManager
 
-    private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
-    private let errorSubject = PassthroughSubject<String, Never>()
     private let distanceSelectionSubject = CurrentValueSubject<CommunityDistanceSelection, Never>(
         CommunityDistanceSelection(index: 7, label: "1.1km", maxDistance: 1100)
     )

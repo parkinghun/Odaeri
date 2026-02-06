@@ -195,7 +195,7 @@ final class HomeCoordinator: Coordinator, ReviewWriteCoordinating {
         paymentCoordinator.start()
     }
 
-    func showNavigation(route: MKRoute, destination: StoreEntity) {
+    func showNavigation(with route: MKRoute, destination: StoreEntity) {
         let navigationCoordinator = NavigationCoordinator(
             navigationController: navigationController,
             route: route,

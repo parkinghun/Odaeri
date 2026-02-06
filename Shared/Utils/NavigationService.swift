@@ -239,12 +239,17 @@ final class NavigationService: NSObject {
     private func updatePathSegments() {
         guard !routeCoordinates.isEmpty else { return }
 
-        if let lastLocation = currentLocation {
-            updatePassedPathWithGPS(lastLocation)
+        if let currentLocation = currentLocation {
+            updatePassedPathWithGPS(currentLocation)
+
+            // remainingPath starts from current GPS position for accuracy
+            var remaining: [CLLocationCoordinate2D] = [currentLocation.coordinate]
+            remaining.append(contentsOf: routeCoordinates[currentRouteIndex..<routeCoordinates.count])
+            remainingPath = remaining
         } else {
             passedPath = Array(routeCoordinates[0...currentRouteIndex])
+            remainingPath = Array(routeCoordinates[currentRouteIndex..<routeCoordinates.count])
         }
-        remainingPath = Array(routeCoordinates[currentRouteIndex..<routeCoordinates.count])
     }
 
     private func updateDistanceAndTime(from location: CLLocation) {
@@ -402,8 +407,19 @@ final class NavigationService: NSObject {
 
     private func appendAndSmooth(_ coordinate: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
         smoothedLocationBuffer.append(coordinate)
-        if smoothedLocationBuffer.count > 5 {
-            smoothedLocationBuffer.removeFirst(smoothedLocationBuffer.count - 5)
+
+        let windowSize: Int
+        switch movementState {
+        case .stationary:
+            windowSize = 8
+        case .walking:
+            windowSize = 5
+        case .moving:
+            windowSize = 3
+        }
+
+        if smoothedLocationBuffer.count > windowSize {
+            smoothedLocationBuffer.removeFirst(smoothedLocationBuffer.count - windowSize)
         }
 
         let sum = smoothedLocationBuffer.reduce((lat: 0.0, lon: 0.0)) { partial, coord in

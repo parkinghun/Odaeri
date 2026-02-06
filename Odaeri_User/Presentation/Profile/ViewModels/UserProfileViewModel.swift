@@ -7,6 +7,7 @@
 
 import UIKit
 import Combine
+import MapKit
 
 protocol UserProfileCoordinating: AnyObject {
     func showEditProfile()
@@ -16,6 +17,7 @@ protocol UserProfileCoordinating: AnyObject {
     func showEditPost(postId: String)
     func showChatRoom(roomId: String, title: String?)
     func showSavedVideo(videoId: String)
+    func showNavigation(with route: MKRoute, destination: StoreEntity)
     func didFinishLogout()
 }
 
@@ -30,8 +32,6 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
     private let getVideoListUseCase: GetVideoListUseCase
     private let userManager: UserManager
     private let tokenManager: TokenManager
-    private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
-    private let errorSubject = PassthroughSubject<String, Never>()
     private let headerSubject = CurrentValueSubject<UserProfileHeaderViewModel, Never>(
         UserProfileHeaderViewModel.empty
     )
@@ -89,6 +89,7 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
         let postAction: AnyPublisher<UserProfilePostAction, Never>
         let tabSelection: AnyPublisher<UserProfileContentTab, Never>
         let contentSelected: AnyPublisher<UserProfileContentSelection, Never>
+        let navigationTestTapped: AnyPublisher<Void, Never>
     }
 
     struct Output {
@@ -178,6 +179,12 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
                 case .savedVideo(let videoId):
                     self?.coordinator?.showSavedVideo(videoId: videoId)
                 }
+            }
+            .store(in: &cancellables)
+
+        input.navigationTestTapped
+            .sink { [weak self] _ in
+                self?.startNavigationTest()
             }
             .store(in: &cancellables)
 
@@ -377,6 +384,66 @@ final class UserProfileViewModel: BaseViewModel, ViewModelType {
                 }
             )
             .store(in: &cancellables)
+    }
+
+    private func startNavigationTest() {
+        isLoadingSubject.send(true)
+
+        let source = CLLocationCoordinate2D(latitude: 37.7956, longitude: -122.3935)
+        let destination = CLLocationCoordinate2D(latitude: 37.8087, longitude: -122.4098)
+
+        let sourcePlacemark = MKPlacemark(coordinate: source)
+        let destinationPlacemark = MKPlacemark(coordinate: destination)
+
+        let request = MKDirections.Request()
+        request.source = MKMapItem(placemark: sourcePlacemark)
+        request.destination = MKMapItem(placemark: destinationPlacemark)
+        request.transportType = .walking
+
+        let directions = MKDirections(request: request)
+        directions.calculate { [weak self] response, error in
+            guard let self = self else { return }
+
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self = self else { return }
+                self.isLoadingSubject.send(false)
+
+                if let error = error {
+                    self.errorSubject.send(error.localizedDescription)
+                    return
+                }
+
+                guard let route = response?.routes.first else {
+                    self.errorSubject.send("경로를 찾을 수 없습니다")
+                    return
+                }
+
+                let testStore = StoreEntity(
+                    storeId: "test_sf_store",
+                    name: "Pier 39 (테스트)",
+                    category: "카페",
+                    description: "테스트 매장입니다.",
+                    address: "Beach St & The Embarcadero, San Francisco, CA 94133",
+                    longitude: destination.longitude,
+                    latitude: destination.latitude,
+                    open: "00:00",
+                    close: "24:00",
+                    parkingGuide: "",
+                    storeImageUrls: [],
+                    hashTags: [],
+                    isPick: false,
+                    pickCount: 0,
+                    totalReviewCount: 0,
+                    totalOrderCount: 0,
+                    totalRating: 5.0,
+                    creator: CreatorEntity(userId: "", nick: "", profileImage: nil),
+                    menuList: []
+                )
+
+                self.coordinator?.showNavigation(with: route, destination: testStore)
+            }
+            DispatchQueue.main.async(execute: workItem)
+        }
     }
 }
 

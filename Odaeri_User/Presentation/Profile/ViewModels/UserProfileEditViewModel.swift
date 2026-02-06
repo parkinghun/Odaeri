@@ -13,8 +13,6 @@ final class UserProfileEditViewModel: BaseViewModel, ViewModelType {
     private let userManager: UserManager
     private let currentNick = CurrentValueSubject<String, Never>("")
     private let selectedImageData = CurrentValueSubject<Data?, Never>(nil)
-    private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
-    private let errorSubject = PassthroughSubject<String, Never>()
     private let didUpdateSubject = PassthroughSubject<Void, Never>()
     private let initialNickSubject = CurrentValueSubject<String, Never>("")
     private let initialProfileImageSubject = CurrentValueSubject<String, Never>("")

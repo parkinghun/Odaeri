@@ -23,6 +23,7 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
     private let postActionSubject = PassthroughSubject<UserProfilePostAction, Never>()
     private let tabSelectionSubject = CurrentValueSubject<UserProfileContentTab, Never>(.posts)
     private let contentSelectionSubject = PassthroughSubject<UserProfileContentSelection, Never>()
+    private let navigationTestTappedSubject = PassthroughSubject<Void, Never>()
 
     private var posts: [CommunityPostEntity] = []
     private var savedVideos: [VideoEntity] = []
@@ -120,7 +121,8 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
             emptyActionTapped: emptyActionTappedSubject.eraseToAnyPublisher(),
             postAction: postActionSubject.eraseToAnyPublisher(),
             tabSelection: tabSelectionSubject.eraseToAnyPublisher(),
-            contentSelected: contentSelectionSubject.eraseToAnyPublisher()
+            contentSelected: contentSelectionSubject.eraseToAnyPublisher(),
+            navigationTestTapped: navigationTestTappedSubject.eraseToAnyPublisher()
         )
 
         let output = viewModel.transform(input: input)
@@ -322,6 +324,14 @@ final class UserProfileViewController: BaseViewController<UserProfileViewModel> 
 
     private func makeMyMenu() -> UIMenu {
         var actions: [UIMenuElement] = []
+
+        let navigationTestAction = UIAction(
+            title: "네비게이션 테스트 (SF)",
+            image: UIImage(systemName: "location.fill")
+        ) { [weak self] _ in
+            self?.navigationTestTappedSubject.send(())
+        }
+        actions.append(navigationTestAction)
 
         if #available(iOS 16.2, *) {
             let liveActivityAction = UIAction(

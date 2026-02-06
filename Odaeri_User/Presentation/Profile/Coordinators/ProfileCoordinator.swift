@@ -7,6 +7,7 @@
 
 import UIKit
 import Combine
+import MapKit
 
 protocol ProfileCoordinatorDelegate: AnyObject {
     func profileCoordinatorDidFinishLogout(_ coordinator: ProfileCoordinator)
@@ -132,6 +133,19 @@ final class ProfileCoordinator: Coordinator {
             .store(in: &cancellables)
     }
 
+    func showNavigation(with route: MKRoute, destination: StoreEntity) {
+        let navigationCoordinator = NavigationCoordinator(
+            navigationController: navigationController,
+            route: route,
+            destination: destination,
+            navigationService: dependencies.navigationService,
+            routeManager: dependencies.routeManager
+        )
+        navigationCoordinator.delegate = self
+        addChild(navigationCoordinator)
+        navigationCoordinator.start()
+    }
+
     private func showPlaceholderAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "확인", style: .default))
@@ -146,3 +160,14 @@ extension ProfileCoordinator: ChatCoordinatorDelegate {
 }
 
 extension ProfileCoordinator: UserProfileCoordinating {}
+
+extension ProfileCoordinator: NavigationCoordinatorDelegate {
+    func navigationCoordinatorDidCancel(_ coordinator: NavigationCoordinator) {
+        removeChild(coordinator)
+    }
+
+    func navigationCoordinatorDidArrive(_ coordinator: NavigationCoordinator, at store: StoreEntity) {
+        removeChild(coordinator)
+        showPlaceholderAlert(title: "도착", message: "\(store.name)에 도착했습니다.")
+    }
+}

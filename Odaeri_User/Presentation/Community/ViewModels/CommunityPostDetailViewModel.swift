@@ -35,8 +35,6 @@ final class CommunityPostDetailViewModel: BaseViewModel, ViewModelType {
     private let notificationCenter: NotificationCenter
     private let postSubject = CurrentValueSubject<CommunityPostEntity?, Never>(nil)
     private let commentsSubject = CurrentValueSubject<[CommunityPostCommentEntity], Never>([])
-    private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
-    private let errorSubject = PassthroughSubject<String, Never>()
 
     init(
         postId: String,

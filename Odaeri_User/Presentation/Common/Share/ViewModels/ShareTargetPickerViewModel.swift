@@ -38,7 +38,6 @@ final class ShareTargetPickerViewModel: BaseViewModel, ViewModelType {
     private let loadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let emptyStateSubject = CurrentValueSubject<ShareTargetEmptyState?, Never>(nil)
     private let isSendEnabledSubject = CurrentValueSubject<Bool, Never>(false)
-    private let errorSubject = PassthroughSubject<String, Never>()
     private let didSendSubject = PassthroughSubject<Void, Never>()
 
     private var chatTargets: [ShareTargetDisplayModel] = []

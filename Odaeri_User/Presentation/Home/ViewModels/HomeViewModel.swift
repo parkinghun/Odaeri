@@ -15,8 +15,6 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
     private let storeRepository: StoreRepository
     private let bannerRepository: BannerRepository
     private let locationManager: LocationManaging
-    private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
-    private let errorSubject = PassthroughSubject<String, Never>()
 
     private var banners: [BannerEntity] = []
     private var currentBannerIndex: Int = 0

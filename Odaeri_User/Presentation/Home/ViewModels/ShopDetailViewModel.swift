@@ -18,7 +18,6 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
     private let locationManager: LocationManaging
     private let routeManager: RouteManaging
     private let storeId: String
-    private let errorSubject = PassthroughSubject<String, Never>()
     private let isProcessingCheckoutSubject = CurrentValueSubject<Bool, Never>(false)
     private var cachedRoute: MKRoute?
 
@@ -265,7 +264,7 @@ final class ShopDetailViewModel: BaseViewModel, ViewModelType {
         .receive(on: DispatchQueue.main)
         .sink { [weak self] route, store in
             guard let self = self else { return }
-            self.coordinator?.showNavigation(route: route, destination: store)
+            self.coordinator?.showNavigation(with: route, destination: store)
         }
         .store(in: &cancellables)
 

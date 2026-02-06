@@ -18,7 +18,6 @@ final class SignUpViewModel: BaseViewModel, ViewModelType {
     private let currentPassword = CurrentValueSubject<String, Never>("")
     private let currentNick = CurrentValueSubject<String, Never>("")
     private let currentPhone = CurrentValueSubject<String, Never>("")
-    private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let signUpErrorSubject = PassthroughSubject<String, Never>()
 
     init(

@@ -89,7 +89,6 @@ final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
             .eraseToAnyPublisher()
 
         let reviewCreatedSubject = PassthroughSubject<StoreReviewDetailEntity, Never>()
-        let errorSubject = PassthroughSubject<String, Never>()
 
         submitSubject
             .withLatestFrom(Publishers.CombineLatest3(ratingSubject, contentSubject, imagesSubject))
@@ -115,7 +114,7 @@ final class ReviewWriteViewModel: BaseViewModel, ViewModelType {
                 receiveCompletion: { [weak self] completion in
                     if case .failure(let error) = completion {
                         print("[ReviewWriteVM] Error: \(error.errorDescription)")
-                        errorSubject.send(error.errorDescription)
+                        self?.errorSubject.send(error.errorDescription)
                     }
                 },
                 receiveValue: { [weak self] review in

@@ -111,9 +111,6 @@ final class StoreSearchViewModel: BaseViewModel, ViewModelType {
         let searchResultsSubject = CurrentValueSubject<[StoreSearchListItem], Never>([])
         let nearbyStoresSubject = CurrentValueSubject<[StoreSearchListItem], Never>([])
         let recentStoresSubject = CurrentValueSubject<[RecentStoreItem], Never>([])
-        let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
-        let errorSubject = PassthroughSubject<String, Never>()
-
         input.viewDidLoad
             .sink { [weak self] _ in
                 guard let self = self else { return }
@@ -123,17 +120,13 @@ final class StoreSearchViewModel: BaseViewModel, ViewModelType {
                         viewStateSubject: viewStateSubject,
                         searchResultsSubject: searchResultsSubject,
                         nearbyStoresSubject: nearbyStoresSubject,
-                        recentStoresSubject: recentStoresSubject,
-                        isLoadingSubject: isLoadingSubject,
-                        errorSubject: errorSubject
+                        recentStoresSubject: recentStoresSubject
                     )
                 } else {
                     self.initialFetch(
                         viewStateSubject: viewStateSubject,
                         nearbyStoresSubject: nearbyStoresSubject,
-                        recentStoresSubject: recentStoresSubject,
-                        isLoadingSubject: isLoadingSubject,
-                        errorSubject: errorSubject
+                        recentStoresSubject: recentStoresSubject
                     )
                 }
             }
@@ -147,9 +140,7 @@ final class StoreSearchViewModel: BaseViewModel, ViewModelType {
                     viewStateSubject: viewStateSubject,
                     searchResultsSubject: searchResultsSubject,
                     nearbyStoresSubject: nearbyStoresSubject,
-                    recentStoresSubject: recentStoresSubject,
-                    isLoadingSubject: isLoadingSubject,
-                    errorSubject: errorSubject
+                    recentStoresSubject: recentStoresSubject
                 )
             }
             .store(in: &cancellables)
@@ -167,17 +158,13 @@ final class StoreSearchViewModel: BaseViewModel, ViewModelType {
     private func initialFetch(
         viewStateSubject: CurrentValueSubject<StoreSearchViewState, Never>,
         nearbyStoresSubject: CurrentValueSubject<[StoreSearchListItem], Never>,
-        recentStoresSubject: CurrentValueSubject<[RecentStoreItem], Never>,
-        isLoadingSubject: CurrentValueSubject<Bool, Never>,
-        errorSubject: PassthroughSubject<String, Never>
+        recentStoresSubject: CurrentValueSubject<[RecentStoreItem], Never>
     ) {
         switch viewType {
         case .home:
             fetchNearbyStores(
                 viewStateSubject: viewStateSubject,
-                nearbyStoresSubject: nearbyStoresSubject,
-                isLoadingSubject: isLoadingSubject,
-                errorSubject: errorSubject
+                nearbyStoresSubject: nearbyStoresSubject
             )
 
         case .community:
@@ -231,9 +218,7 @@ final class StoreSearchViewModel: BaseViewModel, ViewModelType {
         viewStateSubject: CurrentValueSubject<StoreSearchViewState, Never>,
         searchResultsSubject: CurrentValueSubject<[StoreSearchListItem], Never>,
         nearbyStoresSubject: CurrentValueSubject<[StoreSearchListItem], Never>,
-        recentStoresSubject: CurrentValueSubject<[RecentStoreItem], Never>,
-        isLoadingSubject: CurrentValueSubject<Bool, Never>,
-        errorSubject: PassthroughSubject<String, Never>
+        recentStoresSubject: CurrentValueSubject<[RecentStoreItem], Never>
     ) {
         let trimmedText = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -241,9 +226,7 @@ final class StoreSearchViewModel: BaseViewModel, ViewModelType {
             initialFetch(
                 viewStateSubject: viewStateSubject,
                 nearbyStoresSubject: nearbyStoresSubject,
-                recentStoresSubject: recentStoresSubject,
-                isLoadingSubject: isLoadingSubject,
-                errorSubject: errorSubject
+                recentStoresSubject: recentStoresSubject
             )
             return
         }
@@ -253,10 +236,10 @@ final class StoreSearchViewModel: BaseViewModel, ViewModelType {
 
         storeRepository.searchStores(name: trimmedText)
             .sink(
-                receiveCompletion: { completion in
-                    isLoadingSubject.send(false)
+                receiveCompletion: { [weak self] completion in
+                    self?.isLoadingSubject.send(false)
                     if case .failure(let error) = completion {
-                        errorSubject.send(error.errorDescription)
+                        self?.errorSubject.send(error.errorDescription)
                     }
                 },
                 receiveValue: { [weak self] stores in
@@ -275,9 +258,7 @@ final class StoreSearchViewModel: BaseViewModel, ViewModelType {
 
     private func fetchNearbyStores(
         viewStateSubject: CurrentValueSubject<StoreSearchViewState, Never>,
-        nearbyStoresSubject: CurrentValueSubject<[StoreSearchListItem], Never>,
-        isLoadingSubject: CurrentValueSubject<Bool, Never>,
-        errorSubject: PassthroughSubject<String, Never>
+        nearbyStoresSubject: CurrentValueSubject<[StoreSearchListItem], Never>
     ) {
         guard let locationManager, let routeManager else {
             viewStateSubject.send(.empty("주변 매장을 불러올 수 없습니다."))
@@ -303,10 +284,10 @@ final class StoreSearchViewModel: BaseViewModel, ViewModelType {
                     orderBy: "distance"
                 )
                 .sink(
-                    receiveCompletion: { completion in
-                        isLoadingSubject.send(false)
+                    receiveCompletion: { [weak self] completion in
+                        self?.isLoadingSubject.send(false)
                         if case .failure(let error) = completion {
-                            errorSubject.send(error.errorDescription)
+                            self?.errorSubject.send(error.errorDescription)
                             viewStateSubject.send(.empty("주변 매장을 불러올 수 없습니다."))
                         }
                     },

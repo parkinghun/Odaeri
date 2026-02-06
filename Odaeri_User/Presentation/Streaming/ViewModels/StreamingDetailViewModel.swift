@@ -67,7 +67,6 @@ final class StreamingDetailViewModel: BaseViewModel, ViewModelType {
     private let streamURLSubject = PassthroughSubject<URL?, Never>()
     private let qualitiesSubject = PassthroughSubject<[VideoStreamQualityEntity], Never>()
     private let loadingSubject = CurrentValueSubject<Bool, Never>(false)
-    private let errorSubject = PassthroughSubject<String, Never>()
     private let currentTimeTextSubject = PassthroughSubject<String, Never>()
     private let durationTextSubject = PassthroughSubject<String, Never>()
     private let progressSubject = PassthroughSubject<Float, Never>()

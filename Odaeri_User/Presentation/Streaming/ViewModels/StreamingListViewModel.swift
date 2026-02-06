@@ -28,7 +28,6 @@ final class StreamingListViewModel: BaseViewModel, ViewModelType {
 
     private let videoEntitiesSubject = CurrentValueSubject<[VideoEntity], Never>([])
     private let loadingSubject = CurrentValueSubject<Bool, Never>(false)
-    private let errorSubject = PassthroughSubject<String, Never>()
 
     private var nextCursor: String?
     private var isLoadingMore = false

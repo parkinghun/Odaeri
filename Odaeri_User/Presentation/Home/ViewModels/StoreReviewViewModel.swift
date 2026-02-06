@@ -62,17 +62,12 @@ final class StoreReviewViewModel: BaseViewModel, ViewModelType {
         let summarySubject = CurrentValueSubject<StoreReviewSummaryViewModel, Never>(StoreReviewSummaryViewModel.empty)
         let reviewsSubject = CurrentValueSubject<[StoreReviewItemViewModel], Never>([])
         let photoUrlsSubject = CurrentValueSubject<[String], Never>([])
-        let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
-        let errorSubject = PassthroughSubject<String, Never>()
-
         input.viewDidLoad
             .sink { [weak self] in
                 self?.loadInitial(
                     summarySubject: summarySubject,
                     reviewsSubject: reviewsSubject,
-                    photoUrlsSubject: photoUrlsSubject,
-                    isLoadingSubject: isLoadingSubject,
-                    errorSubject: errorSubject
+                    photoUrlsSubject: photoUrlsSubject
                 )
             }
             .store(in: &cancellables)
@@ -84,9 +79,7 @@ final class StoreReviewViewModel: BaseViewModel, ViewModelType {
                 self.loadInitial(
                     summarySubject: summarySubject,
                     reviewsSubject: reviewsSubject,
-                    photoUrlsSubject: photoUrlsSubject,
-                    isLoadingSubject: isLoadingSubject,
-                    errorSubject: errorSubject
+                    photoUrlsSubject: photoUrlsSubject
                 )
             }
             .store(in: &cancellables)
@@ -95,9 +88,7 @@ final class StoreReviewViewModel: BaseViewModel, ViewModelType {
             .sink { [weak self] in
                 self?.loadMoreReviews(
                     reviewsSubject: reviewsSubject,
-                    photoUrlsSubject: photoUrlsSubject,
-                    isLoadingSubject: isLoadingSubject,
-                    errorSubject: errorSubject
+                    photoUrlsSubject: photoUrlsSubject
                 )
             }
             .store(in: &cancellables)
@@ -108,8 +99,7 @@ final class StoreReviewViewModel: BaseViewModel, ViewModelType {
                     reviewId: reviewId,
                     summarySubject: summarySubject,
                     reviewsSubject: reviewsSubject,
-                    photoUrlsSubject: photoUrlsSubject,
-                    errorSubject: errorSubject
+                    photoUrlsSubject: photoUrlsSubject
                 )
             }
             .store(in: &cancellables)
@@ -235,9 +225,7 @@ private extension StoreReviewViewModel {
     func loadInitial(
         summarySubject: CurrentValueSubject<StoreReviewSummaryViewModel, Never>,
         reviewsSubject: CurrentValueSubject<[StoreReviewItemViewModel], Never>,
-        photoUrlsSubject: CurrentValueSubject<[String], Never>,
-        isLoadingSubject: CurrentValueSubject<Bool, Never>,
-        errorSubject: PassthroughSubject<String, Never>
+        photoUrlsSubject: CurrentValueSubject<[String], Never>
     ) {
         isLoadingSubject.send(true)
         isLoadingMore = false
@@ -247,7 +235,7 @@ private extension StoreReviewViewModel {
 
         let ratingsPublisher = repository.fetchReviewRatings(storeId: storeId)
             .catch { [weak self] error -> AnyPublisher<[ReviewRatingEntity], Never> in
-                self?.postError(error, errorSubject: errorSubject)
+                self?.postError(error)
                 return Just([]).eraseToAnyPublisher()
             }
 
@@ -258,7 +246,7 @@ private extension StoreReviewViewModel {
             orderBy: currentOrder.rawValue
         )
         .catch { [weak self] error -> AnyPublisher<StoreReviewListResult, Never> in
-            self?.postError(error, errorSubject: errorSubject)
+            self?.postError(error)
             return Just(StoreReviewListResult(reviews: [], nextCursor: nil)).eraseToAnyPublisher()
         }
 
@@ -280,9 +268,7 @@ private extension StoreReviewViewModel {
 
     func loadMoreReviews(
         reviewsSubject: CurrentValueSubject<[StoreReviewItemViewModel], Never>,
-        photoUrlsSubject: CurrentValueSubject<[String], Never>,
-        isLoadingSubject: CurrentValueSubject<Bool, Never>,
-        errorSubject: PassthroughSubject<String, Never>
+        photoUrlsSubject: CurrentValueSubject<[String], Never>
     ) {
         guard !isLoadingMore, let nextCursor, !nextCursor.isEmpty else { return }
         isLoadingMore = true
@@ -294,7 +280,7 @@ private extension StoreReviewViewModel {
             orderBy: currentOrder.rawValue
         )
         .catch { [weak self] error -> AnyPublisher<StoreReviewListResult, Never> in
-            self?.postError(error, errorSubject: errorSubject)
+            self?.postError(error)
             return Just(StoreReviewListResult(reviews: [], nextCursor: nil)).eraseToAnyPublisher()
         }
         .receive(on: DispatchQueue.main)
@@ -318,8 +304,7 @@ private extension StoreReviewViewModel {
         reviewId: String,
         summarySubject: CurrentValueSubject<StoreReviewSummaryViewModel, Never>,
         reviewsSubject: CurrentValueSubject<[StoreReviewItemViewModel], Never>,
-        photoUrlsSubject: CurrentValueSubject<[String], Never>,
-        errorSubject: PassthroughSubject<String, Never>
+        photoUrlsSubject: CurrentValueSubject<[String], Never>
     ) {
         guard let review = reviews.first(where: { $0.reviewId == reviewId }) else { return }
         repository.deleteReview(storeId: storeId, reviewId: reviewId)
@@ -327,7 +312,7 @@ private extension StoreReviewViewModel {
             .sink { [weak self] completion in
                 guard let self else { return }
                 if case .failure(let error) = completion {
-                    self.postError(error, errorSubject: errorSubject)
+                    self.postError(error)
                 }
             } receiveValue: { [weak self] in
                 guard let self else { return }
@@ -431,7 +416,7 @@ private extension StoreReviewViewModel {
         )
     }
 
-    func postError(_ error: NetworkError, errorSubject: PassthroughSubject<String, Never>) {
+    func postError(_ error: NetworkError) {
         errorSubject.send(error.errorDescription)
     }
 

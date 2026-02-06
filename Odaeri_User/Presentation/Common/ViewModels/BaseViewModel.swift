@@ -17,6 +17,8 @@ protocol ViewModelType {
 
 class BaseViewModel {
     var cancellables = Set<AnyCancellable>()
+    let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
+    let errorSubject = PassthroughSubject<String, Never>()
 
     deinit {
         cancellables.removeAll()

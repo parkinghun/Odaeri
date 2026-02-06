@@ -7,7 +7,7 @@
 
 import UIKit
 import Combine
-import Combine
+import MapKit
 
 protocol CommunityCoordinatorDelegate: AnyObject {
     func communityCoordinatorDidCreatePost(_ coordinator: CommunityCoordinator)
@@ -150,6 +150,19 @@ final class CommunityCoordinator: Coordinator {
 }
 
 extension CommunityCoordinator: UserProfileCoordinating {
+    func showNavigation(with route: MKRoute, destination: StoreEntity) {
+        let navigationCoordinator = NavigationCoordinator(
+            navigationController: navigationController,
+            route: route,
+            destination: destination,
+            navigationService: dependencies.navigationService,
+            routeManager: dependencies.routeManager
+        )
+        navigationCoordinator.delegate = self
+        addChild(navigationCoordinator)
+        navigationCoordinator.start()
+    }
+
     func showEditProfile() {
         showPlaceholderAlert(title: "프로필 수정", message: "프로필 수정 화면은 준비 중입니다.")
     }
@@ -249,6 +262,17 @@ extension CommunityCoordinator: UserProfileCoordinating {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "확인", style: .default))
         navigationController.present(alert, animated: true)
+    }
+}
+
+extension CommunityCoordinator: NavigationCoordinatorDelegate {
+    func navigationCoordinatorDidCancel(_ coordinator: NavigationCoordinator) {
+        removeChild(coordinator)
+    }
+
+    func navigationCoordinatorDidArrive(_ coordinator: NavigationCoordinator, at store: StoreEntity) {
+        removeChild(coordinator)
+        showPlaceholderAlert(title: "도착", message: "\(store.name)에 도착했습니다.")
     }
 }
 

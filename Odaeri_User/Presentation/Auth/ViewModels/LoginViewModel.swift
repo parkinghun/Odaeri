@@ -16,7 +16,6 @@ final class LoginViewModel: BaseViewModel, ViewModelType {
     private let userManager: UserManager
     private let currentEmail = CurrentValueSubject<String, Never>("")
     private let currentPassword = CurrentValueSubject<String, Never>("")
-    private let isLoadingSubject = CurrentValueSubject<Bool, Never>(false)
     private let loginErrorSubject = PassthroughSubject<String, Never>()
 
     init(
