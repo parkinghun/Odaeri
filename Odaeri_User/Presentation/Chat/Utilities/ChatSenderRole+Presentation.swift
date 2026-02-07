@@ -27,7 +27,7 @@ extension ChatSenderRole {
         case .me:
             return AppColor.blackSprout
         case .other:
-            return AppColor.gray15
+            return AppColor.gray30
         }
     }
 

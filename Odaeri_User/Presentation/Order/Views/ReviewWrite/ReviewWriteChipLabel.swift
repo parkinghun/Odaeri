@@ -14,7 +14,7 @@ final class ReviewWriteChipLabel: UILabel {
         super.init(frame: frame)
         font = AppFont.caption1
         textColor = AppColor.blackSprout
-        backgroundColor = AppColor.brightSprout
+        backgroundColor = AppColor.brightSprout2
         layer.cornerRadius = 10
         clipsToBounds = true
         setContentHuggingPriority(.required, for: .horizontal)

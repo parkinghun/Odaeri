@@ -425,15 +425,15 @@ struct AdminSalesDashboardView: View {
         let color: UIColor
         switch label {
         case "커피":
-            color = UIColor(hex: "#8FB996")
+            color = AppColor.deepSprout
         case "디저트":
-            color = UIColor(hex: "#B2D5BA")
+            color = AppColor.brightSprout
         case "티":
-            color = UIColor(hex: "#6B8E72")
+            color = AppColor.blackSprout
         case "베이커리":
-            color = UIColor(hex: "#E2E8CE")
+            color = AppColor.brightSprout2
         default:
-            color = UIColor(hex: "#7EB2B1")
+            color = AppColor.deepSprout
         }
         return Color(uiColor: color)
     }
