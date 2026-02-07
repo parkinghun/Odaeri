@@ -618,6 +618,8 @@ private extension HomeViewController {
                     self?.filterTypeChangedSubject.send(filter)
                 }
                 .store(in: &supplementaryView.cancellables)
+
+            supplementaryView.applyInitialFilterIfNeeded()
         }
         
         let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewCell>(

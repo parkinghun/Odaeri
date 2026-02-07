@@ -33,6 +33,14 @@ struct StoreEntity: Hashable, Equatable {
     var rate: String {
         return String(format: "%.1f", totalRating)
     }
+
+    var isPickchelinTag: Bool {
+        isPicchelin
+    }
+
+    var isMyPick: Bool {
+        isPick
+    }
     
     init(
         storeId: String,

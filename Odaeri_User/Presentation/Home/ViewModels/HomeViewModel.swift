@@ -25,7 +25,7 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
 
     private var currentCategory: String?
     private var currentSortType: String = "distance"
-    private var currentIsPicchelin: Bool?
+    private var currentIsPicchelin: Bool? = true
     private var currentIsPick: Bool?
 
     init(
@@ -288,11 +288,11 @@ final class HomeViewModel: BaseViewModel, ViewModelType {
                 var filteredStores = result.stores
 
                 if let isPicchelin = self.currentIsPicchelin, isPicchelin {
-                    filteredStores = filteredStores.filter { $0.isPicchelin }
+                    filteredStores = filteredStores.filter { $0.isPickchelinTag }
                 }
 
                 if let isPick = self.currentIsPick, isPick {
-                    filteredStores = filteredStores.filter { $0.isPick }
+                    filteredStores = filteredStores.filter { $0.isMyPick }
                 }
 
                 subject.send(filteredStores)

@@ -77,6 +77,7 @@ final class ShopListHeaderView: UICollectionReusableView {
     private let myPickToggle = FilterToggleButton(title: "My Pick")
     
     private var currentSortType: SortType = .distance
+    private var hasSentInitialFilter = false
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -127,10 +128,9 @@ final class ShopListHeaderView: UICollectionReusableView {
             .sink { [weak self] isSelected in
                 guard let self = self else { return }
                 if isSelected {
+                    self.picchelinToggle.isSelected = true
                     self.myPickToggle.isSelected = false
                     self.filterTypeSubject.send(.picchelin)
-                } else {
-                    self.filterTypeSubject.send(.all)
                 }
             }
             .store(in: &cancellables)
@@ -139,13 +139,20 @@ final class ShopListHeaderView: UICollectionReusableView {
             .sink { [weak self] isSelected in
                 guard let self = self else { return }
                 if isSelected {
+                    self.myPickToggle.isSelected = true
                     self.picchelinToggle.isSelected = false
                     self.filterTypeSubject.send(.myPick)
-                } else {
-                    self.filterTypeSubject.send(.all)
                 }
             }
             .store(in: &cancellables)
+    }
+
+    func applyInitialFilterIfNeeded() {
+        guard !hasSentInitialFilter else { return }
+        hasSentInitialFilter = true
+        picchelinToggle.isSelected = true
+        myPickToggle.isSelected = false
+        filterTypeSubject.send(.picchelin)
     }
     
     @objc private func sortButtonTapped() {
