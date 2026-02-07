@@ -18,7 +18,7 @@ final class OrderSectionHeaderView: UICollectionReusableView {
 
     private let topDivider: UIView = {
         let view = UIView()
-        view.backgroundColor = AppColor.brightSprout
+        view.backgroundColor = AppColor.gray30
         return view
     }()
 

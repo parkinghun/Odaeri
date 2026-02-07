@@ -47,18 +47,20 @@ enum MovementState {
 }
 
 struct NavigationConfig {
-    static let localSearchWindowSize = 10
-    static let deviationBaseThreshold: CLLocationDistance = 30.0
-    static let deviationMaxThreshold: CLLocationDistance = 60.0
-    static let offRouteConfirmCount: Int = 3
+    static let localSearchWindowSize = 20
+    static let deviationBaseThreshold: CLLocationDistance = 50.0
+    static let deviationMaxThreshold: CLLocationDistance = 100.0
+    static let offRouteConfirmCount: Int = 5
     static let deviationResetThreshold: CLLocationDistance = 100.0
     static let arrivalRadius: CLLocationDistance = 10.0
     static let reroutingDebounceInterval: TimeInterval = 4.0
     static let stationarySpeedThreshold: CLLocationSpeed = 0.5
     static let walkingSpeedThreshold: CLLocationSpeed = 2.0
-    static let snapDistanceStationary: CLLocationDistance = 20.0
-    static let snapDistanceWalking: CLLocationDistance = 15.0
-    static let snapDistanceMoving: CLLocationDistance = 10.0
+    static let snapDistanceStationary: CLLocationDistance = 30.0
+    static let snapDistanceWalking: CLLocationDistance = 25.0
+    static let snapDistanceMoving: CLLocationDistance = 20.0
+    static let minPassedPathDistance: CLLocationDistance = 1.5
+    static let maxPassedPathTimeInterval: TimeInterval = 2.0
 }
 
 final class NavigationService: NSObject {
@@ -75,7 +77,9 @@ final class NavigationService: NSObject {
     private var hasShownOffRouteAlert = false
     private var smoothedLocationBuffer: [CLLocationCoordinate2D] = []
     private var lastPassedCoordinate: CLLocationCoordinate2D?
+    private var lastPassedTime: Date?
     private var lastValidBearing: CLLocationDirection?
+    private var lastProjectedCoordinate: CLLocationCoordinate2D?
 
     @Published private(set) var currentLocation: CLLocation?
     @Published private(set) var currentHeading: CLHeading?
@@ -112,18 +116,6 @@ final class NavigationService: NSObject {
         self.passedPath = []
         self.remainingPath = routeCoordinates
 
-        if !routeCoordinates.isEmpty {
-            let previewCount = min(routeCoordinates.count, 20)
-            print("[NavigationRoute] total=\(routeCoordinates.count), preview=\(previewCount)")
-            for index in 0..<previewCount {
-                let coordinate = routeCoordinates[index]
-                print("[NavigationRoute] \(index): \(coordinate.latitude), \(coordinate.longitude)")
-            }
-            print("[NavigationRoute] Initial remainingPath set with \(remainingPath.count) coordinates")
-        } else {
-            print("[NavigationRoute] routeCoordinates is empty")
-        }
-
         locationManager.startUpdatingLocation()
         locationManager.startUpdatingHeading()
     }
@@ -138,6 +130,9 @@ final class NavigationService: NSObject {
         deviationCount = 0
         hasShownOffRouteAlert = false
         lastValidBearing = nil
+        lastPassedCoordinate = nil
+        lastPassedTime = nil
+        lastProjectedCoordinate = nil
 
         locationManager.stopUpdatingLocation()
         locationManager.stopUpdatingHeading()
@@ -182,9 +177,6 @@ final class NavigationService: NSObject {
     private func updateRouteProgress(_ location: CLLocation) {
         guard !routeCoordinates.isEmpty else { return }
 
-        let closestIndex = findClosestPointOnRoute(from: location)
-        currentRouteIndex = closestIndex
-
         updatePathSegments()
         updateDistanceAndTime(from: location)
     }
@@ -192,32 +184,45 @@ final class NavigationService: NSObject {
     private func findClosestPointOnRoute(from location: CLLocation) -> Int {
         guard !routeCoordinates.isEmpty else { return 0 }
 
-        let halfWindow = NavigationConfig.localSearchWindowSize / 2
+        if currentRouteIndex >= routeCoordinates.count - 1 {
+            return routeCoordinates.count - 1
+        }
 
-        let searchStart = max(currentRouteIndex - halfWindow, 0)
-        let searchEnd = min(currentRouteIndex + halfWindow, routeCoordinates.count - 1)
+        let currentPoint = CLLocation(
+            latitude: routeCoordinates[currentRouteIndex].latitude,
+            longitude: routeCoordinates[currentRouteIndex].longitude
+        )
+        let distanceToCurrent = location.distance(from: currentPoint)
 
-        var closestIndex = currentRouteIndex
-        var minDistance = CLLocationDistance.greatestFiniteMagnitude
+        let maxLookAhead = 5
+        var bestIndex = currentRouteIndex
+        var minDistance = distanceToCurrent
 
-        for i in searchStart...searchEnd {
+        for i in (currentRouteIndex + 1)...min(currentRouteIndex + maxLookAhead, routeCoordinates.count - 1) {
             let routeLocation = CLLocation(
                 latitude: routeCoordinates[i].latitude,
                 longitude: routeCoordinates[i].longitude
             )
             let distance = location.distance(from: routeLocation)
 
-            if distance < minDistance && i >= currentRouteIndex {
+            if distance < minDistance {
                 minDistance = distance
-                closestIndex = i
+                bestIndex = i
+            } else {
+                break
             }
         }
 
+        if bestIndex != currentRouteIndex {
+            print("[RouteIndex] Updated: \(currentRouteIndex) → \(bestIndex) (distance: \(String(format: "%.1f", minDistance))m)")
+        }
+
         if minDistance > NavigationConfig.deviationResetThreshold {
+            print("[RouteIndex] Too far from route, searching globally")
             return findGlobalClosestPoint(from: location)
         }
 
-        return closestIndex
+        return bestIndex
     }
 
     private func findGlobalClosestPoint(from location: CLLocation) -> Int {
@@ -241,16 +246,38 @@ final class NavigationService: NSObject {
     }
 
     private func updatePathSegments() {
-        guard !routeCoordinates.isEmpty else { return }
+        guard !routeCoordinates.isEmpty, let location = currentLocation else { return }
 
-        if let currentLocation = currentLocation {
-            updatePassedPathWithGPS(currentLocation)
-        } else {
-            passedPath = []
+        let projectionResult = projectLocationOntoRoute(location)
+        let projectedCoordinate = projectionResult.coordinate
+        let segmentIndex = projectionResult.segmentIndex
+
+        if let lastProjected = lastProjectedCoordinate {
+            let lastLocation = CLLocation(latitude: lastProjected.latitude, longitude: lastProjected.longitude)
+            let newLocation = CLLocation(latitude: projectedCoordinate.latitude, longitude: projectedCoordinate.longitude)
+            let distance = newLocation.distance(from: lastLocation)
+
+            if distance < 2.0 {
+                return
+            }
         }
 
-        remainingPath = Array(routeCoordinates[currentRouteIndex..<routeCoordinates.count])
-        print("[PathSegments] passedPath count=\(passedPath.count), remainingPath count=\(remainingPath.count)")
+        lastProjectedCoordinate = projectedCoordinate
+        currentRouteIndex = segmentIndex
+
+        var coordinates = [projectedCoordinate]
+        if segmentIndex + 1 < routeCoordinates.count {
+            coordinates.append(contentsOf: routeCoordinates[(segmentIndex + 1)..<routeCoordinates.count])
+        }
+
+        remainingPath = coordinates
+
+        if let last = lastProjectedCoordinate {
+            let movedDistance = CLLocation(latitude: last.latitude, longitude: last.longitude).distance(from: CLLocation(latitude: projectedCoordinate.latitude, longitude: projectedCoordinate.longitude))
+            print("[PathSegments] Projected to segment \(segmentIndex), remainingPath=\(remainingPath.count) coords, distance moved: \(String(format: "%.1f", movedDistance))m")
+        } else {
+            print("[PathSegments] Projected to segment \(segmentIndex), remainingPath=\(remainingPath.count) coords (first projection)")
+        }
     }
 
     private func updateDistanceAndTime(from location: CLLocation) {
@@ -316,18 +343,20 @@ final class NavigationService: NSObject {
         let threshold: CLLocationDistance
         switch movementState {
         case .stationary:
-            threshold = NavigationConfig.snapDistanceStationary + 10.0
+            threshold = NavigationConfig.snapDistanceStationary + 20.0
         case .walking:
-            threshold = NavigationConfig.snapDistanceWalking + 10.0
+            threshold = NavigationConfig.snapDistanceWalking + 25.0
         case .moving:
-            threshold = NavigationConfig.snapDistanceMoving + 10.0
+            threshold = NavigationConfig.snapDistanceMoving + 20.0
         }
 
         if minDistance > threshold {
             deviationCount += 1
-            print("[Deviation] Off route: minDistance=\(String(format: "%.1f", minDistance))m, threshold=\(String(format: "%.1f", threshold))m, count=\(deviationCount)")
+            print("[Deviation] Off route count: \(deviationCount)/\(NavigationConfig.offRouteConfirmCount), distance: \(String(format: "%.1f", minDistance))m > \(String(format: "%.1f", threshold))m")
+
             if deviationCount >= NavigationConfig.offRouteConfirmCount {
                 if navigationState != .offRoute {
+                    print("[Deviation] State changed to OFF_ROUTE")
                     navigationState = .offRoute
                 }
                 if !hasShownOffRouteAlert {
@@ -335,11 +364,14 @@ final class NavigationService: NSObject {
                 }
             }
         } else {
-            print("[Deviation] On route: minDistance=\(String(format: "%.1f", minDistance))m, threshold=\(String(format: "%.1f", threshold))m")
+            if deviationCount > 0 {
+                print("[Deviation] Back on route: distance=\(String(format: "%.1f", minDistance))m, resetting count")
+            }
             lastDeviationCheckTime = nil
             deviationCount = 0
 
             if navigationState == .offRoute {
+                print("[Deviation] State changed to NAVIGATING")
                 navigationState = .navigating
                 hasShownOffRouteAlert = false
             }
@@ -348,28 +380,45 @@ final class NavigationService: NSObject {
 
     private func updatePassedPathWithGPS(_ location: CLLocation) {
         guard shouldAcceptLocation(location) else {
-            print("[PassedPath] Location rejected by filter")
+            print("[PassedPath] Location rejected by accuracy filter: \(location.horizontalAccuracy)m")
             return
         }
+
         let coordinate = location.coordinate
         let smoothed = appendAndSmooth(coordinate)
 
         let smoothedLocation = CLLocation(latitude: smoothed.latitude, longitude: smoothed.longitude)
         let snapped = snapToRouteIfClose(smoothedLocation)
 
-        if let last = lastPassedCoordinate {
+        let now = Date()
+        var shouldAdd = false
+
+        if let last = lastPassedCoordinate, let lastTime = lastPassedTime {
             let lastLocation = CLLocation(latitude: last.latitude, longitude: last.longitude)
             let newLocation = CLLocation(latitude: snapped.latitude, longitude: snapped.longitude)
             let distance = newLocation.distance(from: lastLocation)
-            if distance < 4 {
-                print("[PassedPath] Too close to last point: \(distance)m")
-                return
+            let timeElapsed = now.timeIntervalSince(lastTime)
+
+            if distance >= NavigationConfig.minPassedPathDistance {
+                shouldAdd = true
+                print("[PassedPath] Adding coordinate: distance=\(String(format: "%.1f", distance))m")
+            } else if timeElapsed >= NavigationConfig.maxPassedPathTimeInterval {
+                shouldAdd = true
+                print("[PassedPath] Adding coordinate: time elapsed=\(String(format: "%.1f", timeElapsed))s")
+            } else {
+                print("[PassedPath] Skipping: distance=\(String(format: "%.1f", distance))m, time=\(String(format: "%.1f", timeElapsed))s")
             }
+        } else {
+            shouldAdd = true
+            print("[PassedPath] Adding first coordinate")
         }
 
-        lastPassedCoordinate = snapped
-        passedPath.append(snapped)
-        print("[PassedPath] Added: \(snapped.latitude), \(snapped.longitude), total=\(passedPath.count)")
+        if shouldAdd {
+            lastPassedCoordinate = snapped
+            lastPassedTime = now
+            passedPath.append(snapped)
+            print("[PassedPath] Total coordinates: \(passedPath.count)")
+        }
     }
 
     // 방향 계산 - 두 좌표 간의 방위각(bearing)을 계산하여 0~360도 범위로 반환
@@ -422,24 +471,18 @@ final class NavigationService: NSObject {
         let maxAccuracy: CLLocationDistance
         switch movementState {
         case .stationary:
-            maxAccuracy = 50  // 시뮬레이터 대응: 10 → 50
+            maxAccuracy = 100
         case .walking:
-            maxAccuracy = 100 // 시뮬레이터 대응: 15 → 100
+            maxAccuracy = 150
         case .moving:
-            maxAccuracy = 100 // 시뮬레이터 대응: 20 → 100
+            maxAccuracy = 150
         }
 
         guard accuracy <= maxAccuracy else {
-            print("[GPS Filter] Rejected: accuracy=\(accuracy)m, max=\(maxAccuracy)m, state=\(movementState)")
             return false
         }
 
-        // 시뮬레이터에서는 방향 필터 임시 비활성화
-        #if targetEnvironment(simulator)
         return true
-        #else
-        return isValidDirection(location.coordinate)
-        #endif
     }
 
     private func appendAndSmooth(_ coordinate: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
@@ -448,7 +491,7 @@ final class NavigationService: NSObject {
         let windowSize: Int
         switch movementState {
         case .stationary:
-            windowSize = 8
+            windowSize = 7
         case .walking:
             windowSize = 5
         case .moving:
@@ -514,9 +557,67 @@ final class NavigationService: NSObject {
             print("[Snap] Snapped to route: distance=\(String(format: "%.1f", minDistance))m, threshold=\(String(format: "%.1f", snapThreshold))m")
             return closestCoordinate
         } else {
-            print("[Snap] Not snapped: distance=\(String(format: "%.1f", minDistance))m > threshold=\(String(format: "%.1f", snapThreshold))m")
+            print("[Snap] No snap: distance=\(String(format: "%.1f", minDistance))m > threshold=\(String(format: "%.1f", snapThreshold))m")
             return location.coordinate
         }
+    }
+
+    private func projectLocationOntoRoute(_ location: CLLocation) -> (coordinate: CLLocationCoordinate2D, segmentIndex: Int) {
+        guard routeCoordinates.count >= 2 else {
+            return (location.coordinate, 0)
+        }
+
+        let searchStart = max(currentRouteIndex - 5, 0)
+        let searchEnd = min(currentRouteIndex + 15, routeCoordinates.count - 2)
+
+        var closestSegmentIndex = currentRouteIndex
+        var minDistance = CLLocationDistance.greatestFiniteMagnitude
+        var bestProjection = location.coordinate
+
+        for i in searchStart...searchEnd {
+            let segmentStart = routeCoordinates[i]
+            let segmentEnd = routeCoordinates[i + 1]
+
+            let projection = projectPointOntoSegment(
+                point: location.coordinate,
+                segmentStart: segmentStart,
+                segmentEnd: segmentEnd
+            )
+
+            let projectedLocation = CLLocation(latitude: projection.latitude, longitude: projection.longitude)
+            let distance = location.distance(from: projectedLocation)
+
+            if distance < minDistance {
+                minDistance = distance
+                closestSegmentIndex = i
+                bestProjection = projection
+            }
+        }
+
+        print("[Projection] Location projected to segment \(closestSegmentIndex), distance: \(String(format: "%.1f", minDistance))m")
+        return (bestProjection, closestSegmentIndex)
+    }
+
+    private func projectPointOntoSegment(
+        point: CLLocationCoordinate2D,
+        segmentStart: CLLocationCoordinate2D,
+        segmentEnd: CLLocationCoordinate2D
+    ) -> CLLocationCoordinate2D {
+        let dx = segmentEnd.longitude - segmentStart.longitude
+        let dy = segmentEnd.latitude - segmentStart.latitude
+
+        if dx == 0 && dy == 0 {
+            return segmentStart
+        }
+
+        let t = ((point.longitude - segmentStart.longitude) * dx + (point.latitude - segmentStart.latitude) * dy) / (dx * dx + dy * dy)
+
+        let clampedT = max(0, min(1, t))
+
+        let projectedLat = segmentStart.latitude + clampedT * dy
+        let projectedLon = segmentStart.longitude + clampedT * dx
+
+        return CLLocationCoordinate2D(latitude: projectedLat, longitude: projectedLon)
     }
 
     func createCameraForCurrentLocation(

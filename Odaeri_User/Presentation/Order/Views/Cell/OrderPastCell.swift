@@ -79,7 +79,7 @@ final class OrderPastCell: BaseCollectionViewCell {
         view.contentMode = .scaleAspectFill
         view.layer.borderWidth = 1
         view.layer.borderColor = AppColor.gray30.cgColor
-        view.layer.cornerRadius = 10
+        view.layer.cornerRadius = 8
         view.clipsToBounds = true
         view.backgroundColor = AppColor.gray30
         return view
@@ -97,9 +97,18 @@ final class OrderPastCell: BaseCollectionViewCell {
         
         let button = UIButton(configuration: configuration)
         
-        button.layer.cornerRadius = 12
+        button.layer.cornerRadius = 8
         button.layer.borderWidth = 1
         button.layer.borderColor = AppColor.gray30.cgColor
+        button.configurationUpdateHandler = { button in
+            var config = button.configuration ?? UIButton.Configuration.plain()
+            var background = config.background ?? UIBackgroundConfiguration.clear()
+            if background.cornerRadius != 8 {
+                background.cornerRadius = 8
+                config.background = background
+                button.configuration = config
+            }
+        }
         
         return button
     }()

@@ -27,12 +27,13 @@ final class SearchBar: BaseView {
         searchBar.searchTextField.borderStyle = .none
         searchBar.searchBarStyle = .minimal
         searchBar.searchTextField.font = AppFont.body2
+        searchBar.searchTextField.leftView?.tintColor = AppColor.blackSprout
         searchBar.backgroundImage = UIImage()
         return searchBar
     }()
 
     init(
-        borderColor: UIColor = AppColor.deepSprout,
+        borderColor: UIColor = AppColor.blackSprout,
         placeholder: String = "검색어를 입력해주세요."
     ) {
         self.borderColor = borderColor

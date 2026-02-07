@@ -14,7 +14,7 @@ final class OrderCurrentStatusCell: BaseCollectionViewCell {
         view.backgroundColor = AppColor.gray0
         view.layer.cornerRadius = 16
         view.layer.borderWidth = 1
-        view.layer.borderColor = AppColor.brightSprout.cgColor
+        view.layer.borderColor = AppColor.gray30.cgColor
         view.clipsToBounds = true
         return view
     }()
@@ -44,7 +44,7 @@ final class OrderCurrentStatusCell: BaseCollectionViewCell {
     private let orderDateLabel: UILabel = {
         let label = UILabel()
         label.font = AppFont.caption2SemiBold
-        label.textColor = AppColor.brightSprout
+        label.textColor = AppColor.gray60
         return label
     }()
     
@@ -66,7 +66,7 @@ final class OrderCurrentStatusCell: BaseCollectionViewCell {
     private lazy var infoStackView: UIStackView = {
         let stackView = UIStackView(arrangedSubviews: [orderCodeStackView, storeNameLabel, orderDateLabel])
         stackView.axis = .vertical
-        stackView.spacing = AppSpacing.xSmall
+        stackView.spacing = AppSpacing.small
         stackView.alignment = .leading
         return stackView
     }()
@@ -100,7 +100,7 @@ final class OrderCurrentStatusCell: BaseCollectionViewCell {
         orderCodeTitleLabel.setContentHuggingPriority(.required, for: .horizontal)
         orderCodeTitleLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
-        infoStackView.setCustomSpacing(AppSpacing.medium, after: orderCodeStackView)
+        infoStackView.setCustomSpacing(AppSpacing.small, after: orderCodeStackView)
         infoStackView.setCustomSpacing(AppSpacing.xSmall, after: storeNameLabel)
 
         containerView.snp.makeConstraints {

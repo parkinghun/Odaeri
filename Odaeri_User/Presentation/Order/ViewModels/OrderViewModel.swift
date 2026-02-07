@@ -173,7 +173,7 @@ private extension OrderViewModel {
             orderCodeTitle: "주문번호",
             orderCodeValue: order.orderCode,
             storeName: order.store.name,
-            orderDateText: currentOrderDateText(for: order),
+            orderDateText: orderDateText(for: order),
             categoryImage: categoryImage(for: order.store.category),
             statusSteps: statusSteps
         )
@@ -199,7 +199,7 @@ private extension OrderViewModel {
             storeId: order.store.id,
             storeName: order.store.name,
             orderCodeText: order.orderCode,
-            orderDateText: pastOrderDateText(for: order),
+            orderDateText: orderDateText(for: order),
             menuSummaryText: menuSummaryText(for: order),
             priceText: formattedPrice(order.totalPrice),
             storeImageUrl: order.store.storeImageUrls.first,
@@ -232,18 +232,11 @@ private extension OrderViewModel {
         return "\(value.formatted())원"
     }
 
-    func currentOrderDateText(for order: OrderListItemEntity) -> String {
+    func orderDateText(for order: OrderListItemEntity) -> String {
         if let createdAt = order.createdAt {
             return DateFormatter.fullDisplay.string(from: createdAt)
         }
         return "주문 시간 미확인"
-    }
-
-    func pastOrderDateText(for order: OrderListItemEntity) -> String {
-        if let paidAt = order.paidAt {
-            return DateFormatter.dotDisplay.string(from: paidAt)
-        } 
-        return "결제일 미확인"
     }
 
     func categoryImage(for category: String) -> UIImage? {

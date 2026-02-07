@@ -21,7 +21,7 @@ final class TrendingSearchTickerView: BaseView {
 
     private let iconImageView: UIImageView = {
         let imageView = UIImageView(image: AppImage.default)
-        imageView.tintColor = AppColor.deepSprout
+        imageView.tintColor = AppColor.gray90
         imageView.setContentHuggingPriority(.required, for: .horizontal)
         imageView.setContentCompressionResistancePriority(.required, for: .horizontal)
         return imageView
@@ -31,7 +31,7 @@ final class TrendingSearchTickerView: BaseView {
         let label = UILabel()
         label.text = "인기검색어"
         label.font = AppFont.caption
-        label.textColor = AppColor.deepSprout
+        label.textColor = AppColor.gray90
         label.setContentHuggingPriority(.required, for: .horizontal)
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         return label

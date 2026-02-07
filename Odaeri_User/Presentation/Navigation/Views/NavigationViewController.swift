@@ -65,7 +65,7 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         return button
     }()
 
-    private var passedPathOverlay: MKPolyline?
+    private var originalRouteOverlay: MKPolyline?
     private var remainingPathOverlay: MKPolyline?
     private var startAnnotation: MKPointAnnotation?
     private var destinationAnnotation: MKPointAnnotation?
@@ -96,6 +96,7 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupMapGestureRecognizer()
+        addOriginalRouteOverlay()
         addStartAnnotation()
         addDestinationAnnotation()
         setupHeaderSteps()
@@ -206,6 +207,13 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         }
     }
 
+    private func addOriginalRouteOverlay() {
+        let polyline = viewModel.route.polyline
+        originalRouteOverlay = polyline
+        mapView.addOverlay(polyline, level: .aboveRoads)
+        print("[OriginalRoute] Full route overlay added (never changes)")
+    }
+
     private func addStartAnnotation() {
         guard let startCoordinate = viewModel.route.polyline.firstCoordinate else { return }
 
@@ -256,13 +264,6 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
             }
             .store(in: &cancellables)
 
-        output.passedPath
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] coordinates in
-                self?.updatePassedPath(coordinates)
-            }
-            .store(in: &cancellables)
-
         output.remainingPath
             .receive(on: DispatchQueue.main)
             .sink { [weak self] coordinates in
@@ -297,14 +298,22 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
             .sink { [weak self] stepIndex in
                 guard let self = self else { return }
                 let headerIndex = min(stepIndex + 1, max(self.headerSteps.count - 1, 0))
-                guard self.currentCameraMode == .tracking else { return }
-                self.isHeaderSyncing = true
+
+                print("[StepSync] Current step: \(stepIndex) → header: \(headerIndex), cameraMode: \(self.currentCameraMode)")
+
                 self.headerPageControl.currentPage = headerIndex
-                self.headerCollectionView.scrollToItem(
-                    at: IndexPath(item: headerIndex, section: 0),
-                    at: .centeredHorizontally,
-                    animated: true
-                )
+
+                if self.currentCameraMode == .tracking {
+                    self.isHeaderSyncing = true
+                    self.headerCollectionView.scrollToItem(
+                        at: IndexPath(item: headerIndex, section: 0),
+                        at: .centeredHorizontally,
+                        animated: true
+                    )
+                    print("[StepSync] Header auto-scrolled to \(headerIndex) (tracking mode)")
+                } else {
+                    print("[StepSync] Header auto-scroll skipped (browsing/preview mode)")
+                }
             }
             .store(in: &cancellables)
 
@@ -399,23 +408,6 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
         isRerouteAlertPresented = false
     }
 
-    private func updatePassedPath(_ coordinates: [CLLocationCoordinate2D]) {
-        if let overlay = passedPathOverlay {
-            mapView.removeOverlay(overlay)
-        }
-
-        print("[PassedPath] Received \(coordinates.count) coordinates")
-        guard coordinates.count >= 2 else {
-            print("[PassedPath] Not enough coordinates to draw polyline")
-            return
-        }
-
-        let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-        passedPathOverlay = polyline
-        mapView.addOverlay(polyline, level: .aboveRoads)
-        print("[PassedPath] Polyline added to map")
-    }
-
     private func updateRemainingPath(_ coordinates: [CLLocationCoordinate2D]) {
         if let overlay = remainingPathOverlay {
             mapView.removeOverlay(overlay)
@@ -429,8 +421,8 @@ final class NavigationViewController: BaseViewController<NavigationViewModel> {
 
         let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
         remainingPathOverlay = polyline
-        mapView.addOverlay(polyline, level: .aboveRoads)
-        print("[RemainingPath] Polyline added to map")
+        mapView.addOverlay(polyline, level: .aboveLabels)
+        print("[RemainingPath] Polyline added to map with .aboveLabels level")
     }
 
     private func handleNavigationState(_ state: NavigationState) {
@@ -646,6 +638,13 @@ private extension NavigationViewController {
             direction: .straight
         )
         headerSteps = [currentStep] + routeSteps
+
+        print("[HeaderSetup] Total headerSteps: \(headerSteps.count)")
+        print("[HeaderSetup] headerSteps[0]: \(headerSteps[0].instruction)")
+        if routeSteps.count > 0 {
+            print("[HeaderSetup] headerSteps[1] (routeSteps[0]): \(headerSteps[1].instruction)")
+        }
+
         headerCollectionView.reloadData()
         headerPageControl.numberOfPages = headerSteps.count
         headerPageControl.isHidden = headerSteps.count <= 1
@@ -705,8 +704,8 @@ extension NavigationViewController: MKMapViewDelegate {
 
         let renderer = MKPolylineRenderer(polyline: polyline)
 
-        if overlay === passedPathOverlay {
-            renderer.strokeColor = AppColor.gray60.withAlphaComponent(0.8)
+        if overlay === originalRouteOverlay {
+            renderer.strokeColor = AppColor.gray60
             renderer.lineWidth = 8
             renderer.lineCap = .round
             renderer.lineJoin = .round

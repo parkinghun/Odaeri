@@ -34,10 +34,10 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
     
     private let noticeContainerView: UIView = {
         let view = UIView()
-        view.backgroundColor = AppColor.brightSprout
+        view.backgroundColor = AppColor.brightSprout2
         view.layer.borderWidth = 1
         view.layer.borderColor = AppColor.deepSprout.cgColor
-        view.layer.cornerRadius = 16
+        view.layer.cornerRadius = 8
         return view
     }()
 
@@ -316,7 +316,12 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
                 elementKind: UICollectionView.elementKindSectionHeader,
                 alignment: .top
             )
-            header.contentInsets = .zero
+            header.contentInsets = NSDirectionalEdgeInsets(
+                top: 0,
+                leading: -AppSpacing.screenMargin,
+                bottom: 0,
+                trailing: -AppSpacing.screenMargin
+            )
             sectionLayout.boundarySupplementaryItems = [header]
             
             let decorationKind: String

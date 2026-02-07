@@ -296,6 +296,9 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
         let distance = stepDistance(step: step, from: currentLocation)
         let distanceText = formatDistance(distance)
         let direction = NavigationTurnDirection.from(instruction: step.instructions)
+
+        print("[TurnInfo] Closest step: \(step.instructions), distance: \(distanceText)")
+
         return NavigationTurnInfo(direction: direction, distanceText: distanceText, instructionText: step.instructions)
     }
 
@@ -309,7 +312,8 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
             let distance = stepDistanceToStart(step: step, from: location)
 
             if distance <= announceThreshold && distance >= 0 {
-                print("[StepDetection] Step \(index) is \(String(format: "%.1f", distance))m ahead (threshold: \(announceThreshold)m)")
+                print("[StepDetection] ✅ Step \(index) is \(String(format: "%.1f", distance))m ahead (threshold: \(announceThreshold)m)")
+                print("[StepDetection] Instruction: \(step.instructions)")
                 return index
             }
         }
@@ -318,7 +322,8 @@ final class NavigationViewModel: BaseViewModel, ViewModelType {
             stepDistanceToStart(step: a.element, from: location) < stepDistanceToStart(step: b.element, from: location)
         }?.offset ?? 0
 
-        print("[StepDetection] No step within threshold, closest is \(closestIndex)")
+        let closestDistance = stepDistanceToStart(step: steps[closestIndex], from: location)
+        print("[StepDetection] No step within threshold, closest is \(closestIndex) at \(String(format: "%.1f", closestDistance))m")
         return closestIndex
     }
 

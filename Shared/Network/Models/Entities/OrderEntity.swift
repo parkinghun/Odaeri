@@ -16,7 +16,7 @@ enum OrderStatusEntity: String, Codable, CaseIterable, Hashable {
 
     var description: String {
         switch self {
-        case .pendingApproval: return "접수 중"
+        case .pendingApproval: return "승인 대기"
         case .approved: return "주문 승인"
         case .inProgress: return "조리 중"
         case .readyForPickup: return "픽업 대기"

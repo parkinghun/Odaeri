@@ -14,7 +14,7 @@ final class OrderCurrentMenuCell: BaseCollectionViewCell {
         view.backgroundColor = AppColor.gray0
         view.layer.cornerRadius = 16
         view.layer.borderWidth = 1
-        view.layer.borderColor = AppColor.brightSprout.cgColor
+        view.layer.borderColor = AppColor.gray30.cgColor
         view.clipsToBounds = true
         return view
     }()

@@ -50,7 +50,7 @@ final class FilterToggleButton: UIButton {
             updatedConfig.image = isSelected ? AppImage.checkmarkFill : AppImage.checkmarkEmpty
             
             var titleContainer = AttributeContainer()
-            let tintColor = isSelected ? AppColor.blackSprout : AppColor.brightSprout
+            let tintColor = isSelected ? AppColor.blackSprout : AppColor.deepSprout
             titleContainer.font = AppFont.caption
             titleContainer.foregroundColor = tintColor
             updatedConfig.attributedTitle = AttributedString(self.title, attributes: titleContainer)

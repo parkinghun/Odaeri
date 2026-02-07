@@ -18,7 +18,7 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
 
     private lazy var collectionView: UICollectionView = {
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: createLayout())
-        collectionView.backgroundColor = AppColor.brightSprout
+        collectionView.backgroundColor = AppColor.brightSprout2
         collectionView.showsVerticalScrollIndicator = true
         collectionView.showsHorizontalScrollIndicator = false
         return collectionView
@@ -64,7 +64,7 @@ final class HomeViewController: BaseViewController<HomeViewModel> {
     override func setupUI() {
         super.setupUI()
         
-        view.backgroundColor = AppColor.brightSprout
+        view.backgroundColor = AppColor.brightSprout2
         
         view.addSubview(locationView)
         view.addSubview(collectionView)
