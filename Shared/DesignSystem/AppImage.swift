@@ -78,7 +78,6 @@ enum AppImage {
     static let profileFill = image("Profile_Fill")
     
     // MARK: - Ohters
-    static let pickchelin = UIImage(named: "PickchelinTag")
     static let kakaoLogin = UIImage(named: "kakaoLogin")
     static let appleLogo = systemImage("apple.logo")
 

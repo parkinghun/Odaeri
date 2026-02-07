@@ -23,7 +23,7 @@ final class CommunityDistanceView: UIView {
 
     private let labelContainerView: UIView = {
         let view = UIView()
-        view.backgroundColor = AppColor.brightSprout
+        view.backgroundColor = AppColor.brightSprout2
         view.layer.borderWidth = 1
         view.layer.borderColor = AppColor.deepSprout.cgColor
         view.layer.cornerRadius = 4
@@ -34,7 +34,7 @@ final class CommunityDistanceView: UIView {
         let label = UILabel()
         label.text = "Distance"
         label.font = AppFont.body3Bold
-        label.textColor = AppColor.deepSprout
+        label.textColor = AppColor.blackSprout
         return label
     }()
 

@@ -80,19 +80,40 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
         return label
     }()
 
-    private let selectedCountLabel: UILabel = {
+    private let checkoutCountLabel: UILabel = {
         let label = UILabel()
-        label.text = ""
-        label.font = AppFont.body2
-        label.textColor = AppColor.gray60
+        label.font = AppFont.caption
+        label.textColor = AppColor.blackSprout
+        label.textAlignment = .center
         return label
+    }()
+
+    private let checkoutCountBadgeView: UIView = {
+        let view = UIView()
+        view.backgroundColor = AppColor.gray0
+        view.layer.cornerRadius = 8
+        return view
+    }()
+
+    private let checkoutTitleLabel: UILabel = {
+        let label = UILabel()
+        label.text = "결제하기"
+        label.font = AppFont.title1
+        label.textColor = AppColor.gray0
+        return label
+    }()
+
+    private lazy var checkoutContentStackView: UIStackView = {
+        let stackView = UIStackView(arrangedSubviews: [checkoutCountBadgeView, checkoutTitleLabel])
+        stackView.axis = .horizontal
+        stackView.spacing = AppSpacing.small
+        stackView.alignment = .center
+        return stackView
     }()
 
     private let checkoutButton: UIButton = {
         let button = UIButton()
-        button.setTitle("결제하기", for: .normal)
         button.setTitleColor(AppColor.gray0, for: .normal)
-        button.titleLabel?.font = AppFont.title1
         button.backgroundColor = AppColor.gray45
         button.layer.cornerRadius = 12
         button.isEnabled = false
@@ -113,8 +134,9 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
         view.addSubview(checkoutView)
 
         checkoutView.addSubview(totalPriceLabel)
-        checkoutView.addSubview(selectedCountLabel)
         checkoutView.addSubview(checkoutButton)
+        checkoutCountBadgeView.addSubview(checkoutCountLabel)
+        checkoutButton.addSubview(checkoutContentStackView)
 
         collectionView.snp.makeConstraints { make in
             make.top.horizontalEdges.equalToSuperview()
@@ -128,12 +150,7 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
         }
 
         totalPriceLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(AppSpacing.medium)
-            make.leading.equalToSuperview().offset(AppSpacing.screenMargin)
-        }
-
-        selectedCountLabel.snp.makeConstraints { make in
-            make.top.equalTo(totalPriceLabel.snp.bottom).offset(AppSpacing.tiny)
+            make.centerY.equalTo(checkoutButton)
             make.leading.equalToSuperview().offset(AppSpacing.screenMargin)
         }
 
@@ -142,6 +159,18 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
             make.trailing.equalToSuperview().inset(AppSpacing.screenMargin)
             make.width.equalTo(140)
             make.height.equalTo(52)
+        }
+
+        checkoutContentStackView.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+        }
+
+        checkoutCountBadgeView.snp.makeConstraints { make in
+            make.size.equalTo(16)
+        }
+
+        checkoutCountLabel.snp.makeConstraints { make in
+            make.center.equalToSuperview()
         }
 
         configureDataSource()
@@ -203,7 +232,9 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
         output.selectedCount
             .receive(on: DispatchQueue.main)
             .sink { [weak self] count in
-                self?.selectedCountLabel.text = count == 0 ? "" : "\(count)개 선택"
+                guard let self = self else { return }
+                self.checkoutCountLabel.text = "\(count)"
+                self.checkoutCountBadgeView.isHidden = count == 0
             }
             .store(in: &cancellables)
 
@@ -220,7 +251,7 @@ final class ShopDetailViewController: BaseViewController<ShopDetailViewModel> {
                 guard let self = self else { return }
                 let shouldEnable = isCheckoutEnabled && !isProcessing
                 self.checkoutButton.isEnabled = shouldEnable
-                self.checkoutButton.backgroundColor = shouldEnable ? AppColor.deepSprout : AppColor.gray45
+                self.checkoutButton.backgroundColor = shouldEnable ? AppColor.blackSprout : AppColor.gray45
                 self.checkoutButton.alpha = isProcessing ? 0.6 : 1.0
             }
             .store(in: &cancellables)

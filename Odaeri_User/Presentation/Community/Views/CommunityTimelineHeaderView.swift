@@ -44,8 +44,17 @@ final class CommunityTimelineHeaderView: UIView {
             outgoing.font = AppFont.caption
             return outgoing
         }
+        configuration.contentInsets = .zero
         
         let button = UIButton(configuration: configuration)
+        button.contentEdgeInsets = .zero
+        button.configurationUpdateHandler = { button in
+            var config = button.configuration ?? UIButton.Configuration.plain()
+            if config.contentInsets != .zero {
+                config.contentInsets = .zero
+                button.configuration = config
+            }
+        }
         return button
     }()
 

@@ -90,7 +90,7 @@ final class CommunityPostCell: UITableViewCell {
         let label = UILabel()
         label.font = AppFont.caption1
         label.textColor = AppColor.gray60
-        label.numberOfLines = 0
+        label.numberOfLines = 3
         return label
     }()
 
@@ -195,9 +195,9 @@ final class CommunityPostCell: UITableViewCell {
         contentStackView.setCustomSpacing(AppSpacing.small, after: titleContentContainer)
 
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        likeInfoView.setContentCompressionResistancePriority(.required, for: .horizontal)
+        likeInfoView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         distanceInfoView.setContentCompressionResistancePriority(.required, for: .horizontal)
-        likeInfoView.setContentHuggingPriority(.required, for: .horizontal)
+        likeInfoView.setContentHuggingPriority(.defaultLow, for: .horizontal)
         distanceInfoView.setContentHuggingPriority(.required, for: .horizontal)
     }
 

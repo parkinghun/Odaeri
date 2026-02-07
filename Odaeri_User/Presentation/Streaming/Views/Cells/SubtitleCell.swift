@@ -74,7 +74,7 @@ final class SubtitleCell: UITableViewCell {
         subtitleTextLabel.text = subtitle.text
 
         if isHighlighted {
-            contentView.backgroundColor = AppColor.brightSprout
+            contentView.backgroundColor = AppColor.brightSprout2
             timeLabel.textColor = AppColor.blackSprout
             subtitleTextLabel.textColor = AppColor.blackSprout
         } else {

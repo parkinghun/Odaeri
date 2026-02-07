@@ -32,11 +32,8 @@ final class StoreInfoCell: BaseCollectionViewCell {
         return label
     }()
 
-    private let picchelinImageView: UIImageView = {
-        let view = UIImageView()
-        view.image = AppImage.pickchelin
-        view.contentMode = .scaleAspectFill
-        view.clipsToBounds = true
+    private let pickchelinTagView: PickchelinTagView = {
+        let view = PickchelinTagView(style: .detail)
         view.isHidden = true
         return view
     }()
@@ -136,7 +133,7 @@ final class StoreInfoCell: BaseCollectionViewCell {
         button.setTitle("길찾기", for: .normal)
         button.setTitleColor(AppColor.gray0, for: .normal)
         button.titleLabel?.font = AppFont.title1
-        button.backgroundColor = AppColor.deepSprout
+        button.backgroundColor = AppColor.blackSprout
         button.layer.cornerRadius = 12
         button.clipsToBounds = true
         return button
@@ -147,7 +144,7 @@ final class StoreInfoCell: BaseCollectionViewCell {
         contentView.addSubview(containerView)
 
         containerView.addSubview(nameLabel)
-        containerView.addSubview(picchelinImageView)
+        containerView.addSubview(pickchelinTagView)
         containerView.addSubview(likeIconLabelView)
         containerView.addSubview(rateIconLabelView)
         containerView.addSubview(rateCountLabel)
@@ -176,11 +173,11 @@ final class StoreInfoCell: BaseCollectionViewCell {
             make.leading.equalToSuperview().offset(AppSpacing.screenMargin)
         }
 
-        picchelinImageView.snp.makeConstraints { make in
-            make.leading.equalTo(nameLabel.snp.trailing).offset(AppSpacing.small)
+        pickchelinTagView.snp.makeConstraints { make in
+            make.leading.equalTo(nameLabel.snp.trailing).offset(AppSpacing.medium)
             make.centerY.equalTo(nameLabel)
-            make.width.equalTo(65)
-            make.height.equalTo(34)
+            make.width.equalTo(76)
+            make.height.equalTo(24)
         }
 
         likeIconLabelView.snp.makeConstraints { make in
@@ -253,7 +250,7 @@ final class StoreInfoCell: BaseCollectionViewCell {
 
     func configure(with store: StoreEntity, estimatedTimeText: String) {
         nameLabel.text = store.name
-        picchelinImageView.isHidden = !store.isPicchelin
+        pickchelinTagView.isHidden = !store.isPicchelin
 
         likeIconLabelView.updateText("\(store.pickCount)개")
         rateIconLabelView.updateText(store.rate)

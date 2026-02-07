@@ -51,7 +51,7 @@ final class CommunityStoreInfoView: UIView {
     }
 
     private func setupUI() {
-        backgroundColor = AppColor.brightSprout
+        backgroundColor = AppColor.brightSprout2
         layer.cornerRadius = 12
         layer.borderWidth = 1
         layer.borderColor = AppColor.deepSprout.cgColor

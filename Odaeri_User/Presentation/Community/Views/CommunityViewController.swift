@@ -17,7 +17,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
 
     private let chatButton: UIButton = {
         let button = UIButton()
-        button.backgroundColor = AppColor.deepSprout
+        button.backgroundColor = AppColor.blackSprout
         button.layer.cornerRadius = 8
         button.setImage(AppImage.chat, for: .normal)
         button.tintColor = AppColor.gray0
@@ -34,7 +34,7 @@ final class CommunityViewController: BaseViewController<CommunityViewModel> {
 
     private let writeButton: UIButton = {
         let button = UIButton()
-        button.backgroundColor = AppColor.deepSprout
+        button.backgroundColor = AppColor.blackSprout
         button.layer.cornerRadius = 8
         button.setImage(AppImage.write, for: .normal)
         button.tintColor = AppColor.gray0

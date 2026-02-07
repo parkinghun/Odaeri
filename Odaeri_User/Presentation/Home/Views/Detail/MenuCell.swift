@@ -101,7 +101,7 @@ final class MenuCell: UICollectionViewCell {
 
         menuImageView.snp.makeConstraints { make in
             make.trailing.equalToSuperview().inset(AppSpacing.medium)
-            make.centerY.equalToSuperview()
+            make.bottom.equalToSuperview().inset(AppSpacing.medium)
             make.size.equalTo(80)
         }
 
@@ -112,13 +112,13 @@ final class MenuCell: UICollectionViewCell {
         }
 
         nameLabel.snp.makeConstraints { make in
-            make.top.equalTo(tagsStackView.snp.bottom).offset(AppSpacing.xSmall)
+            make.top.equalTo(tagsStackView.snp.bottom).offset(AppSpacing.small)
             make.leading.equalToSuperview().offset(AppSpacing.medium)
             make.trailing.lessThanOrEqualTo(menuImageView.snp.leading).offset(-AppSpacing.small)
         }
 
         descriptionLabel.snp.makeConstraints { make in
-            make.top.equalTo(nameLabel.snp.bottom).offset(AppSpacing.tiny)
+            make.top.equalTo(nameLabel.snp.bottom).offset(AppSpacing.small)
             make.leading.equalToSuperview().offset(AppSpacing.medium)
             make.trailing.lessThanOrEqualTo(menuImageView.snp.leading).offset(-AppSpacing.small)
         }
@@ -149,7 +149,7 @@ final class MenuCell: UICollectionViewCell {
 
     func setSelected(_ selected: Bool) {
         if selected {
-            containerView.backgroundColor = AppColor.brightSprout
+            containerView.backgroundColor = AppColor.brightSprout2
             containerView.layer.borderWidth = 2
             containerView.layer.borderColor = AppColor.deepSprout.cgColor
         } else {
@@ -169,10 +169,21 @@ final class MenuCell: UICollectionViewCell {
 
         for tag in menu.tags {
             let tagLabel = UILabel()
-            tagLabel.text = "#\(tag)"
-            tagLabel.font = AppFont.caption1
-            tagLabel.textColor = AppColor.deepSprout
-            tagsStackView.addArrangedSubview(tagLabel)
+            tagLabel.text = tag
+            tagLabel.font = AppFont.caption2SemiBold
+            tagLabel.textColor = AppColor.gray0
+
+            let badgeView = UIView()
+            badgeView.backgroundColor = AppColor.blackSprout
+            badgeView.layer.cornerRadius = 4
+            badgeView.addSubview(tagLabel)
+
+            tagLabel.snp.makeConstraints { make in
+                make.verticalEdges.equalToSuperview().inset(AppSpacing.tiny)
+                make.horizontalEdges.equalToSuperview().inset(AppSpacing.small)
+            }
+
+            tagsStackView.addArrangedSubview(badgeView)
         }
 
         if menu.tags.isEmpty {
@@ -180,7 +191,7 @@ final class MenuCell: UICollectionViewCell {
                 make.top.equalToSuperview().offset(0)
             }
             nameLabel.snp.remakeConstraints { make in
-                make.top.equalToSuperview().offset(AppSpacing.medium)
+                make.top.equalToSuperview().offset(AppSpacing.large)
                 make.leading.equalToSuperview().offset(AppSpacing.medium)
                 make.trailing.lessThanOrEqualTo(menuImageView.snp.leading).offset(-AppSpacing.small)
             }
@@ -189,7 +200,7 @@ final class MenuCell: UICollectionViewCell {
                 make.top.equalToSuperview().offset(AppSpacing.medium)
             }
             nameLabel.snp.remakeConstraints { make in
-                make.top.equalTo(tagsStackView.snp.bottom).offset(AppSpacing.xSmall)
+                make.top.equalTo(tagsStackView.snp.bottom).offset(AppSpacing.small)
                 make.leading.equalToSuperview().offset(AppSpacing.medium)
                 make.trailing.lessThanOrEqualTo(menuImageView.snp.leading).offset(-AppSpacing.small)
             }

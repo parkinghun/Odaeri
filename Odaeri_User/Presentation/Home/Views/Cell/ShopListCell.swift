@@ -46,11 +46,8 @@ final class ShopListCell: BaseCollectionViewCell {
 
     private var currentPickCount: Int = 0
     
-    private let picchelinImageView: UIImageView = {
-        let view = UIImageView()
-        view.image = AppImage.pickchelin
-        view.contentMode = .scaleAspectFill
-        view.clipsToBounds = true
+    private let pickchelinTagView: PickchelinTagView = {
+        let view = PickchelinTagView()
         view.isHidden = true
         return view
     }()
@@ -176,7 +173,7 @@ final class ShopListCell: BaseCollectionViewCell {
         contentView.addSubview(subImageView2)
         
         mainImageView.addSubview(likeButton)
-        mainImageView.addSubview(picchelinImageView)
+        mainImageView.addSubview(pickchelinTagView)
         
         contentView.addSubview(infoContainerView)
         contentView.addSubview(bottomDivider)
@@ -220,11 +217,11 @@ final class ShopListCell: BaseCollectionViewCell {
             make.width.height.equalTo(24)
         }
         
-        picchelinImageView.snp.makeConstraints { make in
+        pickchelinTagView.snp.makeConstraints { make in
             make.top.equalToSuperview().inset(AppSpacing.small)
             make.trailing.equalToSuperview().inset(AppSpacing.medium)
-            make.width.equalTo(65)
-            make.height.equalTo(34)
+            make.width.equalTo(61)
+            make.height.equalTo(20)
         }
         
         infoContainerView.snp.makeConstraints { make in
@@ -322,7 +319,7 @@ final class ShopListCell: BaseCollectionViewCell {
 
         likeButton.configure(storeId: store.storeId, isPicked: store.isPick)
 
-        picchelinImageView.isHidden = !store.isPicchelin
+        pickchelinTagView.isHidden = !store.isPicchelin
         distanceLabel.text = distanceText
         runLabel.text = stepsText
 

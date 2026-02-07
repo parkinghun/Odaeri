@@ -11,7 +11,7 @@ import SnapKit
 final class MenuCategoryHeaderView: UICollectionReusableView {
     private let titleLabel: UILabel = {
         let label = UILabel()
-        label.font = AppFont.title1
+        label.font = AppFont.body1Bold
         label.textColor = AppColor.gray90
         return label
     }()
