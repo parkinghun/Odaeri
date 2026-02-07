@@ -90,12 +90,14 @@ final class OrderCurrentMenuCell: BaseCollectionViewCell {
         totalTitleLabel.snp.makeConstraints {
             $0.top.equalTo(divider.snp.bottom).offset(AppSpacing.medium)
             $0.leading.equalToSuperview().offset(AppSpacing.screenMargin)
-            $0.bottom.equalToSuperview().inset(AppSpacing.medium)
+            $0.centerY.equalTo(totalStackView)
         }
 
         totalStackView.snp.makeConstraints {
+            $0.top.equalTo(divider.snp.bottom).offset(AppSpacing.medium)
             $0.centerY.equalTo(totalTitleLabel)
             $0.trailing.equalToSuperview().inset(AppSpacing.screenMargin)
+            $0.bottom.equalToSuperview().inset(AppSpacing.medium)
         }
 
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleCellTap))

@@ -286,17 +286,44 @@ final class OrderViewController: BaseViewController<OrderViewModel> {
         let layout = UICollectionViewCompositionalLayout { sectionIndex, _ in
             guard let section = Section(rawValue: sectionIndex) else { return nil }
             
-            let itemSize = NSCollectionLayoutSize(
-                widthDimension: .fractionalWidth(1.0),
-                heightDimension: .estimated(200)
-            )
-            let item = NSCollectionLayoutItem(layoutSize: itemSize)
-            
-            let groupSize = NSCollectionLayoutSize(
-                widthDimension: .fractionalWidth(1.0),
-                heightDimension: .estimated(200)
-            )
-            let group = NSCollectionLayoutGroup.vertical(layoutSize: groupSize, subitems: [item])
+            let group: NSCollectionLayoutGroup
+            switch section {
+            case .current:
+                let statusItemSize = NSCollectionLayoutSize(
+                    widthDimension: .fractionalWidth(1.0),
+                    heightDimension: .absolute(240)
+                )
+                let statusItem = NSCollectionLayoutItem(layoutSize: statusItemSize)
+
+                let menuItemSize = NSCollectionLayoutSize(
+                    widthDimension: .fractionalWidth(1.0),
+                    heightDimension: .estimated(200)
+                )
+                let menuItem = NSCollectionLayoutItem(layoutSize: menuItemSize)
+
+                let groupSize = NSCollectionLayoutSize(
+                    widthDimension: .fractionalWidth(1.0),
+                    heightDimension: .estimated(440)
+                )
+                group = NSCollectionLayoutGroup.vertical(
+                    layoutSize: groupSize,
+                    subitems: [statusItem, menuItem]
+                )
+                group.interItemSpacing = .fixed(AppSpacing.small)
+
+            case .past:
+                let itemSize = NSCollectionLayoutSize(
+                    widthDimension: .fractionalWidth(1.0),
+                    heightDimension: .estimated(200)
+                )
+                let item = NSCollectionLayoutItem(layoutSize: itemSize)
+
+                let groupSize = NSCollectionLayoutSize(
+                    widthDimension: .fractionalWidth(1.0),
+                    heightDimension: .estimated(200)
+                )
+                group = NSCollectionLayoutGroup.vertical(layoutSize: groupSize, subitems: [item])
+            }
             
             let sectionLayout = NSCollectionLayoutSection(group: group)
             sectionLayout.contentInsets = NSDirectionalEdgeInsets(

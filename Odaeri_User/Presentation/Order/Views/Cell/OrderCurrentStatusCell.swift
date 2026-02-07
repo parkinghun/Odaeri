@@ -116,18 +116,19 @@ final class OrderCurrentStatusCell: BaseCollectionViewCell {
         categoryImageView.snp.makeConstraints {
             $0.top.equalTo(infoStackView.snp.bottom).offset(AppSpacing.medium)
             $0.leading.equalToSuperview().offset(AppSpacing.screenMargin)
-            $0.size.equalTo(100)
+            $0.size.equalTo(120)
             $0.bottom.lessThanOrEqualToSuperview().inset(AppSpacing.screenMargin)
         }
 
         statusContainerView.snp.makeConstraints {
-            $0.verticalEdges.equalToSuperview().inset(AppSpacing.screenMargin)
-            $0.trailing.equalToSuperview().inset(AppSpacing.large)
+            $0.width.equalTo(140)
+            $0.height.equalTo(200)
+            $0.centerY.equalToSuperview()
+            $0.trailing.equalToSuperview().inset(17)
         }
 
         statusStackView.snp.makeConstraints {
-            $0.verticalEdges.equalToSuperview().inset(AppSpacing.screenMargin)
-            $0.horizontalEdges.equalToSuperview().inset(18)
+            $0.center.equalToSuperview()
         }
 
         statusContainerView.setContentHuggingPriority(.required, for: .horizontal)
@@ -150,6 +151,30 @@ final class OrderCurrentStatusCell: BaseCollectionViewCell {
 }
 
 private final class OrderStatusStepView: UIView {
+    private let iconColumnStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 0
+        stackView.alignment = .center
+        return stackView
+    }()
+
+    private let textRowStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.spacing = AppSpacing.xSmall
+        stackView.alignment = .center
+        return stackView
+    }()
+
+    private let rowStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.spacing = AppSpacing.xSmall
+        stackView.alignment = .top
+        return stackView
+    }()
+
     private let iconView: UIImageView = {
         let view = UIImageView()
         view.contentMode = .scaleAspectFit
@@ -189,34 +214,27 @@ private final class OrderStatusStepView: UIView {
     }
 
     private func setupUI() {
-        addSubview(iconView)
-        addSubview(titleLabel)
-        addSubview(timeLabel)
-        addSubview(connectorView)
+        addSubview(rowStackView)
+        rowStackView.addArrangedSubview(iconColumnStackView)
+        rowStackView.addArrangedSubview(textRowStackView)
+
+        iconColumnStackView.addArrangedSubview(iconView)
+        iconColumnStackView.addArrangedSubview(connectorView)
+
+        textRowStackView.addArrangedSubview(titleLabel)
+        textRowStackView.addArrangedSubview(timeLabel)
+
+        rowStackView.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+        }
 
         iconView.snp.makeConstraints {
-            $0.leading.equalToSuperview()
-            $0.top.equalToSuperview()
             $0.size.equalTo(16)
         }
 
-        titleLabel.snp.makeConstraints {
-            $0.leading.equalTo(iconView.snp.trailing).offset(AppSpacing.xSmall)
-            $0.centerY.equalTo(iconView)
-        }
-
-        timeLabel.snp.makeConstraints {
-            $0.leading.equalTo(titleLabel.snp.trailing).offset(AppSpacing.xSmall)
-            $0.centerY.equalTo(titleLabel)
-            $0.trailing.lessThanOrEqualToSuperview()
-        }
-
         connectorView.snp.makeConstraints {
-            $0.top.equalTo(iconView.snp.bottom)
-            $0.centerX.equalTo(iconView)
             $0.width.equalTo(4)
             $0.height.equalTo(AppSpacing.xLarge)
-            $0.bottom.equalToSuperview()
         }
     }
 

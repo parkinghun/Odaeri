@@ -8,9 +8,9 @@
 import SwiftUI
 
 extension Color {
-    static let blackSprout = Color(hex: "#82957B")
-    static let deepSprout = Color(hex: "#B7C8B1")
-    static let brightSprout = Color(hex: "#E0E4D9")
+    static let blackSprout = Color(hex: "#F28729")
+    static let deepSprout = Color(hex: "#F7C578")
+    static let brightSprout = Color(hex: "#F9DB5C")
     static let brightForsythia = Color(hex: "#FDC020")
 
     static let gray0 = Color(hex: "#FFFFFF")

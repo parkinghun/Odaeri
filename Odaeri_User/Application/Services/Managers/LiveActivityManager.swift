@@ -113,7 +113,7 @@ final class LiveActivityManager {
     private func getExpectedTime(for status: OrderStatusEntity) -> String {
         switch status {
         case .pendingApproval:
-            return "승인 대기
+            return "승인 대기"
         case .approved:
             return "15분"
         case .inProgress:
