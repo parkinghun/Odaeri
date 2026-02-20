@@ -86,7 +86,6 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
 
-        chatSocketService.connect(to: viewModel.roomId)
         chatRoomContextManager.enter(roomId: viewModel.roomId)
 
         chatLocalStore.markAllMessagesAsRead(roomId: viewModel.roomId)
@@ -98,7 +97,11 @@ final class ChatViewController: BaseViewController<ChatViewModel>, ImageViewerPr
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        chatSocketService.disconnect()
+
+        if isMovingFromParent || isBeingDismissed {
+            chatSocketService.disconnect()
+        }
+
         chatRoomContextManager.leave(roomId: viewModel.roomId)
         removeKeyboardObservers()
     }

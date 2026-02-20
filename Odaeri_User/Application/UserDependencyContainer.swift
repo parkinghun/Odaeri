@@ -18,6 +18,7 @@ final class UserDependencyContainer {
     let networkMonitor: NetworkMonitor = .shared
     let chatSocketService: ChatSocketService = .shared
     let chatRoomContextManager: ChatRoomContextManager = .shared
+    let chatSyncAnchorStore: ChatSyncAnchorStoring = ChatSyncAnchorStore.shared
     let chatLocalStore: ChatLocalStoreProviding = RealmChatRepository.shared
     let mediaUploadManager: MediaUploadManager = .shared
     let appMediaService: AppMediaService = .shared

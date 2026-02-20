@@ -48,6 +48,7 @@ final class ChatCoordinator: Coordinator {
             networkMonitor: dependencies.networkMonitor,
             chatLocalStore: dependencies.chatLocalStore,
             chatSocketService: dependencies.chatSocketService,
+            syncAnchorStore: dependencies.chatSyncAnchorStore,
             userManager: dependencies.userManager,
             currentUserName: currentUser?.nick ?? "나",
             title: title

@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+
 final class ChatViewModel: BaseViewModel, ViewModelType {
     weak var coordinator: ChatCoordinator?
     private let chatRepository: ChatRepository
@@ -18,14 +19,21 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
     private let networkMonitor: NetworkMonitor
     private let chatLocalStore: ChatLocalStoreProviding
     private let chatSocketService: ChatSocketService
+    private let syncAnchorStore: ChatSyncAnchorStoring
     private let userManager: UserManager
 
     private let chatItemsSubject = CurrentValueSubject<[ChatItem], Never>([])
     private var sendTimeouts: [String: DispatchWorkItem] = [:]
     private var uploadCancellables: [String: AnyCancellable] = [:]
     private var isSyncing = false
+    private var needsResync = false
+    private var pendingAnchorOverride: String?
     private var latestObservedEntities: [ChatEntity] = []
     private var messagesObservationCancellable: AnyCancellable?
+    private var hasPreparedSyncState = false
+    private var hasPerformedInitialConnectedCatchUp = false
+    private var baseNextSnapshot: String?
+    private var syncAnchor: String?
 
     private var currentLimit = ChatConstants.Pagination.initialLimit
     private var isInitialLoading = true
@@ -70,6 +78,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         networkMonitor: NetworkMonitor,
         chatLocalStore: ChatLocalStoreProviding,
         chatSocketService: ChatSocketService,
+        syncAnchorStore: ChatSyncAnchorStoring,
         userManager: UserManager,
         currentUserName: String = "나",
         title: String? = nil
@@ -81,6 +90,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         self.networkMonitor = networkMonitor
         self.chatLocalStore = chatLocalStore
         self.chatSocketService = chatSocketService
+        self.syncAnchorStore = syncAnchorStore
         self.userManager = userManager
         self.currentUserName = currentUserName
         self.title = title
@@ -90,9 +100,12 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         input.viewDidLoad
             .sink { [weak self] in
                 self?.startMessageObservation()
-                self?.syncMessagesFromServer()
+                self?.prepareSyncStateIfNeeded()
                 self?.setupNetworkObserver()
+                self?.setupSocketConnectedObserver()
                 self?.setupReconnectionObserver()
+                self?.connectSocket()
+                self?.requestInitialSync()
             }
             .store(in: &cancellables)
 
@@ -108,6 +121,87 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
         )
     }
 
+    private func prepareSyncStateIfNeeded() {
+        guard !hasPreparedSyncState else { return }
+        hasPreparedSyncState = true
+
+        baseNextSnapshot = chatLocalStore.latestMessageCreatedAt(roomId: roomId)
+
+        let savedAnchor = syncAnchorStore.syncAnchor(
+            roomId: roomId,
+            userId: syncStoreUserId
+        )
+        syncAnchor = maxCreatedAt(savedAnchor, baseNextSnapshot)
+
+        if let syncAnchor = syncAnchor {
+            syncAnchorStore.setSyncAnchor(
+                syncAnchor,
+                roomId: roomId,
+                userId: syncStoreUserId
+            )
+        }
+    }
+
+    private func connectSocket() {
+        chatSocketService.connect(to: roomId)
+    }
+
+    private func requestInitialSync() {
+        requestSync(anchorOverride: baseNextSnapshot)
+    }
+
+    private func requestSync(anchorOverride: String? = nil) {
+        if isSyncing {
+            needsResync = true
+            if let anchorOverride {
+                pendingAnchorOverride = anchorOverride
+            }
+            return
+        }
+
+        performSync(anchorOverride: anchorOverride)
+    }
+
+    private func performSync(anchorOverride: String?) {
+        isSyncing = true
+
+        let anchor = anchorOverride ?? syncAnchor ?? baseNextSnapshot
+        let adjustedNext = adjustedNextCursor(from: anchor)
+
+        chatRepository.fetchChatHistory(roomId: roomId, next: adjustedNext)
+            .sink(
+                receiveCompletion: { [weak self] completion in
+                    guard let self = self else { return }
+                    self.isSyncing = false
+
+                    if case .failure(let error) = completion {
+                        print("[ChatViewModel] 채팅 동기화 실패: \(error)")
+                    }
+
+                    if self.needsResync {
+                        self.needsResync = false
+                        let queuedAnchor = self.pendingAnchorOverride
+                        self.pendingAnchorOverride = nil
+                        self.requestSync(anchorOverride: queuedAnchor)
+                    }
+                },
+                receiveValue: { [weak self] entities in
+                    self?.saveMessagesToLocalStore(entities)
+                }
+            )
+            .store(in: &cancellables)
+    }
+
+    private func adjustedNextCursor(from anchor: String?) -> String? {
+        guard let anchor = anchor,
+              let anchorDate = DateFormatter.iso8601.date(from: anchor) else {
+            return anchor
+        }
+
+        let adjustedDate = anchorDate.addingTimeInterval(-ChatTimingConstants.syncSafetyMargin)
+        return DateFormatter.iso8601.string(from: adjustedDate)
+    }
+
     private func startMessageObservation() {
         guard messagesObservationCancellable == nil else { return }
 
@@ -120,6 +214,7 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             guard let self = self else { return }
             self.latestObservedEntities = entities
             self.isInitialLoading = false
+            self.advanceSyncAnchorIfNeeded(with: entities.first?.createdAt)
             self.updateChatItems(from: entities)
         }
     }
@@ -257,35 +352,12 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             .store(in: &cancellables)
     }
 
-    private func syncMessagesFromServer() {
-        guard !isSyncing else { return }
-
-        isSyncing = true
-
-        let latestCreatedAt = chatLocalStore.latestMessageCreatedAt(roomId: roomId)
-        let latestCreatedAtDate = latestCreatedAt.flatMap { DateFormatter.iso8601.date(from: $0) }
-
-        chatRepository.fetchChatHistory(roomId: roomId, next: latestCreatedAt)
-            .sink(
-                receiveCompletion: { [weak self] completion in
-                    defer { self?.isSyncing = false }
-
-                    if case .failure(let error) = completion {
-                        print("[ChatViewModel] 채팅 동기화 실패: \(error)")
-                    }
-                },
-                receiveValue: { [weak self] entities in
-                    guard let self = self else { return }
-                    let filtered = self.filterNewMessages(entities, after: latestCreatedAtDate)
-                    self.saveMessagesToLocalStore(filtered)
-                }
-            )
-            .store(in: &cancellables)
-    }
-
     private func saveMessagesToLocalStore(_ entities: [ChatEntity]) {
         chatLocalStore.saveMessages(entities)
-            .sink { _ in }
+            .sink { [weak self] success in
+                guard let self = self, success else { return }
+                self.advanceSyncAnchorIfNeeded(with: self.latestCreatedAt(in: entities))
+            }
             .store(in: &cancellables)
     }
 
@@ -301,35 +373,82 @@ final class ChatViewModel: BaseViewModel, ViewModelType {
             .store(in: &cancellables)
     }
 
+    private func setupSocketConnectedObserver() {
+        chatSocketService.connectionStatus
+            .map { status in
+                if case .connected = status {
+                    return true
+                }
+                return false
+            }
+            .removeDuplicates()
+            .filter { $0 }
+            .sink { [weak self] _ in
+                guard let self = self, !self.hasPerformedInitialConnectedCatchUp else { return }
+                self.hasPerformedInitialConnectedCatchUp = true
+                print("소켓 연결 직후 catch-up 동기화 시작: \(self.roomId)")
+                self.requestSync(anchorOverride: self.baseNextSnapshot)
+            }
+            .store(in: &cancellables)
+    }
+
     private func setupReconnectionObserver() {
         chatSocketService.reconnectionPublisher
             .debounce(for: .seconds(0.5), scheduler: DispatchQueue.main)
             .filter { [weak self] reconnectedRoomId in
                 guard let self = self else { return false }
-                return reconnectedRoomId == self.roomId && !self.isSyncing
+                return reconnectedRoomId == self.roomId
             }
             .sink { [weak self] _ in
                 guard let self = self else { return }
                 print("재연결 감지: \(self.roomId) 동기화 시작")
-                self.syncMessagesFromServer()
+                self.connectSocket()
+                self.requestSync()
             }
             .store(in: &cancellables)
     }
 
-    private func filterNewMessages(
-        _ entities: [ChatEntity],
-        after latestCreatedAtDate: Date?
-    ) -> [ChatEntity] {
-        guard let latestCreatedAtDate = latestCreatedAtDate else {
-            return entities
+    private func advanceSyncAnchorIfNeeded(with candidate: String?) {
+        guard let candidate else { return }
+
+        if let syncAnchor,
+           let currentDate = DateFormatter.iso8601.date(from: syncAnchor),
+           let candidateDate = DateFormatter.iso8601.date(from: candidate),
+           candidateDate <= currentDate {
+            return
         }
 
-        return entities.filter { entity in
-            guard let createdAtDate = DateFormatter.iso8601.date(from: entity.createdAt) else {
-                return true
-            }
-            return createdAtDate > latestCreatedAtDate
+        syncAnchor = candidate
+        syncAnchorStore.setSyncAnchor(candidate, roomId: roomId, userId: syncStoreUserId)
+    }
+
+    private func latestCreatedAt(in entities: [ChatEntity]) -> String? {
+        guard !entities.isEmpty else { return nil }
+
+        return entities.max {
+            let lhsDate = DateFormatter.iso8601.date(from: $0.createdAt) ?? .distantPast
+            let rhsDate = DateFormatter.iso8601.date(from: $1.createdAt) ?? .distantPast
+            return lhsDate < rhsDate
+        }?.createdAt
+    }
+
+    private func maxCreatedAt(_ lhs: String?, _ rhs: String?) -> String? {
+        switch (lhs, rhs) {
+        case let (left?, right?):
+            let leftDate = DateFormatter.iso8601.date(from: left) ?? .distantPast
+            let rightDate = DateFormatter.iso8601.date(from: right) ?? .distantPast
+            return leftDate >= rightDate ? left : right
+        case let (left?, nil):
+            return left
+        case let (nil, right?):
+            return right
+        case (nil, nil):
+            return nil
         }
+    }
+
+    private var syncStoreUserId: String {
+        return currentUserId.isEmpty ? "anonymous" : currentUserId
     }
 
     private func sendMessage(_ payload: SendMessagePayload) {

@@ -10,4 +10,5 @@ import Foundation
 enum ChatTimingConstants {
     static let gapDetectionThreshold: TimeInterval = 300
     static let messageGroupingInterval: TimeInterval = 60
+    static let syncSafetyMargin: TimeInterval = 1
 }
