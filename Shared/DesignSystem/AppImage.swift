@@ -64,6 +64,9 @@ enum AppImage {
     static let share = systemImage("paperplane")
     static let save = systemImage("text.badge.plus")
     static let script = systemImage("list.dash.header.rectangle")
+    static let restart = image("restart")
+    static let delete = image("delete")
+
     
     // MARK: - TabBar
     static let communityEmpty = image("Community_Empty")

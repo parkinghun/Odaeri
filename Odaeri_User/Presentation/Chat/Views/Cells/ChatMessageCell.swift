@@ -30,10 +30,10 @@ final class ChatMessageCell: BaseCollectionViewCell {
     private let statusStackView = UIStackView()
     private let activityIndicator = UIActivityIndicatorView(style: .medium)
     private let errorIconImageView = UIImageView()
-    private let actionStackView = UIStackView()
+    private let failedActionContainerView = UIView()
+    private let failedActionDividerView = UIView()
     private let retryButton = UIButton(type: .system)
     private let deleteButton = UIButton(type: .system)
-    private let statusHintLabel = UILabel()
 
     private let textView = UITextView()
     private let imageGridView = ChatImageGridView()
@@ -48,8 +48,15 @@ final class ChatMessageCell: BaseCollectionViewCell {
     private enum Layout {
         static let profileSize: CGFloat = 32
         static let bubbleCornerRadius: CGFloat = 8
-        static let actionSpacing: CGFloat = 8
-        static let actionButtonHeight: CGFloat = 24
+        static let failedActionButtonWidth: CGFloat = 26
+        static let failedActionHeight: CGFloat = 26
+        static let failedActionDividerWidth: CGFloat = 1
+        static let failedActionSpacing: CGFloat = 6
+        static let failedActionMinX: CGFloat = 8
+        static let failedActionCornerRadius: CGFloat = 10
+        static let failedActionBorderWidth: CGFloat = 1
+        static let failedActionRetryIconInset: CGFloat = 7
+        static let failedActionDeleteIconInset: CGFloat = 5
     }
 
     override init(frame: CGRect) {
@@ -90,36 +97,49 @@ final class ChatMessageCell: BaseCollectionViewCell {
         errorIconImageView.tintColor = AppColor.errorRed
         errorIconImageView.isHidden = true
 
-        actionStackView.axis = .horizontal
-        actionStackView.alignment = .center
-        actionStackView.spacing = Layout.actionSpacing
+        failedActionContainerView.backgroundColor = AppColor.gray15
+        failedActionContainerView.layer.cornerCurve = .continuous
+        failedActionContainerView.layer.cornerRadius = Layout.failedActionCornerRadius
+        failedActionContainerView.layer.borderColor = AppColor.gray30.cgColor
+        failedActionContainerView.layer.borderWidth = Layout.failedActionBorderWidth
+        failedActionContainerView.clipsToBounds = true
+        failedActionContainerView.isHidden = true
 
-        statusHintLabel.font = AppFont.caption2
-        statusHintLabel.textColor = AppColor.errorRed
-        statusHintLabel.text = "업로드에 실패했습니다"
-        statusHintLabel.isHidden = true
+        failedActionDividerView.backgroundColor = AppColor.gray30
 
-        retryButton.setTitle("재전송", for: .normal)
-        retryButton.titleLabel?.font = AppFont.caption1
-        retryButton.setTitleColor(AppColor.errorRed, for: .normal)
+        retryButton.setImage(AppImage.restart, for: .normal)
+        retryButton.tintColor = AppColor.gray75
+        retryButton.contentEdgeInsets = UIEdgeInsets(
+            top: Layout.failedActionRetryIconInset,
+            left: Layout.failedActionRetryIconInset,
+            bottom: Layout.failedActionRetryIconInset,
+            right: Layout.failedActionRetryIconInset
+        )
+        retryButton.imageView?.contentMode = .scaleAspectFit
 
-        deleteButton.setTitle("삭제", for: .normal)
-        deleteButton.titleLabel?.font = AppFont.caption1
-        deleteButton.setTitleColor(AppColor.gray75, for: .normal)
+        deleteButton.setImage(AppImage.delete, for: .normal)
+        deleteButton.tintColor = AppColor.errorRed
+        deleteButton.contentEdgeInsets = UIEdgeInsets(
+            top: Layout.failedActionDeleteIconInset,
+            left: Layout.failedActionDeleteIconInset,
+            bottom: Layout.failedActionDeleteIconInset,
+            right: Layout.failedActionDeleteIconInset
+        )
+        deleteButton.imageView?.contentMode = .scaleAspectFit
 
         contentView.addSubview(profileImageView)
         contentView.addSubview(nameLabel)
         contentView.addSubview(bubbleView)
         contentView.addSubview(timeLabel)
         contentView.addSubview(statusStackView)
-        contentView.addSubview(statusHintLabel)
-        contentView.addSubview(actionStackView)
+        contentView.addSubview(failedActionContainerView)
 
         statusStackView.addArrangedSubview(activityIndicator)
         statusStackView.addArrangedSubview(errorIconImageView)
 
-        actionStackView.addArrangedSubview(retryButton)
-        actionStackView.addArrangedSubview(deleteButton)
+        failedActionContainerView.addSubview(retryButton)
+        failedActionContainerView.addSubview(failedActionDividerView)
+        failedActionContainerView.addSubview(deleteButton)
 
         retryButton.addTarget(self, action: #selector(handleRetryTap), for: .touchUpInside)
         deleteButton.addTarget(self, action: #selector(handleDeleteTap), for: .touchUpInside)
@@ -222,38 +242,7 @@ final class ChatMessageCell: BaseCollectionViewCell {
             shareCardView.frame = shareCardFrame
         }
 
-        let actionSize = actionStackView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
-        let actionSpacing: CGFloat = 6
-
-        let mediaBottom = max(
-            bubbleView.frame.maxY,
-            imageGridView.frame.maxY,
-            videoView.frame.maxY,
-            fileView.frame.maxY,
-            shareCardView.frame.maxY
-        )
-
-        let actionX = timeLabel.isHidden
-            ? timeLabel.frame.minX
-            : timeLabel.frame.maxX + actionSpacing
-        let actionY = timeLabel.isHidden
-            ? timeLabel.frame.minY
-            : mediaBottom + 4
-
-        actionStackView.frame = CGRect(
-            x: actionX,
-            y: actionY,
-            width: actionSize.width,
-            height: actionSize.height
-        )
-
-        let hintSize = statusHintLabel.sizeThatFits(CGSize(width: 200, height: 20))
-        statusHintLabel.frame = CGRect(
-            x: timeLabel.frame.minX,
-            y: actionStackView.frame.maxY + 2,
-            width: hintSize.width,
-            height: hintSize.height
-        )
+        layoutFailedActionButtons()
     }
 
     override func prepareForReuse() {
@@ -270,6 +259,7 @@ final class ChatMessageCell: BaseCollectionViewCell {
         videoView.isHidden = true
         fileView.isHidden = true
         shareCardView.isHidden = true
+        failedActionContainerView.isHidden = true
     }
 
     private func configure(with layoutData: ChatMessageCellLayoutData) {
@@ -388,34 +378,89 @@ final class ChatMessageCell: BaseCollectionViewCell {
         bubbleView.backgroundColor = senderType.bubbleBackgroundColor
     }
 
+    private func layoutFailedActionButtons() {
+        let actionWidth = Layout.failedActionButtonWidth * 2 + Layout.failedActionDividerWidth
+        let actionHeight = Layout.failedActionHeight
+
+        let messageFrame = messageContentFrame()
+        guard !messageFrame.isNull else {
+            failedActionContainerView.frame = .zero
+            return
+        }
+
+        let actionX = max(
+            Layout.failedActionMinX,
+            messageFrame.minX - Layout.failedActionSpacing - actionWidth
+        )
+        let actionY = max(0, messageFrame.maxY - actionHeight)
+
+        failedActionContainerView.frame = CGRect(
+            x: actionX,
+            y: actionY,
+            width: actionWidth,
+            height: actionHeight
+        )
+
+        retryButton.frame = CGRect(
+            x: 0,
+            y: 0,
+            width: Layout.failedActionButtonWidth,
+            height: actionHeight
+        )
+        failedActionDividerView.frame = CGRect(
+            x: Layout.failedActionButtonWidth,
+            y: 0,
+            width: Layout.failedActionDividerWidth,
+            height: actionHeight
+        )
+        deleteButton.frame = CGRect(
+            x: Layout.failedActionButtonWidth + Layout.failedActionDividerWidth,
+            y: 0,
+            width: Layout.failedActionButtonWidth,
+            height: actionHeight
+        )
+    }
+
+    private func messageContentFrame() -> CGRect {
+        var result = CGRect.null
+        let frames = [
+            bubbleView.frame,
+            imageGridView.frame,
+            videoView.frame,
+            fileView.frame,
+            shareCardView.frame
+        ]
+
+        for frame in frames where !frame.isEmpty {
+            result = result.isNull ? frame : result.union(frame)
+        }
+
+        return result
+    }
+
     private func configureStatusUI(status: ChatMessageStatus, senderType: ChatSenderRole) {
         let isMine = senderType == .me
-        actionStackView.isHidden = !isMine
+        failedActionContainerView.isHidden = true
         errorIconImageView.isHidden = true
         activityIndicator.stopAnimating()
-        statusHintLabel.isHidden = true
 
         guard isMine else {
-            actionStackView.isHidden = true
             return
         }
 
         switch status {
         case .sending:
             activityIndicator.startAnimating()
-            actionStackView.isHidden = true
-            statusHintLabel.isHidden = true
+            failedActionContainerView.isHidden = true
             timeLabel.isHidden = false
             timeLabel.alpha = 0.5
             timeLabel.textColor = AppColor.gray60
         case .failed:
-            actionStackView.isHidden = false
-            statusHintLabel.isHidden = true
+            failedActionContainerView.isHidden = false
             errorIconImageView.isHidden = true
             timeLabel.isHidden = true
         case .sent:
-            actionStackView.isHidden = true
-            statusHintLabel.isHidden = true
+            failedActionContainerView.isHidden = true
             timeLabel.isHidden = false
             timeLabel.alpha = 1
             timeLabel.textColor = AppColor.gray60
