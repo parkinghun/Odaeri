@@ -28,13 +28,6 @@ struct ChatRoomEntity {
         self.lastChat = lastChat
     }
 
-    init(from response: ChatRoomResponse) {
-        self.roomId = response.roomId
-        self.createdAt = response.createdAt
-        self.updatedAt = response.updatedAt
-        self.participants = response.participants.map { ChatParticipantEntity(from: $0) }
-        self.lastChat = response.lastChat.map { ChatEntity(from: $0) }
-    }
 }
 
 struct ChatEntity {
@@ -70,18 +63,6 @@ struct ChatEntity {
         self.uploadProgress = uploadProgress
     }
 
-    init(from response: ChatResponse) {
-        self.chatId = response.chatId
-        self.roomId = response.roomId
-        self.content = response.content
-        self.createdAt = response.createdAt
-        self.updatedAt = response.updatedAt
-        self.sender = ChatParticipantEntity(from: response.sender)
-        self.files = response.files
-        self.status = .sent
-        self.uploadProgress = nil
-    }
-
     var hasFiles: Bool {
         return !files.isEmpty
     }
@@ -95,16 +76,11 @@ struct ChatParticipantEntity {
     init(
         userId: String,
         nick: String,
-        profileImage: String
+        profileImage: String?
     ) {
         self.userId = userId
         self.nick = nick
         self.profileImage = profileImage
     }
 
-    init(from participant: ChatParticipant) {
-        self.userId = participant.userId
-        self.nick = participant.nick
-        self.profileImage = participant.profileImage
-    }
 }

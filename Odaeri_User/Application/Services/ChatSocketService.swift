@@ -328,7 +328,7 @@ final class ChatSocketService {
             return
         }
 
-        let entity = ChatEntity(from: response)
+        let entity = ChatDTOMapper.toEntity(response)
         provideHapticFeedback()
 
         localStore.saveMessageWithRoomUpdate(

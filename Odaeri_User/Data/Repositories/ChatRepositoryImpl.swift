@@ -17,7 +17,7 @@ final class ChatRepositoryImpl: ChatRepository {
         let request = CreateChatRoomRequest(opponentId: opponentId)
         return provider.requestPublisher(.createOrGetChatRoom(request: request))
             .map { (response: ChatRoomResponse) in
-                ChatRoomEntity(from: response)
+                ChatDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
     }
@@ -29,7 +29,7 @@ final class ChatRepositoryImpl: ChatRepository {
 
         return provider.requestPublisher(.getChatRooms)
             .map { (response: ChatRoomListResponse) in
-                response.data.map { ChatRoomEntity(from: $0) }
+                response.data.map(ChatDTOMapper.toEntity)
             }
             .eraseToAnyPublisher()
     }
@@ -42,7 +42,7 @@ final class ChatRepositoryImpl: ChatRepository {
         let request = SendChatRequest(content: content, files: files)
         return provider.requestPublisher(.sendChat(roomId: roomId, request: request))
             .map { (response: ChatResponse) in
-                ChatEntity(from: response)
+                ChatDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
     }
@@ -54,7 +54,7 @@ final class ChatRepositoryImpl: ChatRepository {
 
         return provider.requestPublisher(.getChatHistory(roomId: roomId, next: next))
             .map { (response: ChatListResponse) in
-                response.data.map { ChatEntity(from: $0) }
+                response.data.map(ChatDTOMapper.toEntity)
             }
             .eraseToAnyPublisher()
     }
@@ -68,7 +68,7 @@ final class ChatRepositoryImpl: ChatRepository {
         do {
             let data = try Data(contentsOf: url)
             let response = try JSONDecoder().decode(ChatRoomListResponse.self, from: data)
-            let rooms = response.data.map { ChatRoomEntity(from: $0) }
+            let rooms = response.data.map(ChatDTOMapper.toEntity)
             return Just(rooms)
                 .setFailureType(to: NetworkError.self)
                 .eraseToAnyPublisher()
@@ -89,7 +89,7 @@ final class ChatRepositoryImpl: ChatRepository {
             let response = try JSONDecoder().decode(ChatListResponse.self, from: data)
             let chats = response.data
                 .filter { $0.roomId == roomId }
-                .map { ChatEntity(from: $0) }
+                .map(ChatDTOMapper.toEntity)
             return Just(chats)
                 .setFailureType(to: NetworkError.self)
                 .eraseToAnyPublisher()
