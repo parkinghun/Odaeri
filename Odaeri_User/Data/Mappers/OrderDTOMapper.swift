@@ -1,39 +1,23 @@
 //
-//  AdminOrderService.swift
-//  Odaeri_Admin
+//  OrderDTOMapper.swift
+//  Odaeri_User
 //
-//  Created by 박성훈 on 1/18/26.
+//  Created by 박성훈 on 3/1/26.
 //
 
 import Foundation
-import Combine
-import Moya
 
-final class AdminOrderService: AdminOrderProviding {
-    private let provider: MoyaProvider<OrderAPI>
-
-    init(provider: MoyaProvider<OrderAPI> = ProviderFactory.makeOrderProvider()) {
-        self.provider = provider
+enum OrderDTOMapper {
+    static func toEntity(_ response: OrderCreateResponse) -> OrderCreateEntity {
+        OrderCreateEntity(
+            orderId: response.orderId,
+            orderCode: response.orderCode,
+            totalPrice: response.totalPrice,
+            createdAt: response.createdAt.toDate(),
+            updatedAt: response.updatedAt.toDate()
+        )
     }
 
-    func fetchOrders() -> AnyPublisher<[OrderListItemEntity], NetworkError> {
-        provider.requestPublisher(.getOrderList)
-            .map { (response: OrderListResponse) in
-                response.data.map(AdminOrderDTOMapper.toEntity)
-            }
-            .eraseToAnyPublisher()
-    }
-
-    func updateOrderStatus(orderCode: String, nextStatus: OrderStatusEntity) -> AnyPublisher<Void, NetworkError> {
-        provider.requestPublisher(.updateOrderStatus(orderCode: orderCode, nextStatus: .init(status: nextStatus)))
-            .map { (_: MessageResponse) in
-                ()
-            }
-            .eraseToAnyPublisher()
-    }
-}
-
-private enum AdminOrderDTOMapper {
     static func toEntity(_ response: OrderListItem) -> OrderListItemEntity {
         OrderListItemEntity(
             orderId: response.orderId,
@@ -48,11 +32,6 @@ private enum AdminOrderDTOMapper {
             createdAt: response.createdAt.toDate(),
             updatedAt: response.updatedAt.toDate()
         )
-    }
-
-    static func toEntity(_ response: OrderReviewItem?) -> OrderReviewEntity? {
-        guard let response else { return nil }
-        return OrderReviewEntity(id: response.id, rating: response.rating)
     }
 
     static func toEntity(_ response: OrderStoreInfo) -> OrderStoreInfoEntity {
@@ -97,6 +76,14 @@ private enum AdminOrderDTOMapper {
             status: OrderStatusEntity(rawValue: response.status) ?? .pendingApproval,
             completed: response.completed,
             changedAt: response.changedAt?.toDate()
+        )
+    }
+
+    static func toEntity(_ response: OrderReviewItem?) -> OrderReviewEntity? {
+        guard let response else { return nil }
+        return OrderReviewEntity(
+            id: response.id,
+            rating: response.rating
         )
     }
 }

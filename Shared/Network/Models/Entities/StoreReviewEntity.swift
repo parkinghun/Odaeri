@@ -13,7 +13,7 @@ struct StoreReviewEntity {
     let rating: Int
     let reviewImageUrls: [String]
     let orderMenuList: [String]
-    let creator: Creator
+    let creator: CreatorEntity
     let userTotalReviewCount: Int
     let userTotalRating: Double
     let createdAt: Date?
@@ -24,57 +24,21 @@ struct StoreReviewEntity {
     }
 }
 
-extension StoreReviewEntity {
-    init(from dto: StoreRevewItemDTO) {
-        self.reviewId = dto.reviewId
-        self.content = dto.content
-        self.rating = dto.rating
-        self.reviewImageUrls = dto.reviewImageUrls
-        self.orderMenuList = dto.orderMenuList
-        self.creator = dto.creator
-        self.userTotalReviewCount = dto.userTotalReviewCount
-        self.userTotalRating = dto.userTotalRating
-        self.createdAt = dto.createdAt.toDate()
-        self.updatedAt = dto.updatedAt.toDate()
-    }
-}
-
 struct StoreReviewDetailEntity {
     let reviewId: String
     let content: String
     let rating: Int
-    let store: StoreSummary
+    let store: StoreEntity
     let reviewImageUrls: [String]
     let orderMenuList: [String]
-    let creator: Creator
+    let creator: CreatorEntity
     let createdAt: Date?
     let updatedAt: Date?
-}
-
-extension StoreReviewDetailEntity {
-    init(from dto: StoreReviewResponse) {
-        self.reviewId = dto.reviewID
-        self.content = dto.content
-        self.rating = dto.rating
-        self.store = dto.store
-        self.reviewImageUrls = dto.reviewImageUrls
-        self.orderMenuList = dto.orderMenuList
-        self.creator = dto.creator
-        self.createdAt = dto.createdAt.toDate()
-        self.updatedAt = dto.updatedAt.toDate()
-    }
 }
 
 struct ReviewRatingEntity {
     let rating: Int
     let count: Int
-}
-
-extension ReviewRatingEntity {
-    init(from dto: RatingData) {
-        self.rating = dto.rating
-        self.count = dto.count
-    }
 }
 
 struct StoreReviewListResult {

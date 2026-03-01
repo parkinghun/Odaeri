@@ -61,7 +61,7 @@ final class StoreReviewRepositoryImpl: StoreReviewRepository {
             request: request
         ))
         .map { (response: StoreReviewResponse) in
-            StoreReviewDetailEntity(from: response)
+            StoreReviewDTOMapper.toEntity(response)
         }
         .eraseToAnyPublisher()
     }
@@ -79,7 +79,7 @@ final class StoreReviewRepositoryImpl: StoreReviewRepository {
             orderBy: orderBy
         ))
         .map { (response: StoreReviewListReponse) in
-            let reviews = response.data.map { StoreReviewEntity(from: $0) }
+            let reviews = response.data.map(StoreReviewDTOMapper.toEntity)
             return StoreReviewListResult(
                 reviews: reviews,
                 nextCursor: response.nextCursot
@@ -97,7 +97,7 @@ final class StoreReviewRepositoryImpl: StoreReviewRepository {
             reviewId: reviewId
         ))
         .map { (response: StoreReviewResponse) in
-            StoreReviewDetailEntity(from: response)
+            StoreReviewDTOMapper.toEntity(response)
         }
         .eraseToAnyPublisher()
     }
@@ -113,7 +113,7 @@ final class StoreReviewRepositoryImpl: StoreReviewRepository {
             request: request
         ))
         .map { (response: StoreReviewResponse) in
-            StoreReviewDetailEntity(from: response)
+            StoreReviewDTOMapper.toEntity(response)
         }
         .eraseToAnyPublisher()
     }
@@ -149,7 +149,7 @@ final class StoreReviewRepositoryImpl: StoreReviewRepository {
     ) -> AnyPublisher<[ReviewRatingEntity], NetworkError> {
         provider.requestPublisher(.fetchReviewRatings(storeId: storeId))
             .map { (response: ReviewRatingResponse) in
-                response.data.map { ReviewRatingEntity(from: $0) }
+                response.data.map(StoreReviewDTOMapper.toEntity)
             }
             .eraseToAnyPublisher()
     }

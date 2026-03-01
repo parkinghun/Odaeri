@@ -16,8 +16,11 @@ final class AuthRepositoryImpl: AuthRepository {
         self.provider = provider
     }
 
-    func refreshToken() -> AnyPublisher<RefreshTokenResponse, NetworkError> {
+    func refreshToken() -> AnyPublisher<RefreshTokenEntity, NetworkError> {
         return provider.requestPublisher(AuthAPI.refreshToken)
+            .map { (response: RefreshTokenResponse) in
+                AuthDTOMapper.toEntity(response)
+            }
             .eraseToAnyPublisher()
     }
 }

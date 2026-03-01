@@ -19,7 +19,7 @@ final class AdminMenuService {
     func updateMenu(menuId: String, request: MenuRequest) -> AnyPublisher<MenuEntity, NetworkError> {
         provider.requestPublisher(.update(menuId: menuId, request: request))
             .map { (response: MenuResponse) in
-                MenuEntity(from: response)
+                AdminMenuDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
     }
@@ -27,8 +27,24 @@ final class AdminMenuService {
     func createMenu(storeId: String, request: MenuRequest) -> AnyPublisher<MenuEntity, NetworkError> {
         provider.requestPublisher(.create(storeId: storeId, request: request))
             .map { (response: MenuResponse) in
-                MenuEntity(from: response)
+                AdminMenuDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
+    }
+}
+
+private enum AdminMenuDTOMapper {
+    static func toEntity(_ response: MenuResponse) -> MenuEntity {
+        MenuEntity(
+            menuId: response.menuId,
+            name: response.name,
+            description: response.description,
+            originInformation: response.originInformation,
+            price: response.price,
+            category: response.category,
+            tags: response.tags,
+            menuImageUrl: response.menuImageUrl,
+            isSoldOut: response.isSoldOut
+        )
     }
 }

@@ -16,7 +16,7 @@ final class CommunityCommentRepositoryImpl: CommunityCommentRepository {
         provider.requestPublisher(.addComment(postId: postId, parentId: parentId, content: content))
             .map { (response: CommunityCommentResponse) in
                 let currentUserId = UserManager.shared.currentUser?.userId ?? ""
-                return response.toEntity(currentUserId: currentUserId)
+                return CommunityCommentDTOMapper.toEntity(response, currentUserId: currentUserId)
             }
             .eraseToAnyPublisher()
     }
@@ -25,7 +25,7 @@ final class CommunityCommentRepositoryImpl: CommunityCommentRepository {
         provider.requestPublisher(.updateComment(postId: postId, commentId: commentId, content: content))
             .map { (response: CommunityCommentResponse) in
                 let currentUserId = UserManager.shared.currentUser?.userId ?? ""
-                return response.toEntity(currentUserId: currentUserId)
+                return CommunityCommentDTOMapper.toEntity(response, currentUserId: currentUserId)
             }
             .eraseToAnyPublisher()
     }

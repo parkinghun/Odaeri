@@ -20,7 +20,7 @@ final class BannerRepositoryImpl: BannerRepository {
     func fetchBanners() -> AnyPublisher<[BannerEntity], NetworkError> {
         provider.requestPublisher(.getBanners)
             .map { (response: BannerResponse) in
-                response.data.map { BannerEntity(from: $0) }
+                response.data.map(BannerDTOMapper.toEntity)
             }
             .eraseToAnyPublisher()
     }

@@ -31,7 +31,7 @@ final class StoreRepositoryImpl: StoreRepository {
             order_by: orderBy
         ))
         .map { (response: StoreListResponse) in
-            let stores = response.data.map { StoreEntity(from: $0) }
+            let stores = response.data.map(StoreDTOMapper.toEntity)
             return (stores: stores, nextCursor: response.nextCursor)
         }
         .eraseToAnyPublisher()
@@ -40,7 +40,7 @@ final class StoreRepositoryImpl: StoreRepository {
     func fetchStoreDetail(storeId: String) -> AnyPublisher<StoreEntity, NetworkError> {
         provider.requestPublisher(.fetchStoreDetail(storeId: storeId))
             .map { (response: StoreResponse) in
-                StoreEntity(from: response)
+                StoreDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
     }
@@ -54,7 +54,7 @@ final class StoreRepositoryImpl: StoreRepository {
     func searchStores(name: String) -> AnyPublisher<[StoreEntity], NetworkError> {
         provider.requestPublisher(.searchStores(name: name))
             .map { (response: StoreListResponse) in
-                response.data.map { StoreEntity(from: $0) }
+                response.data.map(StoreDTOMapper.toEntity)
             }
             .eraseToAnyPublisher()
     }
@@ -62,7 +62,7 @@ final class StoreRepositoryImpl: StoreRepository {
     func fetchPopularStores(category: String?) -> AnyPublisher<[StoreEntity], NetworkError> {
         provider.requestPublisher(.fetchPopularStores(category: category))
             .map { (response: StoreListResponse) in
-                response.data.map { StoreEntity(from: $0) }
+                response.data.map(StoreDTOMapper.toEntity)
             }
             .eraseToAnyPublisher()
     }
@@ -82,7 +82,7 @@ final class StoreRepositoryImpl: StoreRepository {
     ) -> AnyPublisher<(stores: [StoreEntity], nextCursor: String?), NetworkError> {
         provider.requestPublisher(.fetchMyLikedStores(category: category, next: next, limit: limit))
             .map { (response: StoreListResponse) in
-                let stores = response.data.map { StoreEntity(from: $0) }
+                let stores = response.data.map(StoreDTOMapper.toEntity)
                 return (stores: stores, nextCursor: response.nextCursor)
             }
             .eraseToAnyPublisher()

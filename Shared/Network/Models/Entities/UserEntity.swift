@@ -28,14 +28,6 @@ struct UserEntity {
         self.phoneNum = phoneNum
     }
 
-    init(from response: ProfileResponse) {
-        self.userId = response.userId
-        self.email = response.email
-        self.nick = response.nick
-        self.profileImage = response.profileImage
-        self.phoneNum = response.phoneNum
-    }
-
     init(from userResult: UserResult) {
         self.userId = userResult.userId
         self.email = userResult.email
@@ -68,15 +60,6 @@ struct UserResult {
         self.accessToken = accessToken
         self.refreshToken = refreshToken
     }
-
-    init(from response: UserResponse) {
-        self.userId = response.userId
-        self.email = response.email
-        self.nick = response.nick
-        self.profileImage = response.profileImage
-        self.accessToken = response.accessToken
-        self.refreshToken = response.refreshToken
-    }
 }
 
 struct UserSearchResult {
@@ -92,11 +75,5 @@ struct UserSearchResult {
         self.userId = userId
         self.nick = nick
         self.profileImage = profileImage
-    }
-
-    init(from item: UserSearchItem) {
-        self.userId = item.userId
-        self.nick = item.nick
-        self.profileImage = item.profileImage
     }
 }

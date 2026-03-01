@@ -25,7 +25,14 @@ final class AdminAuthService {
 
         return provider.requestPublisher(UserAPI.emailLogin(request: request))
             .map { (response: UserResponse) in
-                UserResult(from: response)
+                UserResult(
+                    userId: response.userId,
+                    email: response.email,
+                    nick: response.nick,
+                    profileImage: response.profileImage,
+                    accessToken: response.accessToken,
+                    refreshToken: response.refreshToken
+                )
             }
             .eraseToAnyPublisher()
     }

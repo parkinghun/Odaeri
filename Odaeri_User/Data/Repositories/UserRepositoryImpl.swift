@@ -38,7 +38,7 @@ final class UserRepositoryImpl: UserRepository {
 
         return provider.requestPublisher(UserAPI.emailLogin(request: request))
             .map { (response: UserResponse) in
-                UserResult(from: response)
+                UserDTOMapper.toResult(response)
             }
             .eraseToAnyPublisher()
     }
@@ -65,7 +65,7 @@ final class UserRepositoryImpl: UserRepository {
 
                 return self.provider.requestPublisher(UserAPI.kakaoLogin(request: request))
                     .map { (response: UserResponse) in
-                        UserResult(from: response)
+                        UserDTOMapper.toResult(response)
                     }
                     .eraseToAnyPublisher()
             }
@@ -75,7 +75,7 @@ final class UserRepositoryImpl: UserRepository {
                     refreshToken: userResult.refreshToken
                 )
 
-                let user = UserEntity(from: userResult)
+                let user = UserDTOMapper.toEntity(userResult)
                 UserManager.shared.saveUser(user)
             })
             .eraseToAnyPublisher()
@@ -144,7 +144,7 @@ final class UserRepositoryImpl: UserRepository {
                     )
                     .map { (response: UserResponse) in
                         print("[AppleLogin] Mapping UserResponse to UserResult")
-                        return UserResult(from: response)
+                        return UserDTOMapper.toResult(response)
                     }
                     .eraseToAnyPublisher()
             }
@@ -156,7 +156,7 @@ final class UserRepositoryImpl: UserRepository {
                         refreshToken: userResult.refreshToken
                     )
 
-                    let user = UserEntity(from: userResult)
+                    let user = UserDTOMapper.toEntity(userResult)
                     UserManager.shared.saveUser(user)
                     print("[AppleLogin] User saved: \(user.email)")
                 }
@@ -171,7 +171,7 @@ final class UserRepositoryImpl: UserRepository {
     func getMyProfile() -> AnyPublisher<UserEntity, NetworkError> {
         provider.requestPublisher(UserAPI.getMyProfile)
             .map { (response: ProfileResponse) in
-                UserEntity(from: response)
+                UserDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
     }
@@ -179,7 +179,7 @@ final class UserRepositoryImpl: UserRepository {
     func searchUsers(nick: String) -> AnyPublisher<[UserSearchResult], NetworkError> {
         return provider.requestPublisher(UserAPI.searchUsers(nick: nick))
             .map { (response: UserSearchResponse) in
-                response.data.map { UserSearchResult(from: $0) }
+                response.data.map(UserDTOMapper.toEntity)
             }
             .eraseToAnyPublisher()
     }
@@ -200,7 +200,7 @@ final class UserRepositoryImpl: UserRepository {
 
         return provider.requestPublisher(UserAPI.join(request: request))
             .map { (response: UserResponse) in
-                UserResult(from: response)
+                UserDTOMapper.toResult(response)
             }
             .eraseToAnyPublisher()
     }
@@ -233,7 +233,7 @@ final class UserRepositoryImpl: UserRepository {
 
         return provider.requestPublisher(UserAPI.updateMyProfile(request: request))
             .map { (response: ProfileResponse) in
-                UserEntity(from: response)
+                UserDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
     }

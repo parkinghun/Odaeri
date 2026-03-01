@@ -15,16 +15,3 @@ struct CommunityCommentEntity {
     let userProfileImage: String?
     let isMine: Bool // 본인 작성 여부 판단
 }
-
-extension CommunityCommentResponse {
-    func toEntity(currentUserId: String) -> CommunityCommentEntity {
-        return CommunityCommentEntity(
-            commentId: commentId,
-            content: content,
-            createdAt: createdAt,
-            userNick: creator.nick,
-            userProfileImage: creator.profileImage,
-            isMine: creator.userId == currentUserId
-        )
-    }
-}

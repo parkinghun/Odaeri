@@ -15,7 +15,7 @@ final class PaymentRepositoryImpl: PaymentRepository {
     func validateReceipt(impUID: String) -> AnyPublisher<PaymentValidationEntity, NetworkError> {
         provider.requestPublisher(.validateReceipt(impUID: impUID))
             .map { (response: PaymentValidationResponse) in
-                PaymentValidationEntity(from: response)
+                PaymentDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
     }
@@ -23,7 +23,7 @@ final class PaymentRepositoryImpl: PaymentRepository {
     func fetchReceipt(orderCode: String) -> AnyPublisher<PaymentReceiptEntity, NetworkError> {
         provider.requestPublisher(.fetchReceipt(orderCode: orderCode))
             .map { (response: PaymentReceiptResponse) in
-                PaymentReceiptEntity(from: response)
+                PaymentDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
     }

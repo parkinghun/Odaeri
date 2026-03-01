@@ -24,7 +24,7 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
         provider.requestPublisher(.createPost(request: request))
             .map { (response: CommunityPostResponse) in
                 let currentUserId = UserManager.shared.currentUser?.userId ?? ""
-                return CommunityPostEntity(from: response, currentUserId: currentUserId)
+                return CommunityPostDTOMapper.toEntity(response, currentUserId: currentUserId)
             }
             .eraseToAnyPublisher()
     }
@@ -33,7 +33,7 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
         provider.requestPublisher(.updatePost(postId: postId, request: request))
             .map { (response: CommunityPostResponse) in
                 let currentUserId = UserManager.shared.currentUser?.userId ?? ""
-                return CommunityPostEntity(from: response, currentUserId: currentUserId)
+                return CommunityPostDTOMapper.toEntity(response, currentUserId: currentUserId)
             }
             .eraseToAnyPublisher()
     }
@@ -57,7 +57,7 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
         provider.requestPublisher(.fetchPostDetail(postId: postId))
             .map { (response: CommunityPostResponse) in
                 let currentUserId = UserManager.shared.currentUser?.userId ?? ""
-                return CommunityPostEntity(from: response, currentUserId: currentUserId)
+                return CommunityPostDTOMapper.toEntity(response, currentUserId: currentUserId)
             }
             .eraseToAnyPublisher()
     }
@@ -84,7 +84,7 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
         )
         .map { (response: CommunityPostListResponse) in
             let currentUserId = UserManager.shared.currentUser?.userId ?? ""
-            let posts = response.data.map { CommunityPostEntity(from: $0, currentUserId: currentUserId) }
+            let posts = response.data.map { CommunityPostDTOMapper.toEntity($0, currentUserId: currentUserId) }
             return (posts: posts, nextCursor: response.nextCursor)
         }
         .eraseToAnyPublisher()
@@ -94,7 +94,7 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
         provider.requestPublisher(.searchPosts(title: title))
             .map { (response: CommunityPostListResponse) in
                 let currentUserId = UserManager.shared.currentUser?.userId ?? ""
-                return response.data.map { CommunityPostEntity(from: $0, currentUserId: currentUserId) }
+                return response.data.map { CommunityPostDTOMapper.toEntity($0, currentUserId: currentUserId) }
             }
             .eraseToAnyPublisher()
     }
@@ -110,7 +110,7 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
         )
         .map { (response: CommunityPostListResponse) in
             let currentUserId = UserManager.shared.currentUser?.userId ?? ""
-            let posts = response.data.map { CommunityPostEntity(from: $0, currentUserId: currentUserId) }
+            let posts = response.data.map { CommunityPostDTOMapper.toEntity($0, currentUserId: currentUserId) }
             return (posts: posts, nextCursor: response.nextCursor)
         }
         .eraseToAnyPublisher()
@@ -126,7 +126,7 @@ final class CommunityPostRepositoryImpl: CommunityPostRepository {
         )
         .map { (response: CommunityPostListResponse) in
             let currentUserId = UserManager.shared.currentUser?.userId ?? ""
-            let posts = response.data.map { CommunityPostEntity(from: $0, currentUserId: currentUserId) }
+            let posts = response.data.map { CommunityPostDTOMapper.toEntity($0, currentUserId: currentUserId) }
             return (posts: posts, nextCursor: response.nextCursor)
         }
         .eraseToAnyPublisher()

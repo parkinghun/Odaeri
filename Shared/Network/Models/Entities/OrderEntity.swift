@@ -51,14 +51,6 @@ struct OrderCreateEntity {
     let totalPrice: Int
     let createdAt: Date?
     let updatedAt: Date?
-
-    init(from response: OrderCreateResponse) {
-        self.orderId = response.orderId
-        self.orderCode = response.orderCode
-        self.totalPrice = response.totalPrice
-        self.createdAt = response.createdAt.toDate()
-        self.updatedAt = response.updatedAt.toDate()
-    }
 }
 
 struct OrderListItemEntity {
@@ -73,31 +65,11 @@ struct OrderListItemEntity {
     let paidAt: Date?
     let createdAt: Date?
     let updatedAt: Date?
-
-    init(from response: OrderListItem) {
-        self.orderId = response.orderId
-        self.orderCode = response.orderCode
-        self.totalPrice = response.totalPrice
-        self.review = OrderReviewEntity(from: response.review)
-        self.store = OrderStoreInfoEntity(from: response.store)
-        self.orderMenuList = response.orderMenuList.map { OrderMenuEntity(from: $0) }
-        self.currentOrderStatus = OrderStatusEntity(rawValue: response.currentOrderStatus) ?? .pendingApproval
-        self.orderStatusTimeline = response.orderStatusTimeline.map { OrderStatusTimelineEntity(from: $0) }
-        self.paidAt = response.paidAt?.toDate()
-        self.createdAt = response.createdAt.toDate()
-        self.updatedAt = response.updatedAt.toDate()
-    }
 }
 
 struct OrderReviewEntity {
     let id: String
     let rating: Int
-
-    init?(from response: OrderReviewItem?) {
-        guard let response else { return nil }
-        self.id = response.id
-        self.rating = response.rating
-    }
 }
 
 struct OrderStoreInfoEntity {
@@ -111,29 +83,11 @@ struct OrderStoreInfoEntity {
     let latitude: Double
     let createdAt: Date?
     let updatedAt: Date?
-
-    init(from response: OrderStoreInfo) {
-        self.id = response.id
-        self.category = response.category
-        self.name = response.name
-        self.close = response.close
-        self.storeImageUrls = response.storeImageUrls
-        self.hashTags = response.hashTags
-        self.longitude = response.geolocation.longitude
-        self.latitude = response.geolocation.latitude
-        self.createdAt = response.createdAt.toDate()
-        self.updatedAt = response.updatedAt.toDate()
-    }
 }
 
 struct OrderMenuEntity {
     let menu: OrderMenuDetailEntity
     let quantity: Int
-
-    init(from response: OrderMenuDTO) {
-        self.menu = OrderMenuDetailEntity(from: response.menu)
-        self.quantity = response.quantity
-    }
 }
 
 struct OrderMenuDetailEntity {
@@ -147,29 +101,10 @@ struct OrderMenuDetailEntity {
     let menuImageUrl: String
     let createdAt: Date?
     let updatedAt: Date?
-
-    init(from response: OrderMenuDetail) {
-        self.id = response.id
-        self.category = response.category
-        self.name = response.name
-        self.description = response.description
-        self.originInformation = response.originInformation
-        self.price = response.price
-        self.tags = response.tags
-        self.menuImageUrl = response.menuImageUrl
-        self.createdAt = response.createdAt.toDate()
-        self.updatedAt = response.updatedAt.toDate()
-    }
 }
 
 struct OrderStatusTimelineEntity {
     let status: OrderStatusEntity
     let completed: Bool
     let changedAt: Date?
-
-    init(from response: OrderStatusTimelineDTO) {
-        self.status = OrderStatusEntity(rawValue: response.status) ?? .pendingApproval
-        self.completed = response.completed
-        self.changedAt = response.changedAt?.toDate()
-    }
 }

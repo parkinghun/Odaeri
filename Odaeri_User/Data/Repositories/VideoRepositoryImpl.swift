@@ -16,7 +16,7 @@ final class VideoRepositoryImpl: VideoRepository {
         provider.requestPublisher(.fetchVideoList(next: next, limit: limit))
             .map { (response: VideoListResponse) in
                 VideoListResult(
-                    videos: response.data.map { VideoEntity(from: $0) },
+                    videos: response.data.map(VideoDTOMapper.toEntity),
                     nextCursor: response.nextCursor
                 )
             }
@@ -26,7 +26,7 @@ final class VideoRepositoryImpl: VideoRepository {
     func getVideoStreamingURL(videoId: String) -> AnyPublisher<VideoStreamEntity, NetworkError> {
         provider.requestPublisherWithRetry(.getVideoStreamingURL(videoId: videoId))
             .map { (response: VideoStreamResponse) in
-                VideoStreamEntity(from: response)
+                VideoDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
     }

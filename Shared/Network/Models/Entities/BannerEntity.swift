@@ -22,16 +22,6 @@ struct BannerEntity: Hashable, Equatable {
         self.action = action
     }
 
-    init(from item: BannerItem) {
-        self.name = item.name
-        self.imageUrl = item.imageUrl
-
-        switch item.payload.type {
-        case .webview:
-            self.action = .webView(path: item.payload.value)
-        }
-    }
-
     static func == (lhs: BannerEntity, rhs: BannerEntity) -> Bool {
         lhs.name == rhs.name && lhs.imageUrl == rhs.imageUrl
     }

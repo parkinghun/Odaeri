@@ -21,7 +21,7 @@ final class OrderRepositoryImpl: OrderRepository {
 
         return provider.requestPublisher(.createOrder(request: request))
             .map { (response: OrderCreateResponse) in
-                OrderCreateEntity(from: response)
+                OrderDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
     }
@@ -29,7 +29,7 @@ final class OrderRepositoryImpl: OrderRepository {
     func getOrderList(status: String?) -> AnyPublisher<[OrderListItemEntity], NetworkError> {
         provider.requestPublisher(.getOrderList)
             .map { (response: OrderListResponse) in
-                response.data.map { OrderListItemEntity(from: $0) }
+                response.data.map(OrderDTOMapper.toEntity)
             }
             .eraseToAnyPublisher()
     }

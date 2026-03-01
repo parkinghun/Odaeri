@@ -48,18 +48,6 @@ struct MenuEntity: Hashable {
         self.isSoldOut = isSoldOut
     }
 
-    init(from response: MenuResponse) {
-        self.menuId = response.menuId
-        self.name = response.name
-        self.description = response.description
-        self.originInformation = response.originInformation
-        self.price = response.price
-        self.category = response.category
-        self.tags = response.tags
-        self.menuImageUrl = response.menuImageUrl
-        self.isSoldOut = response.isSoldOut
-    }
-
     func toRequest() -> MenuRequest {
         return MenuRequest(
             name: name,

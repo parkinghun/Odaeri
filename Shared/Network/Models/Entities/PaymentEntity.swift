@@ -13,13 +13,6 @@ struct PaymentValidationEntity {
     let orderItem: OrderItemEntity
     let createdAt: Date?
     let updatedAt: Date?
-
-    init(from response: PaymentValidationResponse) {
-        self.paymentId = response.paymentId
-        self.orderItem = OrderItemEntity(from: response.orderItem)
-        self.createdAt = response.createdAt.toDate()
-        self.updatedAt = response.updatedAt.toDate()
-    }
 }
 
 struct OrderItemEntity {
@@ -31,17 +24,6 @@ struct OrderItemEntity {
     let paidAt: String?
     let createdAt: Date?
     let updatedAt: Date?
-
-    init(from response: OrderItemResponse) {
-        self.orderId = response.orderId
-        self.orderCode = response.orderCode
-        self.totalPrice = response.totalPrice
-        self.store = OrderStoreInfoEntity(from: response.store)
-        self.orderMenuList = response.orderMenuList.map { OrderMenuEntity(from: $0) }
-        self.paidAt = response.paidAt
-        self.createdAt = response.createdAt.toDate()
-        self.updatedAt = response.updatedAt.toDate()
-    }
 }
 
 // MARK: - 결제 영수증 조회 엔티티
@@ -89,50 +71,4 @@ struct PaymentReceiptEntity {
     let receiptUrl: String?
     let createdAt: Date?
     let updatedAt: Date?
-
-    init(from response: PaymentReceiptResponse) {
-        self.impUid = response.impUid
-        self.merchantUid = response.merchantUid
-        self.payMethod = response.payMethod
-        self.channel = response.channel
-        self.pgProvider = response.pgProvider
-        self.embPgProvider = response.embPgProvider
-        self.pgTid = response.pgTid
-        self.pgId = response.pgId
-        self.escrow = response.escrow
-        self.applyNum = response.applyNum
-        self.bankCode = response.bankCode
-        self.bankName = response.bankName
-        self.cardCode = response.cardCode
-        self.cardName = response.cardName
-        self.cardIssuerCode = response.cardIssuerCode
-        self.cardIssuerName = response.cardIssuerName
-        self.cardPublisherCode = response.cardPublisherCode
-        self.cardPublisherName = response.cardPublisherName
-        self.cardQuota = response.cardQuota
-        self.cardNumber = response.cardNumber
-        self.cardType = response.cardType
-        self.vbankCode = response.vbankCode
-        self.vbankName = response.vbankName
-        self.vbankNum = response.vbankNum
-        self.vbankHolder = response.vbankHolder
-        self.vbankDate = response.vbankDate
-        self.vbankIssuedAt = response.vbankIssuedAt
-        self.name = response.name
-        self.amount = response.amount
-        self.currency = response.currency
-        self.buyerName = response.buyerName
-        self.buyerEmail = response.buyerEmail
-        self.buyerTel = response.buyerTel
-        self.buyerAddr = response.buyerAddr
-        self.buyerPostcode = response.buyerPostcode
-        self.customData = response.customData
-        self.userAgent = response.userAgent
-        self.status = response.status
-        self.startedAt = response.startedAt
-        self.paidAt = response.paidAt
-        self.receiptUrl = response.receiptUrl
-        self.createdAt = response.createdAt.toDate()
-        self.updatedAt = response.updatedAt.toDate()
-    }
 }

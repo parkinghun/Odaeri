@@ -255,36 +255,35 @@ enum AdminOrderMockFactory {
         menus: [OrderMenuEntity]
     ) -> OrderListItemEntity {
         let totalPrice = menus.reduce(0) { $0 + $1.menu.price * $1.quantity }
-        let dto = OrderListItem(
+        return OrderListItemEntity(
             orderId: id,
             orderCode: code,
             totalPrice: totalPrice,
             review: nil,
-            store: makeStoreDTO(from: store),
-            orderMenuList: menus.map { makeMenuDTO(from: $0) },
-            currentOrderStatus: status.rawValue,
+            store: store,
+            orderMenuList: menus,
+            currentOrderStatus: status,
             orderStatusTimeline: [],
-            paidAt: isoString(from: createdAt),
-            createdAt: isoString(from: createdAt),
-            updatedAt: isoString(from: createdAt)
+            paidAt: createdAt,
+            createdAt: createdAt,
+            updatedAt: createdAt
         )
-        return OrderListItemEntity(from: dto)
     }
 
     private static func makeStoreEntity() -> OrderStoreInfoEntity {
         let now = Date()
-        let dto = OrderStoreInfo(
+        return OrderStoreInfoEntity(
             id: "store_1",
             category: "카페",
             name: "오대리 카페",
             close: "22:00",
             storeImageUrls: [],
             hashTags: ["커피", "디저트"],
-            geolocation: Geolocation(longitude: 127.1234, latitude: 37.1234),
-            createdAt: isoString(from: now),
-            updatedAt: isoString(from: now)
+            longitude: 127.1234,
+            latitude: 37.1234,
+            createdAt: now,
+            updatedAt: now
         )
-        return OrderStoreInfoEntity(from: dto)
     }
 
     private static func makeMenuEntity(
@@ -297,7 +296,7 @@ enum AdminOrderMockFactory {
         tags: [String]
     ) -> OrderMenuDetailEntity {
         let now = Date()
-        let dto = OrderMenuDetail(
+        return OrderMenuDetailEntity(
             id: id,
             category: category,
             name: name,
@@ -306,57 +305,15 @@ enum AdminOrderMockFactory {
             price: price,
             tags: tags,
             menuImageUrl: "",
-            createdAt: isoString(from: now),
-            updatedAt: isoString(from: now)
+            createdAt: now,
+            updatedAt: now
         )
-        return OrderMenuDetailEntity(from: dto)
     }
 
     private static func makeMenuItemEntity(menu: OrderMenuDetailEntity, quantity: Int) -> OrderMenuEntity {
-        let dto = OrderMenuDTO(menu: makeMenuDTO(from: menu), quantity: quantity)
-        return OrderMenuEntity(from: dto)
+        OrderMenuEntity(menu: menu, quantity: quantity)
     }
 
-    private static func makeMenuDTO(from entity: OrderMenuDetailEntity) -> OrderMenuDetail {
-        OrderMenuDetail(
-            id: entity.id,
-            category: entity.category,
-            name: entity.name,
-            description: entity.description,
-            originInformation: entity.originInformation,
-            price: entity.price,
-            tags: entity.tags,
-            menuImageUrl: entity.menuImageUrl,
-            createdAt: isoString(from: entity.createdAt ?? Date()),
-            updatedAt: isoString(from: entity.updatedAt ?? Date())
-        )
-    }
-
-    private static func makeMenuDTO(from entity: OrderMenuEntity) -> OrderMenuDTO {
-        OrderMenuDTO(menu: makeMenuDTO(from: entity.menu), quantity: entity.quantity)
-    }
-
-    private static func makeStoreDTO(from entity: OrderStoreInfoEntity) -> OrderStoreInfo {
-        OrderStoreInfo(
-            id: entity.id,
-            category: entity.category,
-            name: entity.name,
-            close: entity.close,
-            storeImageUrls: entity.storeImageUrls,
-            hashTags: entity.hashTags,
-            geolocation: Geolocation(longitude: entity.longitude, latitude: entity.latitude),
-            createdAt: isoString(from: entity.createdAt ?? Date()),
-            updatedAt: isoString(from: entity.updatedAt ?? Date())
-        )
-    }
-
-    private static func isoString(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        return formatter.string(from: date)
-    }
 }
 
 private enum MockValue {

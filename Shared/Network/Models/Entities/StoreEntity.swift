@@ -62,8 +62,8 @@ struct StoreEntity: Hashable, Equatable {
         totalReviewCount: Int,
         totalOrderCount: Int,
         totalRating: Double,
-        creator: CreatorEntity,
-        menuList: [MenuEntity],
+        creator: CreatorEntity?,
+        menuList: [MenuEntity]
     ) {
         self.storeId = storeId
         self.name = name
@@ -116,54 +116,6 @@ struct StoreEntity: Hashable, Equatable {
         return StoreEntity(copying: self, isPick: isPick, pickCount: pickCount)
     }
 
-    init(from response: StoreResponse) {
-        self.storeId = response.storeId
-        self.name = response.name
-        self.category = response.category
-        self.description = response.description
-        self.address = response.address
-        self.longitude = response.geolocation.longitude
-        self.latitude = response.geolocation.latitude
-        self.open = response.open
-        self.close = response.close
-        self.estimatedPickupTime = response.estimatedPickupTime
-        self.parkingGuide = response.parkingGuide
-        self.storeImageUrls = response.storeImageUrls
-        self.hashTags = response.hashTags
-        self.isPicchelin = response.isPicchelin
-        self.isPick = response.isPick
-        self.pickCount = response.pickCount
-        self.totalReviewCount = response.totalReviewCount
-        self.totalOrderCount = response.totalOrderCount
-        self.totalRating = response.totalRating
-        self.creator = CreatorEntity(from: response.creator)
-        self.menuList = response.menuList.map { MenuEntity(from: $0) }
-    }
-
-    init(from summary: StoreSummary) {
-        self.storeId = summary.storeId
-        self.name = summary.name
-        self.category = summary.category
-        self.description = ""
-        self.address = ""
-        self.longitude = summary.geolocation.longitude
-        self.latitude = summary.geolocation.latitude
-        self.open = ""
-        self.close = summary.close
-        self.estimatedPickupTime = nil
-        self.parkingGuide = ""
-        self.storeImageUrls = summary.storeImageUrls
-        self.hashTags = summary.hashTags
-        self.isPicchelin = summary.isPicchelin
-        self.isPick = summary.isPick
-        self.pickCount = summary.pickCount
-        self.totalReviewCount = summary.totalReviewCount
-        self.totalOrderCount = summary.totalOrderCount
-        self.totalRating = summary.totalRating
-        self.creator = nil
-        self.menuList = []
-    }
-
     static func == (lhs: StoreEntity, rhs: StoreEntity) -> Bool {
         lhs.storeId == rhs.storeId
     }
@@ -199,12 +151,6 @@ struct CreatorEntity: Hashable, Equatable {
         self.userId = userId
         self.nick = nick
         self.profileImage = profileImage
-    }
-
-    init(from creator: Creator) {
-        self.userId = creator.userId
-        self.nick = creator.nick
-        self.profileImage = creator.profileImage
     }
 
     static func == (lhs: CreatorEntity, rhs: CreatorEntity) -> Bool {

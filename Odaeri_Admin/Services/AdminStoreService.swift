@@ -30,7 +30,7 @@ final class AdminStoreService {
     func fetchStoreDetail(storeId: String) -> AnyPublisher<StoreEntity, NetworkError> {
         userProvider.requestPublisher(.fetchStoreDetail(storeId: storeId))
             .map { (response: StoreResponse) in
-                StoreEntity(from: response)
+                AdminStoreDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
     }
@@ -69,7 +69,7 @@ final class AdminStoreService {
     func createStore(request: StoreRequest) -> AnyPublisher<StoreEntity, NetworkError> {
         adminProvider.requestPublisher(.create(request: request))
             .map { (response: StoreResponse) in
-                StoreEntity(from: response)
+                AdminStoreDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
     }
@@ -77,8 +77,54 @@ final class AdminStoreService {
     func updateStore(storeId: String, request: StoreRequest) -> AnyPublisher<StoreEntity, NetworkError> {
         adminProvider.requestPublisher(.update(storeId: storeId, request: request))
             .map { (response: StoreResponse) in
-                StoreEntity(from: response)
+                AdminStoreDTOMapper.toEntity(response)
             }
             .eraseToAnyPublisher()
+    }
+}
+
+private enum AdminStoreDTOMapper {
+    static func toEntity(_ response: StoreResponse) -> StoreEntity {
+        StoreEntity(
+            storeId: response.storeId,
+            name: response.name,
+            category: response.category,
+            description: response.description,
+            address: response.address,
+            longitude: response.geolocation.longitude,
+            latitude: response.geolocation.latitude,
+            open: response.open,
+            close: response.close,
+            estimatedPickupTime: response.estimatedPickupTime,
+            parkingGuide: response.parkingGuide,
+            storeImageUrls: response.storeImageUrls,
+            hashTags: response.hashTags,
+            isPicchelin: response.isPicchelin,
+            isPick: response.isPick,
+            pickCount: response.pickCount,
+            totalReviewCount: response.totalReviewCount,
+            totalOrderCount: response.totalOrderCount,
+            totalRating: response.totalRating,
+            creator: CreatorEntity(
+                userId: response.creator.userId,
+                nick: response.creator.nick,
+                profileImage: response.creator.profileImage
+            ),
+            menuList: response.menuList.map(toEntity)
+        )
+    }
+
+    static func toEntity(_ response: MenuResponse) -> MenuEntity {
+        MenuEntity(
+            menuId: response.menuId,
+            name: response.name,
+            description: response.description,
+            originInformation: response.originInformation,
+            price: response.price,
+            category: response.category,
+            tags: response.tags,
+            menuImageUrl: response.menuImageUrl,
+            isSoldOut: response.isSoldOut
+        )
     }
 }
