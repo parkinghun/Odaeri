@@ -152,12 +152,12 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"DesignSystem/AppColor+SwiftUI.swift",
+				Domain/Entities/OrderEntity.swift,
 				"Extensions/String+Extension.swift",
 				Models/OrderPickupAttributes.swift,
 				Network/Models/DTOs/MenuDTO.swift,
 				Network/Models/DTOs/OrderDTO.swift,
 				Network/Models/DTOs/StoreDTO.swift,
-				Network/Models/Entities/OrderEntity.swift,
 			);
 			target = B58F3C612F1DC72400A9550B /* OrderPickupWidgetExtension */;
 		};
